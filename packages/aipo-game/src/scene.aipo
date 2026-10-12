@@ -39,139 +39,138 @@ fn make_scene(name: String, config: Dict) -> SceneType {
 fn load_scene(blueprint: SceneType) -> Scene {
     let cfg = blueprint.config
     let w = if cfg.has("width") then cfg["width"] else 800.0
-    let h = if cfg.has("height") then cfg["height"] else 600.0
-    let bg = if cfg.has("background") then cfg["background"] else "#11111b"
+            let h = if cfg.has("height") then cfg["height"] else 600.0
+                    let bg = if cfg.has("background") then cfg["background"] else "#11111b"
 
-    let sc = Scene {
-        name: blueprint.name,
-        width: w,
-        height: h,
-        background: bg,
-        actors: [],
-        timers: [],
-        camera_x: 0.0,
-        camera_y: 0.0
-    }
+                            let sc = Scene {
+                                name: blueprint.name,
+                                width: w,
+                                height: h,
+                                background: bg,
+                                actors: [],
+                                timers: [],
+                                camera_x: 0.0,
+                                camera_y: 0.0
+                            }
 
-    _active_scene = sc
+                            _active_scene = sc
 
-    if cfg.has("on_load") {
-        let on_load = cfg["on_load"]
-        if on_load != none {
-            on_load(sc)
-        }
-    }
+                            if cfg.has("on_load") {
+                                let on_load = cfg["on_load"]
+                                if on_load != none {
+                                    on_load(sc)
+                                }
+                            }
 
-    return sc
-}
+                            return sc
+                        }
 
-fn spawn_actor(blueprint, x: Float, y: Float) {
-    let instance = act.create_instance(blueprint, x, y)
-    if _active_scene != none {
-        _active_scene.actors.add(instance)
-    }
-    return instance
-}
+                        fn spawn_actor(blueprint, x: Float, y: Float) {
+                            let instance = act.create_instance(blueprint, x, y)
+                            if _active_scene != none {
+                                _active_scene.actors.add(instance)
+                            }
+                            return instance
+                        }
 
-fn step_simulation(sc: Scene, dt: Float) {
-    # 1. Update timers
-    each timer in sc.timers {
-        timer.elapsed += dt
-        if timer.elapsed >= timer.interval {
-            (timer.callback)()
-            if timer.should_repeat {
-                timer.elapsed = 0.0
-            }
-        }
-    }
+                        fn step_simulation(sc: Scene, dt: Float) {
+                            # 1. Update timers
+                            each timer in sc.timers {
+                                timer.elapsed += dt
+                                if timer.elapsed >= timer.interval {
+                                    (timer.callback)()
+                                    if timer.should_repeat {
+                                        timer.elapsed = 0.0
+                                    }
+                                }
+                            }
 
-    # 2. Update active easing animations (tweens)
-    tween_mod.update_tweens(dt)
+                            # 2. Update active easing animations (tweens)
+                            tween_mod.update_tweens(dt)
 
-    # 3. Update behaviors and actor scripts
-    each a in sc.actors {
-        if a.is_alive {
-            each b in a.behaviors {
-                (b.update_fn)(a, dt)
-            }
-            if a.on_update_fn != none {
-                (a.on_update_fn)(a, dt)
-            }
-        }
-    }
+                            # 3. Update behaviors and actor scripts
+                            each a in sc.actors {
+                                if a.is_alive {
+                                    each b in a.behaviors {
+                                        (b.update_fn)(a, dt)
+                                    }
+                                    if a.on_update_fn != none {
+                                        (a.on_update_fn)(a, dt)
+                                    }
+                                }
+                            }
 
-    # 4. Collision resolution
-    let count = sc.actors.len()
-    var i = 0
-    while i < count {
-        let a = sc.actors[i]
-        if a.is_alive and a.on_collision_fn != none {
-            var j = 0
-            while j < count {
-                if i != j {
-                    let b = sc.actors[j]
-                    if act.check_overlap(a, b) {
-                        (a.on_collision_fn)(a, b)
-                    }
-                }
-                j += 1
-            }
-        }
-        i += 1
-    }
+                            # 4. Collision resolution
+                            let count = sc.actors.len()
+                            var i = 0
+                            while i < count {
+                                let a = sc.actors[i]
+                                if a.is_alive and a.on_collision_fn != none {
+                                    var j = 0
+                                    while j < count {
+                                        if i != j {
+                                            let b = sc.actors[j]
+                                            if act.check_overlap(a, b) {
+                                                (a.on_collision_fn)(a, b)
+                                            }
+                                        }
+                                        j += 1
+                                    }
+                                }
+                                i += 1
+                            }
 
-    # 5. Prune dead actors
-    var alive_actors = []
-    each a in sc.actors {
-        if a.is_alive {
-            alive_actors.add(a)
-        } elif a.on_destroy_fn != none {
-            (a.on_destroy_fn)(a)
-        }
-    }
-    sc.actors = alive_actors
-}
+                            # 5. Prune dead actors
+                            var alive_actors = []
+                            each a in sc.actors {
+                                if a.is_alive {
+                                    alive_actors.add(a)
+                                } elif a.on_destroy_fn != none {
+                                    (a.on_destroy_fn)(a)
+                                }
+                            }
+                            sc.actors = alive_actors
+                        }
 
-fn render_scene(sc: Scene) {
-    host_begin_frame(0.05, 0.05, 0.08)
+                        fn render_scene(sc: Scene) {
+                            host_begin_frame(0.05, 0.05, 0.08)
 
-    each a in sc.actors {
-        if a.is_alive {
-            host_draw_rect(
-                a.x - (a.width / 2.0),
-                a.y - (a.height / 2.0),
-                a.width,
-                a.height,
-                0.2, 0.6, 1.0, 1.0
-            )
-        }
-    }
+                            each a in sc.actors {
+                                if a.is_alive {
+                                    host_draw_rect(
+                                        a.x - (a.width / 2.0),
+                                        a.y - (a.height / 2.0),
+                                        a.width,
+                                        a.height,
+                                        0.2, 0.6, 1.0, 1.0
+                                    )
+                                }
+                            }
 
-    host_end_frame()
-}
+                            host_end_frame()
+                        }
 
-# Engine start entrypoint
-fn start_loop(options: Dict) {
-    let title = if options.has("title") then options["title"] else "Aipo Game"
-    let width = if options.has("width") then options["width"] else 800
-    let height = if options.has("height") then options["height"] else 600
+                        # Engine start entrypoint
+                        fn start_loop(options: Dict) {
+                            let title = if options.has("title") then options["title"] else "Aipo Game"
+                                    let width = if options.has("width") then options["width"] else 800
+                                            let height = if options.has("height") then options["height"] else 600
 
-    host_init(width, height, title, 60)
+                                                    host_init(width, height, title, 60)
 
-    if options.has("initial_scene") {
-        let initial_scene = options["initial_scene"]
-        if initial_scene != none {
-            load_scene(initial_scene)
-        }
-    }
+                                                    if options.has("initial_scene") {
+                                                        let initial_scene = options["initial_scene"]
+                                                        if initial_scene != none {
+                                                            load_scene(initial_scene)
+                                                        }
+                                                    }
 
-    let dt = 1.0 / 60.0
+                                                    let dt = 1.0 / 60.0
 
-    if _active_scene != none {
-        step_simulation(_active_scene, dt)
-        render_scene(_active_scene)
-    }
-}
+                                                    if _active_scene != none {
+                                                        step_simulation(_active_scene, dt)
+                                                        render_scene(_active_scene)
+                                                    }
+                                                }
 
-export SceneType, GameTimer, Scene, make_scene, load_scene, spawn_actor, step_simulation, render_scene, start_loop
-
+                                                export SceneType, GameTimer, Scene, make_scene, load_scene, spawn_actor, step_simulation, render_scene, start_loop

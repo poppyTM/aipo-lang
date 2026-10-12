@@ -30,339 +30,339 @@ struct ParticleEmitter {
 
 fn create_emitter(x: Float, y: Float, max_particles: Int) -> ParticleEmitter {
     let safe_max = if max_particles <= 0 then 256 else max_particles
-    return ParticleEmitter {
-        x: x,
-        y: y,
-        particles: [],
-        max_particles: safe_max,
-        is_active: true
-    }
-}
-
-fn clear_particles(emitter: ParticleEmitter) {
-    emitter.particles = []
-}
-
-fn count_particles(emitter: ParticleEmitter) -> Int {
-    return emitter.particles.len()
-}
-
-fn set_position(emitter: ParticleEmitter, x: Float, y: Float) {
-    emitter.x = x
-    emitter.y = y
-}
-
-fn rand_range(min_val: Float, max_val: Float) -> Float {
-    if min_val >= max_val {
-        return min_val
-    }
-    let t = random.float()
-    return min_val + ((max_val - min_val) * t)
-}
-
-fn emit_one(emitter: ParticleEmitter, p: Particle) {
-    if emitter.particles.len() < emitter.max_particles {
-        emitter.particles.add(p)
-    }
-}
-
-fn emit_particles(emitter: ParticleEmitter, count: Int, config: Dict) {
-    if not emitter.is_active or count <= 0 {
-        return
-    }
-
-    let px = if config.has("x") then config["x"] else emitter.x
-    let py = if config.has("y") then config["y"] else emitter.y
-    let speed_min = if config.has("speed_min") then config["speed_min"] else 20.0
-    let speed_max = if config.has("speed_max") then config["speed_max"] else 80.0
-    let angle_min = if config.has("angle_min") then config["angle_min"] else 0.0
-    let angle_max = if config.has("angle_max") then config["angle_max"] else 6.283185307
-    let life_min = if config.has("life_min") then config["life_min"] else 0.4
-    let life_max = if config.has("life_max") then config["life_max"] else 1.0
-    let start_size = if config.has("start_size") then config["start_size"] else 6.0
-    let end_size = if config.has("end_size") then config["end_size"] else 1.0
-    let r = if config.has("r") then config["r"] else 1.0
-    let g = if config.has("g") then config["g"] else 1.0
-    let b = if config.has("b") then config["b"] else 1.0
-    let start_a = if config.has("start_a") then config["start_a"] else 1.0
-    let end_a = if config.has("end_a") then config["end_a"] else 0.0
-    let gravity_y = if config.has("gravity_y") then config["gravity_y"] else 0.0
-    let drag = if config.has("drag") then config["drag"] else 0.0
-    let shape = if config.has("shape") then config["shape"] else "circle"
-
-    var i = 0
-    while i < count {
-        if emitter.particles.len() >= emitter.max_particles {
-            break
-        }
-
-        let angle = rand_range(angle_min, angle_max)
-        let speed = rand_range(speed_min, speed_max)
-        let vx = math.cos(angle) * speed
-        let vy = math.sin(angle) * speed
-        let life = rand_range(life_min, life_max)
-
-        let p = Particle {
-            x: px,
-            y: py,
-            vx: vx,
-            vy: vy,
-            life: life,
-            max_life: life,
-            start_size: start_size,
-            end_size: end_size,
-            r: r,
-            g: g,
-            b: b,
-            start_a: start_a,
-            end_a: end_a,
-            shape: shape,
-            gravity_y: gravity_y,
-            drag: drag
-        }
-
-        emitter.particles.add(p)
-        i = i + 1
-    }
-}
-
-fn emit_preset(emitter: ParticleEmitter, preset_name: String, x: Float, y: Float, count: Int) {
-    if preset_name == "sparks" {
-        let n = if count <= 0 then 16 else count
-        let cfg = {
-            "x": x,
-            "y": y,
-            "speed_min": 50.0,
-            "speed_max": 180.0,
-            "angle_min": 0.0,
-            "angle_max": 6.283185307,
-            "life_min": 0.2,
-            "life_max": 0.6,
-            "start_size": 4.0,
-            "end_size": 1.0,
-            "r": 1.0,
-            "g": 0.82,
-            "b": 0.2,
-            "start_a": 1.0,
-            "end_a": 0.0,
-            "gravity_y": 140.0,
-            "drag": 0.6,
-            "shape": "circle"
-        }
-        emit_particles(emitter, n, cfg)
-        return
-    }
-
-    if preset_name == "explosion" {
-        let n = if count <= 0 then 30 else count
-        let cfg = {
-            "x": x,
-            "y": y,
-            "speed_min": 60.0,
-            "speed_max": 220.0,
-            "angle_min": 0.0,
-            "angle_max": 6.283185307,
-            "life_min": 0.35,
-            "life_max": 0.85,
-            "start_size": 8.0,
-            "end_size": 0.5,
-            "r": 1.0,
-            "g": 0.42,
-            "b": 0.1,
-            "start_a": 1.0,
-            "end_a": 0.0,
-            "gravity_y": 30.0,
-            "drag": 1.8,
-            "shape": "circle"
-        }
-        emit_particles(emitter, n, cfg)
-        return
-    }
-
-    if preset_name == "smoke" {
-        let n = if count <= 0 then 12 else count
-        let cfg = {
-            "x": x,
-            "y": y,
-            "speed_min": 10.0,
-            "speed_max": 35.0,
-            "angle_min": -2.356,
-            "angle_max": -0.785,
-            "life_min": 0.6,
-            "life_max": 1.4,
-            "start_size": 4.0,
-            "end_size": 14.0,
-            "r": 0.85,
-            "g": 0.85,
-            "b": 0.88,
-            "start_a": 0.6,
-            "end_a": 0.0,
-            "gravity_y": -18.0,
-            "drag": 0.25,
-            "shape": "circle"
-        }
-        emit_particles(emitter, n, cfg)
-        return
-    }
-
-    if preset_name == "dust" {
-        let n = if count <= 0 then 8 else count
-        let cfg = {
-            "x": x,
-            "y": y,
-            "speed_min": 15.0,
-            "speed_max": 45.0,
-            "angle_min": -2.8,
-            "angle_max": -0.34,
-            "life_min": 0.25,
-            "life_max": 0.5,
-            "start_size": 3.5,
-            "end_size": 1.0,
-            "r": 0.72,
-            "g": 0.65,
-            "b": 0.52,
-            "start_a": 0.75,
-            "end_a": 0.0,
-            "gravity_y": 45.0,
-            "drag": 1.2,
-            "shape": "rect"
-        }
-        emit_particles(emitter, n, cfg)
-        return
-    }
-
-    if preset_name == "coins" or preset_name == "sparkle" {
-        let n = if count <= 0 then 10 else count
-        let cfg = {
-            "x": x,
-            "y": y,
-            "speed_min": 35.0,
-            "speed_max": 95.0,
-            "angle_min": -2.356,
-            "angle_max": -0.785,
-            "life_min": 0.45,
-            "life_max": 0.9,
-            "start_size": 5.0,
-            "end_size": 2.0,
-            "r": 1.0,
-            "g": 0.88,
-            "b": 0.15,
-            "start_a": 1.0,
-            "end_a": 0.0,
-            "gravity_y": 110.0,
-            "drag": 0.35,
-            "shape": "rect"
-        }
-        emit_particles(emitter, n, cfg)
-        return
-    }
-
-    if preset_name == "trail" {
-        let n = if count <= 0 then 4 else count
-        let cfg = {
-            "x": x,
-            "y": y,
-            "speed_min": 2.0,
-            "speed_max": 14.0,
-            "angle_min": 0.0,
-            "angle_max": 6.283185307,
-            "life_min": 0.2,
-            "life_max": 0.45,
-            "start_size": 5.0,
-            "end_size": 1.0,
-            "r": 0.3,
-            "g": 0.85,
-            "b": 1.0,
-            "start_a": 0.8,
-            "end_a": 0.0,
-            "gravity_y": 0.0,
-            "drag": 0.5,
-            "shape": "circle"
-        }
-        emit_particles(emitter, n, cfg)
-        return
-    }
-
-    # Fallback to simple sparks
-    emit_particles(emitter, count, { "x": x, "y": y })
-}
-
-fn update_particles(emitter: ParticleEmitter, dt: Float) {
-    if not emitter.is_active {
-        return
-    }
-
-    let alive = []
-    var i = 0
-    let total = emitter.particles.len()
-
-    while i < total {
-        let p = emitter.particles[i]
-        p.life = p.life - dt
-
-        if p.life > 0.0 {
-            let drag_factor = 1.0 - (p.drag * dt)
-            let safe_drag = if drag_factor < 0.0 then 0.0 else drag_factor
-
-            p.vy = p.vy + (p.gravity_y * dt)
-            p.vx = p.vx * safe_drag
-            p.vy = p.vy * safe_drag
-
-            p.x = p.x + (p.vx * dt)
-            p.y = p.y + (p.vy * dt)
-
-            alive.add(p)
-        }
-
-        i = i + 1
-    }
-
-    emitter.particles = alive
-}
-
-fn draw_particles(emitter: ParticleEmitter) {
-    var i = 0
-    let total = emitter.particles.len()
-
-    while i < total {
-        let p = emitter.particles[i]
-
-        let progress = 1.0 - (p.life / p.max_life)
-        let safe_prog = if progress < 0.0 then 0.0 else (if progress > 1.0 then 1.0 else progress)
-
-        let cur_size = p.start_size + ((p.end_size - p.start_size) * safe_prog)
-        let cur_a = p.start_a + ((p.end_a - p.start_a) * safe_prog)
-
-        if cur_a > 0.0 and cur_size > 0.1 {
-            if p.shape == "rect" {
-                let half_s = cur_size / 2.0
-                host_draw_rect(
-                    p.x - half_s,
-                    p.y - half_s,
-                    cur_size,
-                    cur_size,
-                    p.r,
-                    p.g,
-                    p.b,
-                    cur_a
-                )
-            } else {
-                let radius = cur_size / 2.0
-                host_draw_circle(
-                    p.x,
-                    p.y,
-                    radius,
-                    p.r,
-                    p.g,
-                    p.b,
-                    cur_a
-                )
+            return ParticleEmitter {
+                x: x,
+                y: y,
+                particles: [],
+                max_particles: safe_max,
+                is_active: true
             }
         }
 
-        i = i + 1
-    }
-}
+        fn clear_particles(emitter: ParticleEmitter) {
+            emitter.particles = []
+        }
 
-export Particle, ParticleEmitter
-export create_emitter, clear_particles, count_particles, set_position, emit_one, emit_particles, emit_preset, update_particles, draw_particles, rand_range
+        fn count_particles(emitter: ParticleEmitter) -> Int {
+            return emitter.particles.len()
+        }
+
+        fn set_position(emitter: ParticleEmitter, x: Float, y: Float) {
+            emitter.x = x
+            emitter.y = y
+        }
+
+        fn rand_range(min_val: Float, max_val: Float) -> Float {
+            if min_val >= max_val {
+                return min_val
+            }
+            let t = random.float()
+            return min_val + ((max_val - min_val) * t)
+        }
+
+        fn emit_one(emitter: ParticleEmitter, p: Particle) {
+            if emitter.particles.len() < emitter.max_particles {
+                emitter.particles.add(p)
+            }
+        }
+
+        fn emit_particles(emitter: ParticleEmitter, count: Int, config: Dict) {
+            if not emitter.is_active or count <= 0 {
+                return
+            }
+
+            let px = if config.has("x") then config["x"] else emitter.x
+                    let py = if config.has("y") then config["y"] else emitter.y
+                            let speed_min = if config.has("speed_min") then config["speed_min"] else 20.0
+                                    let speed_max = if config.has("speed_max") then config["speed_max"] else 80.0
+                                            let angle_min = if config.has("angle_min") then config["angle_min"] else 0.0
+                                                    let angle_max = if config.has("angle_max") then config["angle_max"] else 6.283185307
+                                                            let life_min = if config.has("life_min") then config["life_min"] else 0.4
+                                                                    let life_max = if config.has("life_max") then config["life_max"] else 1.0
+                                                                            let start_size = if config.has("start_size") then config["start_size"] else 6.0
+                                                                                    let end_size = if config.has("end_size") then config["end_size"] else 1.0
+                                                                                            let r = if config.has("r") then config["r"] else 1.0
+                                                                                                    let g = if config.has("g") then config["g"] else 1.0
+                                                                                                            let b = if config.has("b") then config["b"] else 1.0
+                                                                                                                    let start_a = if config.has("start_a") then config["start_a"] else 1.0
+                                                                                                                            let end_a = if config.has("end_a") then config["end_a"] else 0.0
+                                                                                                                                    let gravity_y = if config.has("gravity_y") then config["gravity_y"] else 0.0
+                                                                                                                                            let drag = if config.has("drag") then config["drag"] else 0.0
+                                                                                                                                                    let shape = if config.has("shape") then config["shape"] else "circle"
+
+                                                                                                                                                            var i = 0
+                                                                                                                                                            while i < count {
+                                                                                                                                                                if emitter.particles.len() >= emitter.max_particles {
+                                                                                                                                                                    break
+                                                                                                                                                                }
+
+                                                                                                                                                                let angle = rand_range(angle_min, angle_max)
+                                                                                                                                                                let speed = rand_range(speed_min, speed_max)
+                                                                                                                                                                let vx = math.cos(angle) * speed
+                                                                                                                                                                let vy = math.sin(angle) * speed
+                                                                                                                                                                let life = rand_range(life_min, life_max)
+
+                                                                                                                                                                let p = Particle {
+                                                                                                                                                                    x: px,
+                                                                                                                                                                    y: py,
+                                                                                                                                                                    vx: vx,
+                                                                                                                                                                    vy: vy,
+                                                                                                                                                                    life: life,
+                                                                                                                                                                    max_life: life,
+                                                                                                                                                                    start_size: start_size,
+                                                                                                                                                                    end_size: end_size,
+                                                                                                                                                                    r: r,
+                                                                                                                                                                    g: g,
+                                                                                                                                                                    b: b,
+                                                                                                                                                                    start_a: start_a,
+                                                                                                                                                                    end_a: end_a,
+                                                                                                                                                                    shape: shape,
+                                                                                                                                                                    gravity_y: gravity_y,
+                                                                                                                                                                    drag: drag
+                                                                                                                                                                }
+
+                                                                                                                                                                emitter.particles.add(p)
+                                                                                                                                                                i = i + 1
+                                                                                                                                                            }
+                                                                                                                                                        }
+
+                                                                                                                                                        fn emit_preset(emitter: ParticleEmitter, preset_name: String, x: Float, y: Float, count: Int) {
+                                                                                                                                                            if preset_name == "sparks" {
+                                                                                                                                                                let n = if count <= 0 then 16 else count
+                                                                                                                                                                        let cfg = {
+                                                                                                                                                                            "x": x,
+                                                                                                                                                                            "y": y,
+                                                                                                                                                                            "speed_min": 50.0,
+                                                                                                                                                                            "speed_max": 180.0,
+                                                                                                                                                                            "angle_min": 0.0,
+                                                                                                                                                                            "angle_max": 6.283185307,
+                                                                                                                                                                            "life_min": 0.2,
+                                                                                                                                                                            "life_max": 0.6,
+                                                                                                                                                                            "start_size": 4.0,
+                                                                                                                                                                            "end_size": 1.0,
+                                                                                                                                                                            "r": 1.0,
+                                                                                                                                                                            "g": 0.82,
+                                                                                                                                                                            "b": 0.2,
+                                                                                                                                                                            "start_a": 1.0,
+                                                                                                                                                                            "end_a": 0.0,
+                                                                                                                                                                            "gravity_y": 140.0,
+                                                                                                                                                                            "drag": 0.6,
+                                                                                                                                                                            "shape": "circle"
+                                                                                                                                                                        }
+                                                                                                                                                                        emit_particles(emitter, n, cfg)
+                                                                                                                                                                        return
+                                                                                                                                                                    }
+
+                                                                                                                                                                    if preset_name == "explosion" {
+                                                                                                                                                                        let n = if count <= 0 then 30 else count
+                                                                                                                                                                                let cfg = {
+                                                                                                                                                                                    "x": x,
+                                                                                                                                                                                    "y": y,
+                                                                                                                                                                                    "speed_min": 60.0,
+                                                                                                                                                                                    "speed_max": 220.0,
+                                                                                                                                                                                    "angle_min": 0.0,
+                                                                                                                                                                                    "angle_max": 6.283185307,
+                                                                                                                                                                                    "life_min": 0.35,
+                                                                                                                                                                                    "life_max": 0.85,
+                                                                                                                                                                                    "start_size": 8.0,
+                                                                                                                                                                                    "end_size": 0.5,
+                                                                                                                                                                                    "r": 1.0,
+                                                                                                                                                                                    "g": 0.42,
+                                                                                                                                                                                    "b": 0.1,
+                                                                                                                                                                                    "start_a": 1.0,
+                                                                                                                                                                                    "end_a": 0.0,
+                                                                                                                                                                                    "gravity_y": 30.0,
+                                                                                                                                                                                    "drag": 1.8,
+                                                                                                                                                                                    "shape": "circle"
+                                                                                                                                                                                }
+                                                                                                                                                                                emit_particles(emitter, n, cfg)
+                                                                                                                                                                                return
+                                                                                                                                                                            }
+
+                                                                                                                                                                            if preset_name == "smoke" {
+                                                                                                                                                                                let n = if count <= 0 then 12 else count
+                                                                                                                                                                                        let cfg = {
+                                                                                                                                                                                            "x": x,
+                                                                                                                                                                                            "y": y,
+                                                                                                                                                                                            "speed_min": 10.0,
+                                                                                                                                                                                            "speed_max": 35.0,
+                                                                                                                                                                                            "angle_min": -2.356,
+                                                                                                                                                                                            "angle_max": -0.785,
+                                                                                                                                                                                            "life_min": 0.6,
+                                                                                                                                                                                            "life_max": 1.4,
+                                                                                                                                                                                            "start_size": 4.0,
+                                                                                                                                                                                            "end_size": 14.0,
+                                                                                                                                                                                            "r": 0.85,
+                                                                                                                                                                                            "g": 0.85,
+                                                                                                                                                                                            "b": 0.88,
+                                                                                                                                                                                            "start_a": 0.6,
+                                                                                                                                                                                            "end_a": 0.0,
+                                                                                                                                                                                            "gravity_y": -18.0,
+                                                                                                                                                                                            "drag": 0.25,
+                                                                                                                                                                                            "shape": "circle"
+                                                                                                                                                                                        }
+                                                                                                                                                                                        emit_particles(emitter, n, cfg)
+                                                                                                                                                                                        return
+                                                                                                                                                                                    }
+
+                                                                                                                                                                                    if preset_name == "dust" {
+                                                                                                                                                                                        let n = if count <= 0 then 8 else count
+                                                                                                                                                                                                let cfg = {
+                                                                                                                                                                                                    "x": x,
+                                                                                                                                                                                                    "y": y,
+                                                                                                                                                                                                    "speed_min": 15.0,
+                                                                                                                                                                                                    "speed_max": 45.0,
+                                                                                                                                                                                                    "angle_min": -2.8,
+                                                                                                                                                                                                    "angle_max": -0.34,
+                                                                                                                                                                                                    "life_min": 0.25,
+                                                                                                                                                                                                    "life_max": 0.5,
+                                                                                                                                                                                                    "start_size": 3.5,
+                                                                                                                                                                                                    "end_size": 1.0,
+                                                                                                                                                                                                    "r": 0.72,
+                                                                                                                                                                                                    "g": 0.65,
+                                                                                                                                                                                                    "b": 0.52,
+                                                                                                                                                                                                    "start_a": 0.75,
+                                                                                                                                                                                                    "end_a": 0.0,
+                                                                                                                                                                                                    "gravity_y": 45.0,
+                                                                                                                                                                                                    "drag": 1.2,
+                                                                                                                                                                                                    "shape": "rect"
+                                                                                                                                                                                                }
+                                                                                                                                                                                                emit_particles(emitter, n, cfg)
+                                                                                                                                                                                                return
+                                                                                                                                                                                            }
+
+                                                                                                                                                                                            if preset_name == "coins" or preset_name == "sparkle" {
+                                                                                                                                                                                                let n = if count <= 0 then 10 else count
+                                                                                                                                                                                                        let cfg = {
+                                                                                                                                                                                                            "x": x,
+                                                                                                                                                                                                            "y": y,
+                                                                                                                                                                                                            "speed_min": 35.0,
+                                                                                                                                                                                                            "speed_max": 95.0,
+                                                                                                                                                                                                            "angle_min": -2.356,
+                                                                                                                                                                                                            "angle_max": -0.785,
+                                                                                                                                                                                                            "life_min": 0.45,
+                                                                                                                                                                                                            "life_max": 0.9,
+                                                                                                                                                                                                            "start_size": 5.0,
+                                                                                                                                                                                                            "end_size": 2.0,
+                                                                                                                                                                                                            "r": 1.0,
+                                                                                                                                                                                                            "g": 0.88,
+                                                                                                                                                                                                            "b": 0.15,
+                                                                                                                                                                                                            "start_a": 1.0,
+                                                                                                                                                                                                            "end_a": 0.0,
+                                                                                                                                                                                                            "gravity_y": 110.0,
+                                                                                                                                                                                                            "drag": 0.35,
+                                                                                                                                                                                                            "shape": "rect"
+                                                                                                                                                                                                        }
+                                                                                                                                                                                                        emit_particles(emitter, n, cfg)
+                                                                                                                                                                                                        return
+                                                                                                                                                                                                    }
+
+                                                                                                                                                                                                    if preset_name == "trail" {
+                                                                                                                                                                                                        let n = if count <= 0 then 4 else count
+                                                                                                                                                                                                                let cfg = {
+                                                                                                                                                                                                                    "x": x,
+                                                                                                                                                                                                                    "y": y,
+                                                                                                                                                                                                                    "speed_min": 2.0,
+                                                                                                                                                                                                                    "speed_max": 14.0,
+                                                                                                                                                                                                                    "angle_min": 0.0,
+                                                                                                                                                                                                                    "angle_max": 6.283185307,
+                                                                                                                                                                                                                    "life_min": 0.2,
+                                                                                                                                                                                                                    "life_max": 0.45,
+                                                                                                                                                                                                                    "start_size": 5.0,
+                                                                                                                                                                                                                    "end_size": 1.0,
+                                                                                                                                                                                                                    "r": 0.3,
+                                                                                                                                                                                                                    "g": 0.85,
+                                                                                                                                                                                                                    "b": 1.0,
+                                                                                                                                                                                                                    "start_a": 0.8,
+                                                                                                                                                                                                                    "end_a": 0.0,
+                                                                                                                                                                                                                    "gravity_y": 0.0,
+                                                                                                                                                                                                                    "drag": 0.5,
+                                                                                                                                                                                                                    "shape": "circle"
+                                                                                                                                                                                                                }
+                                                                                                                                                                                                                emit_particles(emitter, n, cfg)
+                                                                                                                                                                                                                return
+                                                                                                                                                                                                            }
+
+                                                                                                                                                                                                            # Fallback to simple sparks
+                                                                                                                                                                                                            emit_particles(emitter, count, { "x": x, "y": y })
+                                                                                                                                                                                                        }
+
+                                                                                                                                                                                                        fn update_particles(emitter: ParticleEmitter, dt: Float) {
+                                                                                                                                                                                                            if not emitter.is_active {
+                                                                                                                                                                                                                return
+                                                                                                                                                                                                            }
+
+                                                                                                                                                                                                            let alive = []
+                                                                                                                                                                                                            var i = 0
+                                                                                                                                                                                                            let total = emitter.particles.len()
+
+                                                                                                                                                                                                            while i < total {
+                                                                                                                                                                                                                let p = emitter.particles[i]
+                                                                                                                                                                                                                p.life = p.life - dt
+
+                                                                                                                                                                                                                if p.life > 0.0 {
+                                                                                                                                                                                                                    let drag_factor = 1.0 - (p.drag * dt)
+                                                                                                                                                                                                                    let safe_drag = if drag_factor < 0.0 then 0.0 else drag_factor
+
+                                                                                                                                                                                                                            p.vy = p.vy + (p.gravity_y * dt)
+                                                                                                                                                                                                                            p.vx = p.vx * safe_drag
+                                                                                                                                                                                                                            p.vy = p.vy * safe_drag
+
+                                                                                                                                                                                                                            p.x = p.x + (p.vx * dt)
+                                                                                                                                                                                                                            p.y = p.y + (p.vy * dt)
+
+                                                                                                                                                                                                                            alive.add(p)
+                                                                                                                                                                                                                        }
+
+                                                                                                                                                                                                                        i = i + 1
+                                                                                                                                                                                                                    }
+
+                                                                                                                                                                                                                    emitter.particles = alive
+                                                                                                                                                                                                                }
+
+                                                                                                                                                                                                                fn draw_particles(emitter: ParticleEmitter) {
+                                                                                                                                                                                                                    var i = 0
+                                                                                                                                                                                                                    let total = emitter.particles.len()
+
+                                                                                                                                                                                                                    while i < total {
+                                                                                                                                                                                                                        let p = emitter.particles[i]
+
+                                                                                                                                                                                                                        let progress = 1.0 - (p.life / p.max_life)
+                                                                                                                                                                                                                        let safe_prog = if progress < 0.0 then 0.0 else (if progress > 1.0 then 1.0 else progress)
+
+                                                                                                                                                                                                                                        let cur_size = p.start_size + ((p.end_size - p.start_size) * safe_prog)
+                                                                                                                                                                                                                                        let cur_a = p.start_a + ((p.end_a - p.start_a) * safe_prog)
+
+                                                                                                                                                                                                                                        if cur_a > 0.0 and cur_size > 0.1 {
+                                                                                                                                                                                                                                            if p.shape == "rect" {
+                                                                                                                                                                                                                                                let half_s = cur_size / 2.0
+                                                                                                                                                                                                                                                host_draw_rect(
+                                                                                                                                                                                                                                                    p.x - half_s,
+                                                                                                                                                                                                                                                    p.y - half_s,
+                                                                                                                                                                                                                                                    cur_size,
+                                                                                                                                                                                                                                                    cur_size,
+                                                                                                                                                                                                                                                    p.r,
+                                                                                                                                                                                                                                                    p.g,
+                                                                                                                                                                                                                                                    p.b,
+                                                                                                                                                                                                                                                    cur_a
+                                                                                                                                                                                                                                                )
+                                                                                                                                                                                                                                            } else {
+                                                                                                                                                                                                                                                let radius = cur_size / 2.0
+                                                                                                                                                                                                                                                host_draw_circle(
+                                                                                                                                                                                                                                                    p.x,
+                                                                                                                                                                                                                                                    p.y,
+                                                                                                                                                                                                                                                    radius,
+                                                                                                                                                                                                                                                    p.r,
+                                                                                                                                                                                                                                                    p.g,
+                                                                                                                                                                                                                                                    p.b,
+                                                                                                                                                                                                                                                    cur_a
+                                                                                                                                                                                                                                                )
+                                                                                                                                                                                                                                            }
+                                                                                                                                                                                                                                        }
+
+                                                                                                                                                                                                                                        i = i + 1
+                                                                                                                                                                                                                                    }
+                                                                                                                                                                                                                                }
+
+                                                                                                                                                                                                                                export Particle, ParticleEmitter
+                                                                                                                                                                                                                                export create_emitter, clear_particles, count_particles, set_position, emit_one, emit_particles, emit_preset, update_particles, draw_particles, rand_range

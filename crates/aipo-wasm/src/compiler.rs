@@ -634,11 +634,7 @@ pub fn compile_hir(program: &HirProgram) -> Result<Vec<u8>, WasmCompileError> {
     emitter.export_function("__aipo_str_concat", str_concat_func_idx);
     functions.insert(
         "__aipo_str_concat".to_string(),
-        (
-            str_concat_func_idx,
-            str_concat_type_idx,
-            str_concat_fn_type,
-        ),
+        (str_concat_func_idx, str_concat_type_idx, str_concat_fn_type),
     );
 
     // Function 20: `__aipo_int_to_str(val: i64) -> i32`
@@ -670,8 +666,7 @@ pub fn compile_hir(program: &HirProgram) -> Result<Vec<u8>, WasmCompileError> {
     );
 
     // Function 22: `__aipo_str_eq(ptr_a: i32, ptr_b: i32) -> i32`
-    let str_eq_fn_type =
-        WasmFnType::new(vec![WasmType::I32, WasmType::I32], vec![WasmType::I32]);
+    let str_eq_fn_type = WasmFnType::new(vec![WasmType::I32, WasmType::I32], vec![WasmType::I32]);
     let str_eq_type_idx = emitter.add_type(str_eq_fn_type.clone());
     let str_eq_fn = build_string_eq_function();
     let str_eq_func_idx = emitter.add_function(str_eq_type_idx, str_eq_fn);
@@ -3801,8 +3796,11 @@ fn infer_expr_kind(
                 }
             }
             if let HirExpr::Dot(receiver, method_name, _) = &**callee {
-                let rec_kind = infer_expr_kind(receiver, locals, functions, table_indices, anon_map);
-                if matches!(rec_kind, LocalKind::Bytes) && (method_name == "decode" || method_name == "decode_utf8") {
+                let rec_kind =
+                    infer_expr_kind(receiver, locals, functions, table_indices, anon_map);
+                if matches!(rec_kind, LocalKind::Bytes)
+                    && (method_name == "decode" || method_name == "decode_utf8")
+                {
                     return LocalKind::String;
                 }
                 if let HirExpr::Identifier(rec_name, _) = &**receiver {
@@ -6766,7 +6764,8 @@ fn compile_expr(
                 | BinaryOp::GreaterEqual => {
                     let l_kind = infer_expr_kind(left, locals, functions, table_indices, anon_map);
                     let r_kind = infer_expr_kind(right, locals, functions, table_indices, anon_map);
-                    if matches!(l_kind, LocalKind::String) && matches!(r_kind, LocalKind::String)
+                    if matches!(l_kind, LocalKind::String)
+                        && matches!(r_kind, LocalKind::String)
                         && matches!(op, BinaryOp::Equal | BinaryOp::NotEqual)
                     {
                         let (str_eq_idx, _, _) = functions["__aipo_str_eq"];
@@ -7170,7 +7169,11 @@ fn compile_expr(
                         infer_expr_kind(receiver, locals, functions, table_indices, anon_map);
                     if matches!(
                         receiver_kind,
-                        LocalKind::List | LocalKind::Dict | LocalKind::Range | LocalKind::String | LocalKind::Bytes
+                        LocalKind::List
+                            | LocalKind::Dict
+                            | LocalKind::Range
+                            | LocalKind::String
+                            | LocalKind::Bytes
                     ) {
                         let prop = HirExpr::Dot(receiver.clone(), "len".to_string(), *dot_span);
                         return compile_expr(
@@ -7306,7 +7309,8 @@ fn compile_expr(
                 let receiver_kind =
                     infer_expr_kind(receiver, locals, functions, table_indices, anon_map);
                 if matches!(receiver_kind, LocalKind::Bytes) {
-                    if (method_name == "decode" || method_name == "decode_utf8") && args.is_empty() {
+                    if (method_name == "decode" || method_name == "decode_utf8") && args.is_empty()
+                    {
                         let r_ty = compile_expr(
                             receiver,
                             func,
@@ -7388,31 +7392,40 @@ fn compile_expr(
                                 align: 0,
                                 memory_index: 0,
                             })),
-                            "read_u16" | "read_u16_le" => func.instruction(&Instruction::I64Load16U(MemArg {
-                                offset: 4,
-                                align: 0,
-                                memory_index: 0,
-                            })),
-                            "read_i16" | "read_i16_le" => func.instruction(&Instruction::I64Load16S(MemArg {
-                                offset: 4,
-                                align: 0,
-                                memory_index: 0,
-                            })),
-                            "read_u32" | "read_u32_le" => func.instruction(&Instruction::I64Load32U(MemArg {
-                                offset: 4,
-                                align: 0,
-                                memory_index: 0,
-                            })),
-                            "read_i32" | "read_i32_le" => func.instruction(&Instruction::I64Load32S(MemArg {
-                                offset: 4,
-                                align: 0,
-                                memory_index: 0,
-                            })),
-                            "read_i64" | "read_i64_le" | "read_u64" | "read_u64_le" => func.instruction(&Instruction::I64Load(MemArg {
-                                offset: 4,
-                                align: 0,
-                                memory_index: 0,
-                            })),
+                            "read_u16" | "read_u16_le" => {
+                                func.instruction(&Instruction::I64Load16U(MemArg {
+                                    offset: 4,
+                                    align: 0,
+                                    memory_index: 0,
+                                }))
+                            }
+                            "read_i16" | "read_i16_le" => {
+                                func.instruction(&Instruction::I64Load16S(MemArg {
+                                    offset: 4,
+                                    align: 0,
+                                    memory_index: 0,
+                                }))
+                            }
+                            "read_u32" | "read_u32_le" => {
+                                func.instruction(&Instruction::I64Load32U(MemArg {
+                                    offset: 4,
+                                    align: 0,
+                                    memory_index: 0,
+                                }))
+                            }
+                            "read_i32" | "read_i32_le" => {
+                                func.instruction(&Instruction::I64Load32S(MemArg {
+                                    offset: 4,
+                                    align: 0,
+                                    memory_index: 0,
+                                }))
+                            }
+                            "read_i64" | "read_i64_le" | "read_u64" | "read_u64_le" => func
+                                .instruction(&Instruction::I64Load(MemArg {
+                                    offset: 4,
+                                    align: 0,
+                                    memory_index: 0,
+                                })),
                             _ => unreachable!(),
                         };
                         return Ok(WasmType::I64);
@@ -9295,7 +9308,11 @@ fn infer_expr_type(
                     }
                 }
                 if method_name == "add" || method_name == "has" {
-                    return Ok(if method_name == "has" { WasmType::I32 } else { WasmType::I64 });
+                    return Ok(if method_name == "has" {
+                        WasmType::I32
+                    } else {
+                        WasmType::I64
+                    });
                 }
                 if method_name == "decode" || method_name == "decode_utf8" {
                     return Ok(WasmType::I32);

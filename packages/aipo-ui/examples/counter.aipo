@@ -24,7 +24,7 @@ struct Model {
     var count = 0
 }
 
-fn update(m, msg) - > Model{
+fn update(m, msg) -> Model {
     var next = Model{ count: m.count }
     if msg == "increment" {
         next.count += 1

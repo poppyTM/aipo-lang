@@ -58,192 +58,192 @@ fn set_solid(map: Tilemap, col: Int, row: Int, solid: Bool) {
     if col >= 0 and col < map.cols and row >= 0 and row < map.rows {
         let idx = row * map.cols + col
         map.solids[idx] = if solid then 1 else 0
-    }
-}
+            }
+        }
 
-# Checks if a cell is solid or out-of-bounds
-fn is_solid_cell(map: Tilemap, col: Int, row: Int) -> Bool {
-    # Out of bounds is treated as solid to constrain actors inside map
-    if col < 0 or col >= map.cols or row < 0 or row >= map.rows {
-        return true
-    }
-    let idx = row * map.cols + col
-    return map.solids[idx] != 0
-}
-
-# Fast O(1) point collision check in world coordinates
-fn is_solid_at(map: Tilemap, world_x: Float, world_y: Float) -> Bool {
-    let col = Int(world_x / map.tile_size)
-    let row = Int(world_y / map.tile_size)
-    return is_solid_cell(map, col, row)
-}
-
-# Checks if an AABB bounding box intersects any solid tiles
-fn check_box(map: Tilemap, x: Float, y: Float, w: Float, h: Float) -> Bool {
-    let start_col = Int(x / map.tile_size)
-    let end_col = Int((x + w - 0.05) / map.tile_size)
-    let start_row = Int(y / map.tile_size)
-    let end_row = Int((y + h - 0.05) / map.tile_size)
-
-    var r = start_row
-    while r <= end_row {
-        var c = start_col
-        while c <= end_col {
-            if is_solid_cell(map, c, r) {
+        # Checks if a cell is solid or out-of-bounds
+        fn is_solid_cell(map: Tilemap, col: Int, row: Int) -> Bool {
+            # Out of bounds is treated as solid to constrain actors inside map
+            if col < 0 or col >= map.cols or row < 0 or row >= map.rows {
                 return true
             }
-            c = c + 1
+            let idx = row * map.cols + col
+            return map.solids[idx] != 0
         }
-        r = r + 1
-    }
-    return false
-}
 
-# Resolves axis-separated AABB collision against tilemap grid
-# Returns [new_x, new_y, new_vx, new_vy, collided_x, collided_y]
-fn resolve_box_collision(map: Tilemap, x: Float, y: Float, w: Float, h: Float, vx: Float, vy: Float, dt: Float) {
-    var cur_x = x
-    var cur_y = y
-    var out_vx = vx
-    var out_vy = vy
-    var col_x = false
-    var col_y = false
-
-    # 1. Resolve X axis
-    let next_x = cur_x + vx * dt
-    if check_box(map, next_x, cur_y, w, h) {
-        col_x = true
-        out_vx = 0.0
-        # Snap to cell boundary
-        if vx > 0.0 {
-            let right_edge = next_x + w
-            let tile_col = Int(right_edge / map.tile_size)
-            cur_x = Float(tile_col) * map.tile_size - w - 0.01
-        } elif vx < 0.0 {
-            let tile_col = Int(next_x / map.tile_size)
-            cur_x = Float(tile_col + 1) * map.tile_size + 0.01
+        # Fast O(1) point collision check in world coordinates
+        fn is_solid_at(map: Tilemap, world_x: Float, world_y: Float) -> Bool {
+            let col = Int(world_x / map.tile_size)
+            let row = Int(world_y / map.tile_size)
+            return is_solid_cell(map, col, row)
         }
-    } else {
-        cur_x = next_x
-    }
 
-    # 2. Resolve Y axis
-    let next_y = cur_y + vy * dt
-    if check_box(map, cur_x, next_y, w, h) {
-        col_y = true
-        out_vy = 0.0
-        # Snap to cell boundary
-        if vy > 0.0 {
-            let bottom_edge = next_y + h
-            let tile_row = Int(bottom_edge / map.tile_size)
-            cur_y = Float(tile_row) * map.tile_size - h - 0.01
-        } elif vy < 0.0 {
-            let tile_row = Int(next_y / map.tile_size)
-            cur_y = Float(tile_row + 1) * map.tile_size + 0.01
-        }
-    } else {
-        cur_y = next_y
-    }
+        # Checks if an AABB bounding box intersects any solid tiles
+        fn check_box(map: Tilemap, x: Float, y: Float, w: Float, h: Float) -> Bool {
+            let start_col = Int(x / map.tile_size)
+            let end_col = Int((x + w - 0.05) / map.tile_size)
+            let start_row = Int(y / map.tile_size)
+            let end_row = Int((y + h - 0.05) / map.tile_size)
 
-    return [cur_x, cur_y, out_vx, out_vy, col_x, col_y]
-}
-
-# Renders tilemap with viewport frustum culling
-fn draw_tilemap(map: Tilemap, cam_x: Float, cam_y: Float, zoom: Float, screen_w: Float, screen_h: Float) {
-    let safe_zoom = if zoom <= 0.01 then 1.0 else zoom
-    let half_w = (screen_w * 0.5) / safe_zoom
-    let half_h = (screen_h * 0.5) / safe_zoom
-
-    # Calculate visible tile range
-    let raw_min_col = Int((cam_x - half_w) / map.tile_size) - 1
-    let raw_max_col = Int((cam_x + half_w) / map.tile_size) + 1
-    let raw_min_row = Int((cam_y - half_h) / map.tile_size) - 1
-    let raw_max_row = Int((cam_y + half_h) / map.tile_size) + 1
-
-    let min_col = if raw_min_col < 0 then 0 else raw_min_col
-    let max_col = if raw_max_col >= map.cols then map.cols - 1 else raw_max_col
-    let min_row = if raw_min_row < 0 then 0 else raw_min_row
-    let max_row = if raw_max_row >= map.rows then map.rows - 1 else raw_max_row
-
-    let ts = map.tile_size
-    let t_cols = if map.tileset_cols < 1 then 1 else map.tileset_cols
-
-    var r = min_row
-    while r <= max_row {
-        var c = min_col
-        while c <= max_col {
-            let idx = r * map.cols + c
-            let tile_id = map.tiles[idx]
-            let is_solid = map.solids[idx] != 0
-
-            let dest_x = Float(c) * ts
-            let dest_y = Float(r) * ts
-
-            if map.texture_id > 0 and tile_id > 0 {
-                # Spritesheet tile slice
-                let tile_idx = tile_id - 1
-                let src_col = tile_idx % t_cols
-                let src_row = tile_idx // t_cols
-                let src_x = Float(src_col) * ts
-                let src_y = Float(src_row) * ts
-
-                host_draw_sprite_subrect(
-                    map.texture_id,
-                    src_x, src_y, ts, ts,
-                    dest_x, dest_y, ts, ts,
-                    false
-                )
-            } elif is_solid {
-                # Fallback rendering: solid block
-                host_draw_rect(dest_x, dest_y, ts, ts, 0.22, 0.26, 0.38, 1.0)
-                host_draw_rect_lines(dest_x, dest_y, ts, ts, 1.0, 0.35, 0.42, 0.60, 0.85)
+            var r = start_row
+            while r <= end_row {
+                var c = start_col
+                while c <= end_col {
+                    if is_solid_cell(map, c, r) {
+                        return true
+                    }
+                    c = c + 1
+                }
+                r = r + 1
             }
-            c = c + 1
+            return false
         }
-        r = r + 1
-    }
-}
 
-# DDA Grid Raycasting: traces a line from (x1, y1) to (x2, y2)
-# Returns {"hit": Bool, "x": Float, "y": Float, "col": Int, "row": Int}
-fn raycast(map: Tilemap, x1: Float, y1: Float, x2: Float, y2: Float) -> Dict {
-    let dx = x2 - x1
-    let dy = y2 - y1
-    let dist = math.sqrt(dx * dx + dy * dy)
+        # Resolves axis-separated AABB collision against tilemap grid
+        # Returns [new_x, new_y, new_vx, new_vy, collided_x, collided_y]
+        fn resolve_box_collision(map: Tilemap, x: Float, y: Float, w: Float, h: Float, vx: Float, vy: Float, dt: Float) {
+            var cur_x = x
+            var cur_y = y
+            var out_vx = vx
+            var out_vy = vy
+            var col_x = false
+            var col_y = false
 
-    if dist <= 0.001 {
-        return { "hit": false, "x": x1, "y": y1, "col": 0, "row": 0 }
-    }
-
-    # Step in increments of half tile size
-    let step_dist = map.tile_size * 0.4
-    let steps = Int(dist / step_dist) + 1
-    let step_x = dx / Float(steps)
-    let step_y = dy / Float(steps)
-
-    var cur_x = x1
-    var cur_y = y1
-
-    var i = 0
-    while i <= steps {
-        let col = Int(cur_x / map.tile_size)
-        let row = Int(cur_y / map.tile_size)
-        if is_solid_cell(map, col, row) {
-            return {
-                "hit": true,
-                "x": cur_x,
-                "y": cur_y,
-                "col": col,
-                "row": row
+            # 1. Resolve X axis
+            let next_x = cur_x + vx * dt
+            if check_box(map, next_x, cur_y, w, h) {
+                col_x = true
+                out_vx = 0.0
+                # Snap to cell boundary
+                if vx > 0.0 {
+                    let right_edge = next_x + w
+                    let tile_col = Int(right_edge / map.tile_size)
+                    cur_x = Float(tile_col) * map.tile_size - w - 0.01
+                } elif vx < 0.0 {
+                    let tile_col = Int(next_x / map.tile_size)
+                    cur_x = Float(tile_col + 1) * map.tile_size + 0.01
+                }
+            } else {
+                cur_x = next_x
             }
+
+            # 2. Resolve Y axis
+            let next_y = cur_y + vy * dt
+            if check_box(map, cur_x, next_y, w, h) {
+                col_y = true
+                out_vy = 0.0
+                # Snap to cell boundary
+                if vy > 0.0 {
+                    let bottom_edge = next_y + h
+                    let tile_row = Int(bottom_edge / map.tile_size)
+                    cur_y = Float(tile_row) * map.tile_size - h - 0.01
+                } elif vy < 0.0 {
+                    let tile_row = Int(next_y / map.tile_size)
+                    cur_y = Float(tile_row + 1) * map.tile_size + 0.01
+                }
+            } else {
+                cur_y = next_y
+            }
+
+            return [cur_x, cur_y, out_vx, out_vy, col_x, col_y]
         }
-        cur_x = cur_x + step_x
-        cur_y = cur_y + step_y
-        i = i + 1
-    }
 
-    return { "hit": false, "x": x2, "y": y2, "col": 0, "row": 0 }
-}
+        # Renders tilemap with viewport frustum culling
+        fn draw_tilemap(map: Tilemap, cam_x: Float, cam_y: Float, zoom: Float, screen_w: Float, screen_h: Float) {
+            let safe_zoom = if zoom <= 0.01 then 1.0 else zoom
+                    let half_w = (screen_w * 0.5) / safe_zoom
+                    let half_h = (screen_h * 0.5) / safe_zoom
 
-export Tilemap, create_tilemap, set_tile, get_tile, set_solid, is_solid_cell, is_solid_at
-export check_box, resolve_box_collision, draw_tilemap, raycast
+                    # Calculate visible tile range
+                    let raw_min_col = Int((cam_x - half_w) / map.tile_size) - 1
+                    let raw_max_col = Int((cam_x + half_w) / map.tile_size) + 1
+                    let raw_min_row = Int((cam_y - half_h) / map.tile_size) - 1
+                    let raw_max_row = Int((cam_y + half_h) / map.tile_size) + 1
+
+                    let min_col = if raw_min_col < 0 then 0 else raw_min_col
+                            let max_col = if raw_max_col >= map.cols then map.cols - 1 else raw_max_col
+                                    let min_row = if raw_min_row < 0 then 0 else raw_min_row
+                                            let max_row = if raw_max_row >= map.rows then map.rows - 1 else raw_max_row
+
+                                                    let ts = map.tile_size
+                                                    let t_cols = if map.tileset_cols < 1 then 1 else map.tileset_cols
+
+                                                            var r = min_row
+                                                            while r <= max_row {
+                                                                var c = min_col
+                                                                while c <= max_col {
+                                                                    let idx = r * map.cols + c
+                                                                    let tile_id = map.tiles[idx]
+                                                                    let is_solid = map.solids[idx] != 0
+
+                                                                    let dest_x = Float(c) * ts
+                                                                    let dest_y = Float(r) * ts
+
+                                                                    if map.texture_id > 0 and tile_id > 0 {
+                                                                        # Spritesheet tile slice
+                                                                        let tile_idx = tile_id - 1
+                                                                        let src_col = tile_idx % t_cols
+                                                                        let src_row = tile_idx // t_cols
+                                                                        let src_x = Float(src_col) * ts
+                                                                        let src_y = Float(src_row) * ts
+
+                                                                        host_draw_sprite_subrect(
+                                                                            map.texture_id,
+                                                                            src_x, src_y, ts, ts,
+                                                                            dest_x, dest_y, ts, ts,
+                                                                            false
+                                                                        )
+                                                                    } elif is_solid {
+                                                                        # Fallback rendering: solid block
+                                                                        host_draw_rect(dest_x, dest_y, ts, ts, 0.22, 0.26, 0.38, 1.0)
+                                                                        host_draw_rect_lines(dest_x, dest_y, ts, ts, 1.0, 0.35, 0.42, 0.60, 0.85)
+                                                                    }
+                                                                    c = c + 1
+                                                                }
+                                                                r = r + 1
+                                                            }
+                                                        }
+
+                                                        # DDA Grid Raycasting: traces a line from (x1, y1) to (x2, y2)
+                                                        # Returns {"hit": Bool, "x": Float, "y": Float, "col": Int, "row": Int}
+                                                        fn raycast(map: Tilemap, x1: Float, y1: Float, x2: Float, y2: Float) -> Dict {
+                                                            let dx = x2 - x1
+                                                            let dy = y2 - y1
+                                                            let dist = math.sqrt(dx * dx + dy * dy)
+
+                                                            if dist <= 0.001 {
+                                                                return { "hit": false, "x": x1, "y": y1, "col": 0, "row": 0 }
+                                                            }
+
+                                                            # Step in increments of half tile size
+                                                            let step_dist = map.tile_size * 0.4
+                                                            let steps = Int(dist / step_dist) + 1
+                                                            let step_x = dx / Float(steps)
+                                                            let step_y = dy / Float(steps)
+
+                                                            var cur_x = x1
+                                                            var cur_y = y1
+
+                                                            var i = 0
+                                                            while i <= steps {
+                                                                let col = Int(cur_x / map.tile_size)
+                                                                let row = Int(cur_y / map.tile_size)
+                                                                if is_solid_cell(map, col, row) {
+                                                                    return {
+                                                                        "hit": true,
+                                                                        "x": cur_x,
+                                                                        "y": cur_y,
+                                                                        "col": col,
+                                                                        "row": row
+                                                                    }
+                                                                }
+                                                                cur_x = cur_x + step_x
+                                                                cur_y = cur_y + step_y
+                                                                i = i + 1
+                                                            }
+
+                                                            return { "hit": false, "x": x2, "y": y2, "col": 0, "row": 0 }
+                                                        }
+
+                                                        export Tilemap, create_tilemap, set_tile, get_tile, set_solid, is_solid_cell, is_solid_at
+                                                        export check_box, resolve_box_collision, draw_tilemap, raycast

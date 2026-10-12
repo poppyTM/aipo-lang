@@ -27,40 +27,40 @@ fn make_logger_middleware(custom_logger = none) {
 
 fn make_cors_middleware(options: Dict = {}) {
     let origin = if options.has("origin") then options["origin"] else "*"
-    let methods = if options.has("methods") then options["methods"] else "GET, POST, PUT, DELETE, PATCH, OPTIONS"
-    let headers = if options.has("headers") then options["headers"] else "Content-Type, Authorization"
+            let methods = if options.has("methods") then options["methods"] else "GET, POST, PUT, DELETE, PATCH, OPTIONS"
+                    let headers = if options.has("headers") then options["headers"] else "Content-Type, Authorization"
 
-    return fn (ctx, next) {
-        ctx.res_headers["Access-Control-Allow-Origin"] = origin
-        ctx.res_headers["Access-Control-Allow-Methods"] = methods
-        ctx.res_headers["Access-Control-Allow-Headers"] = headers
+                            return fn (ctx, next) {
+                                ctx.res_headers["Access-Control-Allow-Origin"] = origin
+                                ctx.res_headers["Access-Control-Allow-Methods"] = methods
+                                ctx.res_headers["Access-Control-Allow-Headers"] = headers
 
-        if ctx.req_method == "OPTIONS" {
-            ctx.status_code = 204
-            ctx.res_body = ""
-            ctx.is_handled = true
-            return none
-        }
+                                if ctx.req_method == "OPTIONS" {
+                                    ctx.status_code = 204
+                                    ctx.res_body = ""
+                                    ctx.is_handled = true
+                                    return none
+                                }
 
-        return next()
-    }
-}
+                                return next()
+                            }
+                        }
 
-fn make_recover_middleware(on_error = none) {
-    return fn (ctx, next) {
-        attempt {
-            return next()
-        } failed err {
-            ctx.status_code = 500
-            ctx.res_headers["content-type"] = "application/json"
-            ctx.res_body = "{\"error\": \"Internal Server Error\", \"code\": 500}"
-            ctx.is_handled = true
-            if on_error != none {
-                on_error(ctx, err)
-            }
-            return none
-        }
-    }
-}
+                        fn make_recover_middleware(on_error = none) {
+                            return fn (ctx, next) {
+                                attempt {
+                                    return next()
+                                } failed err {
+                                    ctx.status_code = 500
+                                    ctx.res_headers["content-type"] = "application/json"
+                                    ctx.res_body = "{\"error\": \"Internal Server Error\", \"code\": 500}"
+                                    ctx.is_handled = true
+                                    if on_error != none {
+                                        on_error(ctx, err)
+                                    }
+                                    return none
+                                }
+                            }
+                        }
 
-export run_middleware_chain, make_logger_middleware, make_cors_middleware, make_recover_middleware
+                        export run_middleware_chain, make_logger_middleware, make_cors_middleware, make_recover_middleware

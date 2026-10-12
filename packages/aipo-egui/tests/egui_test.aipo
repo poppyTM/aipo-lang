@@ -4,28 +4,28 @@ import aipo.egui as gui
 
 test("context creation and destruction lifecycle") do {
     let ctx = gui.new_context()
-    expect.true(ctx != none)
+    expect.true (ctx != none)
     gui.destroy(ctx)
 }
 
 test("frame lifecycle and output map") do {
     let ctx = gui.new_context()
     gui.begin_frame(ctx, {
-        "screen_width": 800.0,
-        "screen_height": 600.0,
-        "pixels_per_point": 1.0,
-        "dt": 0.016
-    })
+            "screen_width": 800.0,
+            "screen_height": 600.0,
+            "pixels_per_point": 1.0,
+            "dt": 0.016
+        })
 
     gui.heading("Test Window")
     gui.separator()
     gui.label("Aipo Immediate GUI")
 
     let clicked = gui.button("Click Me")
-    expect.false(clicked)
+    expect.false (clicked)
 
     let state = gui.checkbox("Enable Feature", true)
-    expect.true(state)
+    expect.true (state)
 
     let val = gui.slider("Volume", 0.75, 0.0, 1.0)
     expect.equal(val, 0.75)
@@ -46,34 +46,34 @@ test("frame lifecycle and output map") do {
 test("window container helpers") do {
     let ctx = gui.new_context()
     gui.begin_frame(ctx, {
-        "screen_width": 1024.0,
-        "screen_height": 768.0,
-        "pixels_per_point": 1.0,
-        "dt": 0.016
-    })
+            "screen_width": 1024.0,
+            "screen_height": 768.0,
+            "pixels_per_point": 1.0,
+            "dt": 0.016
+        })
 
     let visited = [false]
     gui.window("My Window") do {
         gui.label("Inside Window")
         visited[0] = true
     }
-    expect.true(visited[0])
+    expect.true (visited[0])
 
     let visited_at = [false]
     gui.window_at("Custom Window", 100.0, 100.0, 400.0, 300.0) do {
         gui.label("Inside Custom Window")
         visited_at[0] = true
     }
-    expect.true(visited_at[0])
+    expect.true (visited_at[0])
 
     let out = gui.end_frame(ctx)
-    expect.true(out != none)
+    expect.true (out != none)
     gui.destroy(ctx)
 }
 
 test("input queries") do {
     let ctx = gui.new_context()
-    expect.false(gui.wants_pointer(ctx))
-    expect.false(gui.wants_keyboard(ctx))
+    expect.false (gui.wants_pointer(ctx))
+    expect.false (gui.wants_keyboard(ctx))
     gui.destroy(ctx)
 }

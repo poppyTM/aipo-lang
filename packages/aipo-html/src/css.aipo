@@ -24,52 +24,52 @@ fn dict_to_css_text(class_name: String, props: Dict) -> String {
             each sub_k, sub_v in val {
                 let css_prop = sub_k.replace("_", "-")
                 let formatted_val = if sub_v is Int then f"{sub_v}px" else f"{sub_v}"
-                pseudo_blocks = pseudo_blocks + f"  {css_prop}: {formatted_val};\n"
-            }
-            pseudo_blocks = pseudo_blocks + "}\n"
-        } elif key == "media" {
-            each query_str, query_props in val {
-                pseudo_blocks = pseudo_blocks + f"@media {query_str} {{\n  .{class_name} {{\n"
-                each q_k, q_v in query_props {
-                    let css_prop = q_k.replace("_", "-")
-                    let formatted_val = if q_v is Int then f"{q_v}px" else f"{q_v}"
-                    pseudo_blocks = pseudo_blocks + f"    {css_prop}: {formatted_val};\n"
-                }
-                pseudo_blocks = pseudo_blocks + "  }\n}\n"
-            }
-        } else {
-            let css_prop = key.replace("_", "-")
-            let formatted_val = if val is Int then f"{val}px" else f"{val}"
-            body = body + f"  {css_prop}: {formatted_val};\n"
-        }
-    }
+                        pseudo_blocks = pseudo_blocks + f"  {css_prop}: {formatted_val};\n"
+                    }
+                    pseudo_blocks = pseudo_blocks + "}\n"
+                } elif key == "media" {
+                    each query_str, query_props in val {
+                        pseudo_blocks = pseudo_blocks + f"@media {query_str} {{\n  .{class_name} {{\n"
+                        each q_k, q_v in query_props {
+                            let css_prop = q_k.replace("_", "-")
+                            let formatted_val = if q_v is Int then f"{q_v}px" else f"{q_v}"
+                                    pseudo_blocks = pseudo_blocks + f"    {css_prop}: {formatted_val};\n"
+                                }
+                                pseudo_blocks = pseudo_blocks + "  }\n}\n"
+                            }
+                        } else {
+                            let css_prop = key.replace("_", "-")
+                            let formatted_val = if val is Int then f"{val}px" else f"{val}"
+                                    body = body + f"  {css_prop}: {formatted_val};\n"
+                                }
+                            }
 
-    body = body + "}\n" + pseudo_blocks
-    return body
-}
+                            body = body + "}\n" + pseudo_blocks
+                            return body
+                        }
 
-# Declares a typed, scoped CSS style and returns its generated class name
-fn make_css(properties: Dict) -> String {
-    let class_name = hash_style_dict(properties)
-    let css_text = dict_to_css_text(class_name, properties)
-    _style_registry.add(StyleRule{
-        class_name: class_name,
-        css_text: css_text
-    })
-    return class_name
-}
+                        # Declares a typed, scoped CSS style and returns its generated class name
+                        fn make_css(properties: Dict) -> String {
+                            let class_name = hash_style_dict(properties)
+                            let css_text = dict_to_css_text(class_name, properties)
+                            _style_registry.add(StyleRule {
+                                    class_name: class_name,
+                                    css_text: css_text
+                                })
+                            return class_name
+                        }
 
-# Returns all injected CSS styles concatenated, ideal for SSR <head> inlining
-fn css_get_injected() -> String {
-    var out = ""
-    each rule in _style_registry {
-        out = out + rule.css_text + "\n"
-    }
-    return out
-}
+                        # Returns all injected CSS styles concatenated, ideal for SSR <head> inlining
+                        fn css_get_injected() -> String {
+                            var out = ""
+                            each rule in _style_registry {
+                                out = out + rule.css_text + "\n"
+                            }
+                            return out
+                        }
 
-fn css_clear_registry() {
-    _style_registry = []
-}
+                        fn css_clear_registry() {
+                            _style_registry = []
+                        }
 
-export StyleRule, make_css, css_get_injected, css_clear_registry, hash_style_dict, dict_to_css_text
+                        export StyleRule, make_css, css_get_injected, css_clear_registry, hash_style_dict, dict_to_css_text

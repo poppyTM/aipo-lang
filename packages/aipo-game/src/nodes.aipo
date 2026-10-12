@@ -30,15 +30,15 @@ struct VisualRule {
 
 # Visual Node Constructors
 fn trigger(event: String, params: Dict) -> TriggerNode {
-    return TriggerNode { id: event, event: event, params: params }
+    return TriggerNode{ id: event, event: event, params: params }
 }
 
 fn filter(left: String, op: String, right: String) -> FilterNode {
-    return FilterNode { id: "filter", left: left, op: op, right: right }
+    return FilterNode{ id: "filter", left: left, op: op, right: right }
 }
 
 fn action(action_type: String, params: Dict) -> ActionNode {
-    return ActionNode { id: action_type, action_type: action_type, params: params }
+    return ActionNode{ id: action_type, action_type: action_type, params: params }
 }
 
 fn rule(name: String, trig: TriggerNode, filters: List, actions: List) -> VisualRule {
@@ -57,33 +57,33 @@ fn transpile_to_aipo_code(rule_def: VisualRule) -> String {
 
     if rule_def.trigger.event == "on_collision" {
         let target = if rule_def.trigger.params.has("with") then rule_def.trigger.params["with"] else "Outro"
-        code += "on_collision: (actor, other) => {\n"
-        code += f"    if other.is_a({target}) {{\n"
+                code += "on_collision: (actor, other) => {\n"
+                code += f"    if other.is_a({target}) {{\n"
 
-        # Inject filters
-        each f in rule_def.filters {
-            code += f"        if not ({f.left} {f.op} {f.right}) {{ return }}\n"
-        }
+                # Inject filters
+                each f in rule_def.filters {
+                    code += f"        if not ({f.left} {f.op} {f.right}) {{ return }}\n"
+                }
 
-        # Inject actions
-        each act in rule_def.actions {
-            if act.action_type == "destroy" {
-                let who = if act.params.has("target") then act.params["target"] else "other"
-                code += f"        {who}.destroy()\n"
-            } elif act.action_type == "play_sound" {
-                let snd = if act.params.has("file") then act.params["file"] else "som.wav"
-                code += f"        g.audio.play(\"{snd}\")\n"
-            } elif act.action_type == "add_score" {
-                let pts = if act.params.has("points") then act.params["points"] else 10
-                code += f"        actor.score += {pts}\n"
-            }
-        }
+                # Inject actions
+                each act in rule_def.actions {
+                    if act.action_type == "destroy" {
+                        let who = if act.params.has("target") then act.params["target"] else "other"
+                                code += f"        {who}.destroy()\n"
+                            } elif act.action_type == "play_sound" {
+                                let snd = if act.params.has("file") then act.params["file"] else "som.wav"
+                                        code += f"        g.audio.play(\"{snd}\")\n"
+                                    } elif act.action_type == "add_score" {
+                                        let pts = if act.params.has("points") then act.params["points"] else 10
+                                                code += f"        actor.score += {pts}\n"
+                                            }
+                                        }
 
-        code += "    }\n"
-        code += "}\n"
-    }
+                                        code += "    }\n"
+                                        code += "}\n"
+                                    }
 
-    return code
-}
+                                    return code
+                                }
 
-export TriggerNode, FilterNode, ActionNode, VisualRule, trigger, filter, action, rule, transpile_to_aipo_code
+                                export TriggerNode, FilterNode, ActionNode, VisualRule, trigger, filter, action, rule, transpile_to_aipo_code

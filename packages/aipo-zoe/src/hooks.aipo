@@ -131,74 +131,74 @@ fn signal_use_tween(initial_val: Float, target_val: Float, duration: Float = 0.3
     let init_v = initial_val + 0.0
     let target_v = target_val + 0.0
     let dur = if duration > 0.0 then (duration + 0.0) else 0.3
-    if _tween_index >= _tweens.len() {
-        let tw = types_mod.create_tween(_tweens.len(), init_v, target_v, dur, easing)
-        _tweens.add(tw)
-        _tween_index += 1
-        return tw
-    } else {
-        let tw = _tweens[_tween_index]
-        _tween_index += 1
-        if tw.target_val != target_v {
-            tw.start_val = tw.value
-            tw.target_val = target_v
-            tw.elapsed = 0.0
-            tw.duration = dur
-            tw.easing = easing
-            mark_dirty()
-        }
-        return tw
-    }
-}
-
-fn hooks_update_tweens(dt: Float) {
-    var any_active = false
-    each tw in _tweens {
-        if tw.value != tw.target_val {
-            tw.elapsed += dt
-            var t = if tw.duration > 0.0 then (tw.elapsed / tw.duration) else 1.0
-            if t >= 1.0 {
-                tw.value = tw.target_val
-                tw.elapsed = tw.duration
+            if _tween_index >= _tweens.len() {
+                let tw = types_mod.create_tween(_tweens.len(), init_v, target_v, dur, easing)
+                _tweens.add(tw)
+                _tween_index += 1
+                return tw
             } else {
-                var factor = t
-                if tw.easing == "ease_in" {
-                    factor = t * t
-                } elif tw.easing == "ease_out" {
-                    factor = t * (2.0 - t)
-                } elif tw.easing == "ease_in_out" {
-                    factor = if t < 0.5 then (2.0 * t * t) else (-1.0 + (4.0 - 2.0 * t) * t)
+                let tw = _tweens[_tween_index]
+                _tween_index += 1
+                if tw.target_val != target_v {
+                    tw.start_val = tw.value
+                    tw.target_val = target_v
+                    tw.elapsed = 0.0
+                    tw.duration = dur
+                    tw.easing = easing
+                    mark_dirty()
                 }
-                tw.value = tw.start_val + (tw.target_val - tw.start_val) * factor
-                any_active = true
+                return tw
             }
-            mark_dirty()
         }
-    }
-    return any_active
-}
 
-fn is_signal(val) -> Bool {
-    if val == none {
-        return false
-    }
-    each s in _signals {
-        if s == val {
-            return true
-        }
-    }
-    each m in _memos {
-        if m == val {
-            return true
-        }
-    }
-    each tw in _tweens {
-        if tw == val {
-            return true
-        }
-    }
-    return false
-}
+        fn hooks_update_tweens(dt: Float) {
+            var any_active = false
+            each tw in _tweens {
+                if tw.value != tw.target_val {
+                    tw.elapsed += dt
+                    var t = if tw.duration > 0.0 then (tw.elapsed / tw.duration) else 1.0
+                            if t >= 1.0 {
+                                tw.value = tw.target_val
+                                tw.elapsed = tw.duration
+                            } else {
+                                var factor = t
+                                if tw.easing == "ease_in" {
+                                    factor = t * t
+                                } elif tw.easing == "ease_out" {
+                                    factor = t * (2.0 - t)
+                                } elif tw.easing == "ease_in_out" {
+                                    factor = if t < 0.5 then (2.0 * t * t) else (-1.0 + (4.0 - 2.0 * t) * t)
+                                        }
+                                        tw.value = tw.start_val + (tw.target_val - tw.start_val) * factor
+                                        any_active = true
+                                    }
+                                    mark_dirty()
+                                }
+                            }
+                            return any_active
+                        }
 
-export is_dirty, mark_dirty, clear_dirty, reset_hooks, reset_all_signals
-export signal_use_state, signal_set_value, signal_use_memo, signal_use_effect, signal_use_tween, hooks_update_tweens, is_signal
+                        fn is_signal(val) -> Bool {
+                            if val == none {
+                                return false
+                            }
+                            each s in _signals {
+                                if s == val {
+                                    return true
+                                }
+                            }
+                            each m in _memos {
+                                if m == val {
+                                    return true
+                                }
+                            }
+                            each tw in _tweens {
+                                if tw == val {
+                                    return true
+                                }
+                            }
+                            return false
+                        }
+
+                        export is_dirty, mark_dirty, clear_dirty, reset_hooks, reset_all_signals
+                        export signal_use_state, signal_set_value, signal_use_memo, signal_use_effect, signal_use_tween, hooks_update_tweens, is_signal

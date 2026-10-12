@@ -203,14 +203,14 @@ fn app_update(dt: Float) {
                     let handler = ov_target.props["on_click"]
                     if handler != none {
                         (handler)({
-                            "x": mx,
-                            "y": my,
-                            "shift": is_shift,
-                            "ctrl": is_ctrl,
-                            "alt": is_alt,
-                            "rect": ov_rect,
-                            "target_id": ov_target.id
-                        })
+                                "x": mx,
+                                "y": my,
+                                "shift": is_shift,
+                                "ctrl": is_ctrl,
+                                "alt": is_alt,
+                                "rect": ov_rect,
+                                "target_id": ov_target.id
+                            })
                     }
                 }
                 _prev_mouse_btn = btn_down
@@ -282,223 +282,223 @@ fn app_update(dt: Float) {
                 _dragged_node = target
                 _drag_handler = target.props["on_drag"]
                 _drag_end_handler = if target.props.has("on_drag_end") then target.props["on_drag_end"] else none
-                target.is_active = true
-                if _drag_handler != none {
+                        target.is_active = true
+                        if _drag_handler != none {
+                            let drag_event = {
+                                "x": mx,
+                                "y": my,
+                                "dx": 0.0,
+                                "dy": 0.0,
+                                "shift": is_shift,
+                                "ctrl": is_ctrl,
+                                "alt": is_alt,
+                                "rect": target_rect,
+                                "target_id": target.id,
+                                "target": target
+                            }
+                            (_drag_handler)(drag_event)
+                        }
+                    }
+                }
+            }
+
+            # 3. Active continuous drag dispatch (while mouse button is held down)
+            if btn_down and _drag_handler != none {
+                let dx = mx - _prev_mx
+                let dy = my - _prev_my
+                if dx != 0.0 or dy != 0.0 {
+                    let drag_rect = if _dragged_node != none and _dragged_node.layout != none then {
+                        "x": _dragged_node.layout.x + 0.0,
+                        "y": _dragged_node.layout.y + 0.0,
+                        "width": _dragged_node.layout.width + 0.0,
+                        "height": _dragged_node.layout.height + 0.0
+                    } else {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "width": 0.0,
+                        "height": 0.0
+                    }
                     let drag_event = {
                         "x": mx,
                         "y": my,
-                        "dx": 0.0,
-                        "dy": 0.0,
+                        "dx": dx,
+                        "dy": dy,
                         "shift": is_shift,
                         "ctrl": is_ctrl,
                         "alt": is_alt,
-                        "rect": target_rect,
-                        "target_id": target.id,
-                        "target": target
+                        "rect": drag_rect,
+                        "target_id": if _dragged_node != none then _dragged_node.id else 0,
+                                "target": _dragged_node
+                            }
+                            (_drag_handler)(drag_event)
+                        }
                     }
-                    (_drag_handler)(drag_event)
-                }
-            }
-        }
-    }
 
-    # 3. Active continuous drag dispatch (while mouse button is held down)
-    if btn_down and _drag_handler != none {
-        let dx = mx - _prev_mx
-        let dy = my - _prev_my
-        if dx != 0.0 or dy != 0.0 {
-            let drag_rect = if _dragged_node != none and _dragged_node.layout != none then {
-                "x": _dragged_node.layout.x + 0.0,
-                "y": _dragged_node.layout.y + 0.0,
-                "width": _dragged_node.layout.width + 0.0,
-                "height": _dragged_node.layout.height + 0.0
-            } else {
-                "x": 0.0,
-                "y": 0.0,
-                "width": 0.0,
-                "height": 0.0
-            }
-            let drag_event = {
-                "x": mx,
-                "y": my,
-                "dx": dx,
-                "dy": dy,
-                "shift": is_shift,
-                "ctrl": is_ctrl,
-                "alt": is_alt,
-                "rect": drag_rect,
-                "target_id": if _dragged_node != none then _dragged_node.id else 0,
-                "target": _dragged_node
-            }
-            (_drag_handler)(drag_event)
-        }
-    }
+                    # 4. Drag release (mouse release edge detection)
+                    if not btn_down and _prev_mouse_btn {
+                        let end_rect = if _dragged_node != none and _dragged_node.layout != none then {
+                            "x": _dragged_node.layout.x + 0.0,
+                            "y": _dragged_node.layout.y + 0.0,
+                            "width": _dragged_node.layout.width + 0.0,
+                            "height": _dragged_node.layout.height + 0.0
+                        } else {
+                            "x": 0.0,
+                            "y": 0.0,
+                            "width": 0.0,
+                            "height": 0.0
+                        }
+                        if _dragged_node != none {
+                            _dragged_node.is_active = false
+                        }
+                        if _drag_end_handler != none {
+                            let end_event = {
+                                "x": mx,
+                                "y": my,
+                                "rect": end_rect,
+                                "target_id": if _dragged_node != none then _dragged_node.id else 0
+                                    }
+                                    (_drag_end_handler)(end_event)
+                                }
+                                _dragged_node = none
+                                _drag_handler = none
+                                _drag_end_handler = none
+                            }
 
-    # 4. Drag release (mouse release edge detection)
-    if not btn_down and _prev_mouse_btn {
-        let end_rect = if _dragged_node != none and _dragged_node.layout != none then {
-            "x": _dragged_node.layout.x + 0.0,
-            "y": _dragged_node.layout.y + 0.0,
-            "width": _dragged_node.layout.width + 0.0,
-            "height": _dragged_node.layout.height + 0.0
-        } else {
-            "x": 0.0,
-            "y": 0.0,
-            "width": 0.0,
-            "height": 0.0
-        }
-        if _dragged_node != none {
-            _dragged_node.is_active = false
-        }
-        if _drag_end_handler != none {
-            let end_event = {
-                "x": mx,
-                "y": my,
-                "rect": end_rect,
-                "target_id": if _dragged_node != none then _dragged_node.id else 0
-            }
-            (_drag_end_handler)(end_event)
-        }
-        _dragged_node = none
-        _drag_handler = none
-        _drag_end_handler = none
-    }
+                            _prev_mouse_btn = btn_down
+                            _prev_mx = mx
+                            _prev_my = my
 
-    _prev_mouse_btn = btn_down
-    _prev_mx = mx
-    _prev_my = my
+                            # 5. Mouse wheel scroll dispatch
+                            let wheel_y = host_mouse_wheel_y()
+                            let wheel_x = host_mouse_wheel_x()
+                            if wheel_y != 0.0 or wheel_x != 0.0 {
+                                let wheel_node = find_wheel_target(_root_element, mx, my)
+                                if wheel_node != none and wheel_node.props.has("on_wheel") {
+                                    let handler = wheel_node.props["on_wheel"]
+                                    (handler)({
+                                            "wheel_x": wheel_x,
+                                            "wheel_y": wheel_y,
+                                            "x": mx,
+                                            "y": my,
+                                            "target_id": wheel_node.id
+                                        })
+                                }
+                            }
 
-    # 5. Mouse wheel scroll dispatch
-    let wheel_y = host_mouse_wheel_y()
-    let wheel_x = host_mouse_wheel_x()
-    if wheel_y != 0.0 or wheel_x != 0.0 {
-        let wheel_node = find_wheel_target(_root_element, mx, my)
-        if wheel_node != none and wheel_node.props.has("on_wheel") {
-            let handler = wheel_node.props["on_wheel"]
-            (handler)({
-                "wheel_x": wheel_x,
-                "wheel_y": wheel_y,
-                "x": mx,
-                "y": my,
-                "target_id": wheel_node.id
-            })
-        }
-    }
+                            # 6. Keyboard input dispatch & Tab focus navigation
+                            if host_key_pressed(258) {
+                                # Tab key: cycle focus among focusable elements
+                                var focusables = []
+                                collect_focusable_nodes(_root_element, focusables)
+                                if focusables.len() > 0 {
+                                    let is_shift = host_key_down(340) or host_key_down(344)
+                                    var cur_idx = -1
+                                    var fi = 0
+                                    while fi < focusables.len() {
+                                        if focusables[fi] == _focused_node {
+                                            cur_idx = fi
+                                        }
+                                        fi += 1
+                                    }
+                                    var next_idx = 0
+                                    if is_shift {
+                                        next_idx = if cur_idx <= 0 then (focusables.len() - 1) else (cur_idx - 1)
+                                            } else {
+                                                next_idx = if cur_idx < 0 or cur_idx >= (focusables.len() - 1) then 0 else (cur_idx + 1)
+                                                    }
+                                                    app_set_focused_node(focusables[next_idx])
+                                                }
+                                            } elif host_key_pressed(256) {
+                                                # Escape key: dismiss overlay if any, else clear focus
+                                                if overlay_mod.overlay_has_overlays() {
+                                                    let top_ov = overlay_mod.overlay_get_top()
+                                                    if top_ov != none and top_ov.dismissible {
+                                                        overlay_mod.overlay_pop()
+                                                    }
+                                                } elif _focused_node != none {
+                                                    _focused_node.is_focused = false
+                                                    _focused_node = none
+                                                }
+                                            } elif _focused_node != none {
+                                                # Process typed characters
+                                                var typed_char = host_get_char_pressed()
+                                                while typed_char.len() > 0 {
+                                                    if _focused_node.props.has("on_char") {
+                                                        let char_fn = _focused_node.props["on_char"]
+                                                        if char_fn != none {
+                                                            (char_fn)(typed_char)
+                                                        }
+                                                    }
+                                                    typed_char = host_get_char_pressed()
+                                                }
 
-    # 6. Keyboard input dispatch & Tab focus navigation
-    if host_key_pressed(258) {
-        # Tab key: cycle focus among focusable elements
-        var focusables = []
-        collect_focusable_nodes(_root_element, focusables)
-        if focusables.len() > 0 {
-            let is_shift = host_key_down(340) or host_key_down(344)
-            var cur_idx = -1
-            var fi = 0
-            while fi < focusables.len() {
-                if focusables[fi] == _focused_node {
-                    cur_idx = fi
-                }
-                fi += 1
-            }
-            var next_idx = 0
-            if is_shift {
-                next_idx = if cur_idx <= 0 then (focusables.len() - 1) else (cur_idx - 1)
-            } else {
-                next_idx = if cur_idx < 0 or cur_idx >= (focusables.len() - 1) then 0 else (cur_idx + 1)
-            }
-            app_set_focused_node(focusables[next_idx])
-        }
-    } elif host_key_pressed(256) {
-        # Escape key: dismiss overlay if any, else clear focus
-        if overlay_mod.overlay_has_overlays() {
-            let top_ov = overlay_mod.overlay_get_top()
-            if top_ov != none and top_ov.dismissible {
-                overlay_mod.overlay_pop()
-            }
-        } elif _focused_node != none {
-            _focused_node.is_focused = false
-            _focused_node = none
-        }
-    } elif _focused_node != none {
-        # Process typed characters
-        var typed_char = host_get_char_pressed()
-        while typed_char.len() > 0 {
-            if _focused_node.props.has("on_char") {
-                let char_fn = _focused_node.props["on_char"]
-                if char_fn != none {
-                    (char_fn)(typed_char)
-                }
-            }
-            typed_char = host_get_char_pressed()
-        }
+                                                # Backspace key
+                                                if host_key_pressed(259) {
+                                                    if _focused_node.props.has("on_backspace") {
+                                                        let bs_fn = _focused_node.props["on_backspace"]
+                                                        if bs_fn != none {
+                                                            (bs_fn)()
+                                                        }
+                                                    }
+                                                }
 
-        # Backspace key
-        if host_key_pressed(259) {
-            if _focused_node.props.has("on_backspace") {
-                let bs_fn = _focused_node.props["on_backspace"]
-                if bs_fn != none {
-                    (bs_fn)()
-                }
-            }
-        }
+                                                # Enter / Return key (submit)
+                                                if host_key_pressed(257) {
+                                                    if _focused_node.props.has("on_submit") {
+                                                        let sub_fn = _focused_node.props["on_submit"]
+                                                        if sub_fn != none {
+                                                            (sub_fn)()
+                                                        }
+                                                    }
+                                                }
 
-        # Enter / Return key (submit)
-        if host_key_pressed(257) {
-            if _focused_node.props.has("on_submit") {
-                let sub_fn = _focused_node.props["on_submit"]
-                if sub_fn != none {
-                    (sub_fn)()
-                }
-            }
-        }
+                                                # Enter or Space triggers on_click on focused buttons / elements
+                                                if host_key_pressed(257) or host_key_pressed(32) {
+                                                    if _focused_node.props.has("on_click") {
+                                                        let clk = _focused_node.props["on_click"]
+                                                        if clk != none {
+                                                            let rect_map = if _focused_node.layout != none then {
+                                                                "x": _focused_node.layout.x + 0.0,
+                                                                "y": _focused_node.layout.y + 0.0,
+                                                                "width": _focused_node.layout.width + 0.0,
+                                                                "height": _focused_node.layout.height + 0.0
+                                                            } else {
+                                                                "x": 0.0, "y": 0.0, "width": 0.0, "height": 0.0
+                                                            }
+                                                            (clk)({
+                                                                    "x": rect_map["x"],
+                                                                    "y": rect_map["y"],
+                                                                    "rect": rect_map,
+                                                                    "target_id": _focused_node.id
+                                                                })
+                                                        }
+                                                    }
+                                                }
+                                            }
 
-        # Enter or Space triggers on_click on focused buttons / elements
-        if host_key_pressed(257) or host_key_pressed(32) {
-            if _focused_node.props.has("on_click") {
-                let clk = _focused_node.props["on_click"]
-                if clk != none {
-                    let rect_map = if _focused_node.layout != none then {
-                        "x": _focused_node.layout.x + 0.0,
-                        "y": _focused_node.layout.y + 0.0,
-                        "width": _focused_node.layout.width + 0.0,
-                        "height": _focused_node.layout.height + 0.0
-                    } else {
-                        "x": 0.0, "y": 0.0, "width": 0.0, "height": 0.0
-                    }
-                    (clk)({
-                        "x": rect_map["x"],
-                        "y": rect_map["y"],
-                        "rect": rect_map,
-                        "target_id": _focused_node.id
-                    })
-                }
-            }
-        }
-    }
+                                            # 7. Check if reactive state changed; if so, re-layout tree
+                                            if hooks_mod.is_dirty() {
+                                                rebuild_tree()
+                                            }
+                                        }
 
-    # 7. Check if reactive state changed; if so, re-layout tree
-    if hooks_mod.is_dirty() {
-        rebuild_tree()
-    }
-}
+                                        # Renders the current frame
+                                        fn app_render() {
+                                            # Default background: Catppuccin Crust dark tone
+                                            host_clear_background(0.067, 0.067, 0.106)
+                                            if _root_element != none {
+                                                renderer_mod.render_tree(_root_element)
+                                            }
+                                            if overlay_mod.overlay_has_overlays() {
+                                                renderer_mod.render_overlays(overlay_mod.overlay_get_all())
+                                            }
+                                            let tip = overlay_mod.overlay_get_active_tooltip()
+                                            if tip != none {
+                                                renderer_mod.render_tooltip(tip)
+                                            }
+                                            if _inspector_enabled and _root_element != none {
+                                                renderer_mod.render_inspector(_root_element, _prev_mx, _prev_my)
+                                            }
+                                        }
 
-# Renders the current frame
-fn app_render() {
-    # Default background: Catppuccin Crust dark tone
-    host_clear_background(0.067, 0.067, 0.106)
-    if _root_element != none {
-        renderer_mod.render_tree(_root_element)
-    }
-    if overlay_mod.overlay_has_overlays() {
-        renderer_mod.render_overlays(overlay_mod.overlay_get_all())
-    }
-    let tip = overlay_mod.overlay_get_active_tooltip()
-    if tip != none {
-        renderer_mod.render_tooltip(tip)
-    }
-    if _inspector_enabled and _root_element != none {
-        renderer_mod.render_inspector(_root_element, _prev_mx, _prev_my)
-    }
-}
-
-export app_mount, app_update, app_render, rebuild_tree, hit_test, app_get_root_element, find_wheel_target, app_get_focused_node, app_set_focused_node, collect_focusable_nodes, app_toggle_inspector, app_is_inspector_enabled
+                                        export app_mount, app_update, app_render, rebuild_tree, hit_test, app_get_root_element, find_wheel_target, app_get_focused_node, app_set_focused_node, collect_focusable_nodes, app_toggle_inspector, app_is_inspector_enabled

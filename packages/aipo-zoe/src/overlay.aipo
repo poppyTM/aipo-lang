@@ -24,120 +24,120 @@ fn overlay_next_id() -> Int {
 fn overlay_push(element, options: Dict = {}) -> Int {
     let id = overlay_next_id()
     let scrim = if options.has("scrim") then options["scrim"] else false
-    let dismissible = if options.has("dismissible") then options["dismissible"] else true
-    let on_dismiss = if options.has("on_dismiss") then options["on_dismiss"] else none
+            let dismissible = if options.has("dismissible") then options["dismissible"] else true
+                    let on_dismiss = if options.has("on_dismiss") then options["on_dismiss"] else none
 
-    # Ensure layout is computed for the overlay element if layout exists
-    if element != none and element.layout != none {
-        leona_mod.layout_node(element, element.layout.x, element.layout.y, element.layout.width, element.layout.height)
-    }
+                            # Ensure layout is computed for the overlay element if layout exists
+                            if element != none and element.layout != none {
+                                leona_mod.layout_node(element, element.layout.x, element.layout.y, element.layout.width, element.layout.height)
+                            }
 
-    let ov = Overlay {
-        id: id,
-        element: element,
-        scrim: scrim,
-        dismissible: dismissible,
-        on_dismiss: on_dismiss
-    }
-    _overlays.add(ov)
-    return id
-}
+                            let ov = Overlay {
+                                id: id,
+                                element: element,
+                                scrim: scrim,
+                                dismissible: dismissible,
+                                on_dismiss: on_dismiss
+                            }
+                            _overlays.add(ov)
+                            return id
+                        }
 
-fn overlay_pop() -> Bool {
-    if _overlays.len() == 0 {
-        return false
-    }
-    let last_idx = _overlays.len() - 1
-    let ov = _overlays[last_idx]
-    _overlays.remove_at(last_idx)
-    if ov.on_dismiss != none {
-        (ov.on_dismiss)()
-    }
-    return true
-}
+                        fn overlay_pop() -> Bool {
+                            if _overlays.len() == 0 {
+                                return false
+                            }
+                            let last_idx = _overlays.len() - 1
+                            let ov = _overlays[last_idx]
+                            _overlays.remove_at(last_idx)
+                            if ov.on_dismiss != none {
+                                (ov.on_dismiss)()
+                            }
+                            return true
+                        }
 
-fn overlay_remove(id: Int) -> Bool {
-    var i = 0
-    while i < _overlays.len() {
-        if _overlays[i].id == id {
-            let ov = _overlays[i]
-            _overlays.remove_at(i)
-            if ov.on_dismiss != none {
-                (ov.on_dismiss)()
-            }
-            return true
-        }
-        i += 1
-    }
-    return false
-}
+                        fn overlay_remove(id: Int) -> Bool {
+                            var i = 0
+                            while i < _overlays.len() {
+                                if _overlays[i].id == id {
+                                    let ov = _overlays[i]
+                                    _overlays.remove_at(i)
+                                    if ov.on_dismiss != none {
+                                        (ov.on_dismiss)()
+                                    }
+                                    return true
+                                }
+                                i += 1
+                            }
+                            return false
+                        }
 
-fn overlay_clear() {
-    each ov in _overlays {
-        if ov.on_dismiss != none {
-            (ov.on_dismiss)()
-        }
-    }
-    _overlays = []
-}
+                        fn overlay_clear() {
+                            each ov in _overlays {
+                                if ov.on_dismiss != none {
+                                    (ov.on_dismiss)()
+                                }
+                            }
+                            _overlays = []
+                        }
 
-fn overlay_has_overlays() -> Bool {
-    return _overlays.len() > 0
-}
+                        fn overlay_has_overlays() -> Bool {
+                            return _overlays.len() > 0
+                        }
 
-fn overlay_get_top() {
-    if _overlays.len() == 0 {
-        return none
-    }
-    return _overlays[_overlays.len() - 1]
-}
+                        fn overlay_get_top() {
+                            if _overlays.len() == 0 {
+                                return none
+                            }
+                            return _overlays[_overlays.len() - 1]
+                        }
 
-fn overlay_get_all() -> List {
-    return _overlays
-}
+                        fn overlay_get_all() -> List {
+                            return _overlays
+                        }
 
-# Hit testing against overlays from top to bottom
-fn overlay_hit_test(px: Float, py: Float, hit_test_fn) {
-    if _overlays.len() == 0 {
-        return none
-    }
-    var i = _overlays.len() - 1
-    while i >= 0 {
-        let ov = _overlays[i]
-        let hit = (hit_test_fn)(ov.element, px, py)
-        if hit != none {
-            return hit
-        }
-        i -= 1
-    }
-    return none
-}
+                        # Hit testing against overlays from top to bottom
+                        fn overlay_hit_test(px: Float, py: Float, hit_test_fn) {
+                            if _overlays.len() == 0 {
+                                return none
+                            }
+                            var i = _overlays.len() - 1
+                            while i >= 0 {
+                                let ov = _overlays[i]
+                                let hit = (hit_test_fn)(ov.element, px, py)
+                                if hit != none {
+                                    return hit
+                                }
+                                i -= 1
+                            }
+                            return none
+                        }
 
-# Tooltip helpers
-fn overlay_set_tooltip(text: String, x: Float, y: Float) {
-    _active_tooltip = {
-        "text": text,
-        "x": x,
-        "y": y
-    }
-}
+                        # Tooltip helpers
+                        fn overlay_set_tooltip(text: String, x: Float, y: Float) {
+                            _active_tooltip = {
+                                "text": text,
+                                "x": x,
+                                "y": y
+                            }
+                        }
 
-fn overlay_clear_tooltip() {
-    _active_tooltip = none
-}
+                        fn overlay_clear_tooltip() {
+                            _active_tooltip = none
+                        }
 
-fn overlay_get_active_tooltip() {
-    return _active_tooltip
-}
+                        fn overlay_get_active_tooltip() {
+                            return _active_tooltip
+                        }
 
-fn overlay_get_tooltip_hover_time() -> Float {
-    return _tooltip_hover_time
-}
+                        fn overlay_get_tooltip_hover_time() -> Float {
+                            return _tooltip_hover_time
+                        }
 
-fn overlay_set_tooltip_hover_time(t: Float) {
-    _tooltip_hover_time = t
-}
+                        fn overlay_set_tooltip_hover_time(t: Float) {
+                            _tooltip_hover_time = t
+                        }
 
-export Overlay, overlay_push, overlay_pop, overlay_remove, overlay_clear
-export overlay_has_overlays, overlay_get_top, overlay_get_all, overlay_hit_test
-export overlay_set_tooltip, overlay_clear_tooltip, overlay_get_active_tooltip, overlay_get_tooltip_hover_time, overlay_set_tooltip_hover_time
+                        export Overlay, overlay_push, overlay_pop, overlay_remove, overlay_clear
+                        export overlay_has_overlays, overlay_get_top, overlay_get_all, overlay_hit_test
+                        export overlay_set_tooltip, overlay_clear_tooltip, overlay_get_active_tooltip, overlay_get_tooltip_hover_time, overlay_set_tooltip_hover_time

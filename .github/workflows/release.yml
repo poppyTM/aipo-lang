@@ -1,0 +1,158 @@
+name: Release Pipeline
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: "Release tag (e.g. v0.1.0-alpha.1)"
+        required: true
+        default: "v0.1.0-alpha.1"
+
+permissions:
+  contents: write
+
+jobs:
+  build-release:
+    name: Build (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            archive_ext: tar.gz
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            archive_ext: tar.gz
+          - os: macos-13
+            target: x86_64-apple-darwin
+            archive_ext: tar.gz
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            archive_ext: zip
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Configure Rust
+        shell: bash
+        run: |
+          rustup toolchain install stable --profile minimal --target ${{ matrix.target }}
+          rustup default stable
+          rustc --version
+          cargo --version
+
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev
+
+      - name: Build Release Artifacts
+        shell: bash
+        run: |
+          cargo build --release --target ${{ matrix.target }} -p aipo-cli -p aipo-c-abi
+
+      - name: Package Artifacts (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          TAG="${{ github.ref_name }}"
+          if [ -z "$TAG" ] || [[ "$TAG" != v* ]]; then
+            TAG="${{ inputs.tag_name }}"
+          fi
+          DIST="aipo-${TAG}-${{ matrix.target }}"
+          mkdir -p "${DIST}/bin" "${DIST}/lib" "${DIST}/include"
+
+          cp "target/${{ matrix.target }}/release/aipo" "${DIST}/bin/"
+          if [ -f "target/${{ matrix.target }}/release/aipo-sh" ]; then
+            cp "target/${{ matrix.target }}/release/aipo-sh" "${DIST}/bin/"
+          fi
+
+          if [ -f "target/${{ matrix.target }}/release/libaipo_c_abi.so" ]; then
+            cp "target/${{ matrix.target }}/release/libaipo_c_abi.so" "${DIST}/lib/"
+          fi
+          if [ -f "target/${{ matrix.target }}/release/libaipo_c_abi.dylib" ]; then
+            cp "target/${{ matrix.target }}/release/libaipo_c_abi.dylib" "${DIST}/lib/"
+          fi
+
+          cp crates/aipo-c-abi/include/aipo.h "${DIST}/include/"
+          cp README.md "${DIST}/"
+          if [ -f LICENSE ]; then cp LICENSE "${DIST}/"; fi
+
+          tar -czvf "${DIST}.tar.gz" "${DIST}"
+          shasum -a 256 "${DIST}.tar.gz" > "${DIST}.tar.gz.sha256"
+
+      - name: Package Artifacts (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          TAG="${{ github.ref_name }}"
+          if [ -z "$TAG" ] || [[ "$TAG" != v* ]]; then
+            TAG="${{ inputs.tag_name }}"
+          fi
+          DIST="aipo-${TAG}-${{ matrix.target }}"
+          mkdir -p "${DIST}/bin" "${DIST}/lib" "${DIST}/include"
+
+          cp "target/${{ matrix.target }}/release/aipo.exe" "${DIST}/bin/"
+          if [ -f "target/${{ matrix.target }}/release/aipo-sh.exe" ]; then
+            cp "target/${{ matrix.target }}/release/aipo-sh.exe" "${DIST}/bin/"
+          fi
+
+          if [ -f "target/${{ matrix.target }}/release/aipo_c_abi.dll" ]; then
+            cp "target/${{ matrix.target }}/release/aipo_c_abi.dll" "${DIST}/lib/"
+          fi
+
+          cp crates/aipo-c-abi/include/aipo.h "${DIST}/include/"
+          cp README.md "${DIST}/"
+          if [ -f LICENSE ]; then cp LICENSE "${DIST}/"; fi
+
+          7z a -tzip "${DIST}.zip" "${DIST}"
+          shasum -a 256 "${DIST}.zip" > "${DIST}.zip.sha256"
+
+      - name: Upload Release Archive Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ matrix.target }}
+          path: |
+            aipo-*.tar.gz
+            aipo-*.tar.gz.sha256
+            aipo-*.zip
+            aipo-*.zip.sha256
+
+  publish:
+    name: Publish GitHub Release
+    needs: build-release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Download all release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+
+      - name: Prepare Final Assets & Checksums
+        shell: bash
+        run: |
+          mkdir -p release-assets
+          find release-artifacts -type f \( -name "*.tar.gz" -o -name "*.zip" -o -name "*.sha256" \) -exec cp {} release-assets/ \;
+          cd release-assets
+          cat *.sha256 > SHA256SUMS.txt
+          ls -la
+
+      - name: Create or Update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name || inputs.tag_name }}
+          name: Aipo Language ${{ github.ref_name || inputs.tag_name }}
+          draft: false
+          prerelease: true
+          files: |
+            release-assets/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

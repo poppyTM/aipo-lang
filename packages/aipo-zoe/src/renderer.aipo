@@ -37,330 +37,330 @@ fn draw_text_line(line: String, x: Float, baseline_y: Float, size: Float, weight
 fn draw_node_text(node, r) -> Int {
     let props = node.props
     let raw = if props.has("text") then props["text"] else ""
-    if raw == "" {
-        return 0
-    }
-    let size = text_mod.text_size_of(props, 14.0)
-    let weight = text_mod.text_weight_of(props)
-    let color_val = resolve_text_color(props)
-    let letter_spacing = text_mod.text_letter_spacing(props)
-    let line_height = text_mod.text_line_height(props, size)
-    let align = if props.has("text_align") then props["text_align"] else "start"
-
-    # Vertical placement: an explicit `text_valign` pins the line box, otherwise
-    # the block is optically centered in the node box.
-    let valign = if props.has("text_valign") then props["text_valign"] else "center"
-    let fm = host_font_metrics(size)
-    let ascent = fm["ascent"]
-    let descent = fm["descent"]
-    let block_h = ascent - descent
-
-    # Multi-line mode: wrap into the node width and honor max_lines.
-    let max_lines = if props.has("max_lines") then (props["max_lines"] + 0) else 0
-    let allow_wrap = props.has("text_wrap") and props["text_wrap"] == true
-
-    var lines = []
-    if allow_wrap and max_lines > 0 and r.width > 0.0 {
-        lines = text_mod.text_wrap(raw, r.width, size, weight, max_lines)
-    } elif max_lines > 0 {
-        # No wrapping requested, but the text is clamped: lay it out on a single
-        # line and ellipsize to the node width.
-        var single = raw
-        let fits = text_mod.text_measure(single, size, weight) + letter_spacing * (single.len() - 1 + 0.0)
-        if fits > r.width {
-            single = text_mod.text_ellipsize(single, r.width, size, weight)
-        }
-        lines = [single]
-    } else {
-        lines = [raw]
-    }
-
-    if lines.len() == 0 {
-        return 0
-    }
-
-    # Position the line block.
-    let total_h = block_h + (lines.len() - 1 + 0.0) * line_height
-    var block_y = r.y
-    if valign == "center" {
-        block_y = r.y + (r.height - total_h) / 2.0
-    } elif valign == "end" or valign == "bottom" {
-        block_y = r.y + r.height - total_h
-    }
-
-    var line_idx = 0
-    each line in lines {
-        let lw = text_mod.text_measure(line, size, weight) + letter_spacing * (line.len() - 1 + 0.0)
-        let x = text_mod.text_align_offset(align, r.x, r.width, lw)
-        let baseline_y = block_y + block_h + (line_idx + 0.0) * line_height
-
-        if letter_spacing == 0.0 {
-            draw_text_line(line, x, baseline_y, size, weight, color_val)
-        } else {
-            # Per-glyph advance: accumulate so letter spacing does not accumulate
-            # rounding error across the run.
-            var cx = x
-            var gi = 0
-            while gi < line.len() {
-                let glyph = line.slice(gi, gi + 1)
-                draw_text_line(glyph, cx, baseline_y, size, weight, color_val)
-                cx += text_mod.text_measure(glyph, size, weight) + letter_spacing
-                gi += 1
+            if raw == "" {
+                return 0
             }
-        }
-        line_idx += 1
-    }
+            let size = text_mod.text_size_of(props, 14.0)
+            let weight = text_mod.text_weight_of(props)
+            let color_val = resolve_text_color(props)
+            let letter_spacing = text_mod.text_letter_spacing(props)
+            let line_height = text_mod.text_line_height(props, size)
+            let align = if props.has("text_align") then props["text_align"] else "start"
 
-    return lines.len()
-}
+                    # Vertical placement: an explicit `text_valign` pins the line box, otherwise
+                    # the block is optically centered in the node box.
+                    let valign = if props.has("text_valign") then props["text_valign"] else "center"
+                            let fm = host_font_metrics(size)
+                            let ascent = fm["ascent"]
+                            let descent = fm["descent"]
+                            let block_h = ascent - descent
 
-fn render_node(node) {
-    if node == none or node.layout == none {
-        return
-    }
+                            # Multi-line mode: wrap into the node width and honor max_lines.
+                            let max_lines = if props.has("max_lines") then (props["max_lines"] + 0) else 0
+                                    let allow_wrap = props.has("text_wrap") and props["text_wrap"] == true
 
-    let r = node.layout
-    let props = node.props
+                                    var lines = []
+                                    if allow_wrap and max_lines > 0 and r.width > 0.0 {
+                                        lines = text_mod.text_wrap(raw, r.width, size, weight, max_lines)
+                                    } elif max_lines > 0 {
+                                        # No wrapping requested, but the text is clamped: lay it out on a single
+                                        # line and ellipsize to the node width.
+                                        var single = raw
+                                        let fits = text_mod.text_measure(single, size, weight) + letter_spacing * (single.len() - 1 + 0.0)
+                                        if fits > r.width {
+                                            single = text_mod.text_ellipsize(single, r.width, size, weight)
+                                        }
+                                        lines = [single]
+                                    } else {
+                                        lines = [raw]
+                                    }
 
-    # 1. Background, border, shadow and focus ring, unified in one GPU pass (M14)
-    let has_bg = props.has("background") and props["background"] != none
-    let has_border = props.has("border_width") and (props["border_width"] + 0.0) > 0.0
-    let radius = if props.has("border_radius") then (props["border_radius"] + 0.0) else 0.0
+                                    if lines.len() == 0 {
+                                        return 0
+                                    }
 
-    # M14: elevation is a continuous 0..5 level. Level 0 disables the shadow
-    # branch in the shader entirely, so unelevated widgets cost nothing.
-    let elevation = if props.has("elevation") then (props["elevation"] + 0.0) else 0.0
+                                    # Position the line block.
+                                    let total_h = block_h + (lines.len() - 1 + 0.0) * line_height
+                                    var block_y = r.y
+                                    if valign == "center" {
+                                        block_y = r.y + (r.height - total_h) / 2.0
+                                    } elif valign == "end" or valign == "bottom" {
+                                        block_y = r.y + r.height - total_h
+                                    }
 
-    # Per-corner radii, for asymmetric shapes. `border_radius_tl` .. `_bl`.
-    var has_corner_radii = false
-    if props.has("border_radius_tl") or props.has("border_radius_tr") or props.has("border_radius_br") or props.has("border_radius_bl") {
-        has_corner_radii = true
-    }
+                                    var line_idx = 0
+                                    each line in lines {
+                                        let lw = text_mod.text_measure(line, size, weight) + letter_spacing * (line.len() - 1 + 0.0)
+                                        let x = text_mod.text_align_offset(align, r.x, r.width, lw)
+                                        let baseline_y = block_y + block_h + (line_idx + 0.0) * line_height
 
-    let inner_hl = if props.has("inner_highlight") then (props["inner_highlight"] + 0.0) else (if node.tag == "button" or node.tag == "card" or node.tag == "tab_item" then 1.0 else 0.0)
+                                        if letter_spacing == 0.0 {
+                                            draw_text_line(line, x, baseline_y, size, weight, color_val)
+                                        } else {
+                                            # Per-glyph advance: accumulate so letter spacing does not accumulate
+                                            # rounding error across the run.
+                                            var cx = x
+                                            var gi = 0
+                                            while gi < line.len() {
+                                                let glyph = line.slice(gi, gi + 1)
+                                                draw_text_line(glyph, cx, baseline_y, size, weight, color_val)
+                                                cx += text_mod.text_measure(glyph, size, weight) + letter_spacing
+                                                gi += 1
+                                            }
+                                        }
+                                        line_idx += 1
+                                    }
 
-    # M14: the focus ring now composes inside the same draw call as the fill,
-    # border and shadow. Previously it was a second, hard-edged
-    # `host_draw_rect_lines` pass outside the node, which produced a single-
-    # colour ring that failed WCAG 2.4.13 on both light and dark surfaces.
-    let has_focus = node.is_focused
-    let focus_w = if has_focus then (if props.has("focus_ring_width") then (props["focus_ring_width"] + 0.0) else 2.0) else 0.0
-    var focus_color = color_mod.transparent
-    if has_focus {
-        if props.has("focus_ring_color") {
-            focus_color = props["focus_ring_color"]
-        } else {
-            focus_color = color_mod.blue
-        }
-    }
+                                    return lines.len()
+                                }
 
-    if has_bg or has_border or elevation > 0.0 or has_focus {
-        var bg = if has_bg then props["background"] else color_mod.transparent
+                                fn render_node(node) {
+                                    if node == none or node.layout == none {
+                                        return
+                                    }
 
-        # Hover/active feedback: brighten slightly if hovered or active
-        var bg_r = bg.r + 0.0
-        var bg_g = bg.g + 0.0
-        var bg_b = bg.b + 0.0
-        if (node.is_hovered or node.is_active) and (props.has("on_click") or props.has("on_drag") or node.tag == "button" or node.tag == "split_handle") {
-            bg_r = if bg_r + 0.12 > 1.0 then 1.0 else bg_r + 0.12
-            bg_g = if bg_g + 0.12 > 1.0 then 1.0 else bg_g + 0.12
-            bg_b = if bg_b + 0.12 > 1.0 then 1.0 else bg_b + 0.12
-        }
+                                    let r = node.layout
+                                    let props = node.props
 
-        var bw = 0.0
-        var bc = color_mod.transparent
-        if has_border {
-            bw = props["border_width"] + 0.0
-            bc = if node.is_focused then (if props.has("focus_border_color") then props["focus_border_color"] else color_mod.blue) else (if props.has("border_color") and props["border_color"] != none then props["border_color"] else color_mod.surface_2)
-        }
+                                    # 1. Background, border, shadow and focus ring, unified in one GPU pass (M14)
+                                    let has_bg = props.has("background") and props["background"] != none
+                                    let has_border = props.has("border_width") and (props["border_width"] + 0.0) > 0.0
+                                    let radius = if props.has("border_radius") then (props["border_radius"] + 0.0) else 0.0
 
-        if has_corner_radii {
-            let tl = if props.has("border_radius_tl") then (props["border_radius_tl"] + 0.0) else radius
-            let tr = if props.has("border_radius_tr") then (props["border_radius_tr"] + 0.0) else radius
-            let br = if props.has("border_radius_br") then (props["border_radius_br"] + 0.0) else radius
-            let bl = if props.has("border_radius_bl") then (props["border_radius_bl"] + 0.0) else radius
-            host_draw_sdf_rect_corners(
-                r.x, r.y, r.width, r.height,
-                tl, tr, br, bl,
-                elevation, focus_w,
-                focus_color.r, focus_color.g, focus_color.b, focus_color.a,
-                bw, bc.r, bc.g, bc.b, bc.a,
-                inner_hl,
-                bg_r, bg_g, bg_b, bg.a
-            )
-        } else {
-            host_draw_sdf_rect_v2(
-                r.x, r.y, r.width, r.height,
-                radius,
-                elevation, focus_w,
-                focus_color.r, focus_color.g, focus_color.b, focus_color.a,
-                bw, bc.r, bc.g, bc.b, bc.a,
-                inner_hl,
-                bg_r, bg_g, bg_b, bg.a
-            )
-        }
-    }
+                                            # M14: elevation is a continuous 0..5 level. Level 0 disables the shadow
+                                            # branch in the shader entirely, so unelevated widgets cost nothing.
+                                            let elevation = if props.has("elevation") then (props["elevation"] + 0.0) else 0.0
 
-    # 2. Text rendering (weight, alignment, wrapping, ellipsis -- M13)
-    if node.tag == "label" or props.has("text") {
-        draw_node_text(node, r)
-    }
+                                                    # Per-corner radii, for asymmetric shapes. `border_radius_tl` .. `_bl`.
+                                                    var has_corner_radii = false
+                                                    if props.has("border_radius_tl") or props.has("border_radius_tr") or props.has("border_radius_br") or props.has("border_radius_bl") {
+                                                        has_corner_radii = true
+                                                    }
 
-    # 3. Viewport custom rendering callback (scenes, 2D/3D games)
-    if props.has("on_render") and props["on_render"] != none {
-        host_push_clip_rect(r.x, r.y, r.width, r.height)
-        (props["on_render"])({
-            "x": r.x,
-            "y": r.y,
-            "width": r.width,
-            "height": r.height
-        })
-        host_reset_camera()
-        host_pop_clip_rect()
-    }
+                                                    let inner_hl = if props.has("inner_highlight") then (props["inner_highlight"] + 0.0) else (if node.tag == "button" or node.tag == "card" or node.tag == "tab_item" then 1.0 else 0.0)
 
-    # 3b. Custom drawing callbacks (e.g. icon rendering, vector shapes)
-    if props.has("on_custom_draw") and props["on_custom_draw"] != none {
-        (props["on_custom_draw"])(node)
-    }
+                                                                    # M14: the focus ring now composes inside the same draw call as the fill,
+                                                                    # border and shadow. Previously it was a second, hard-edged
+                                                                    # `host_draw_rect_lines` pass outside the node, which produced a single-
+                                                                    # colour ring that failed WCAG 2.4.13 on both light and dark surfaces.
+                                                                    let has_focus = node.is_focused
+                                                                    let focus_w = if has_focus then (if props.has("focus_ring_width") then (props["focus_ring_width"] + 0.0) else 2.0) else 0.0
+                                                                                    var focus_color = color_mod.transparent
+                                                                                    if has_focus {
+                                                                                        if props.has("focus_ring_color") {
+                                                                                            focus_color = props["focus_ring_color"]
+                                                                                        } else {
+                                                                                            focus_color = color_mod.blue
+                                                                                        }
+                                                                                    }
 
-    # 4. Recursively render children with clipping support
-    let should_clip = props.has("clip") and props["clip"] == true
-    if should_clip {
-        host_push_clip_rect(r.x, r.y, r.width, r.height)
-    }
+                                                                                    if has_bg or has_border or elevation > 0.0 or has_focus {
+                                                                                        var bg = if has_bg then props["background"] else color_mod.transparent
 
-    each child in node.children {
-        render_node(child)
-    }
+                                                                                                # Hover/active feedback: brighten slightly if hovered or active
+                                                                                                var bg_r = bg.r + 0.0
+                                                                                                var bg_g = bg.g + 0.0
+                                                                                                var bg_b = bg.b + 0.0
+                                                                                                if (node.is_hovered or node.is_active) and (props.has("on_click") or props.has("on_drag") or node.tag == "button" or node.tag == "split_handle") {
+                                                                                                    bg_r = if bg_r + 0.12 > 1.0 then 1.0 else bg_r + 0.12
+                                                                                                            bg_g = if bg_g + 0.12 > 1.0 then 1.0 else bg_g + 0.12
+                                                                                                                    bg_b = if bg_b + 0.12 > 1.0 then 1.0 else bg_b + 0.12
+                                                                                                                        }
 
-    if should_clip {
-        host_pop_clip_rect()
-    }
-}
+                                                                                                                        var bw = 0.0
+                                                                                                                        var bc = color_mod.transparent
+                                                                                                                        if has_border {
+                                                                                                                            bw = props["border_width"] + 0.0
+                                                                                                                            bc = if node.is_focused then (if props.has("focus_border_color") then props["focus_border_color"] else color_mod.blue) else (if props.has("border_color") and props["border_color"] != none then props["border_color"] else color_mod.surface_2)
+                                                                                                                                                }
 
-fn render_tree(root) {
-    if root != none {
-        render_node(root)
-    }
-}
+                                                                                                                                                if has_corner_radii {
+                                                                                                                                                    let tl = if props.has("border_radius_tl") then (props["border_radius_tl"] + 0.0) else radius
+                                                                                                                                                            let tr = if props.has("border_radius_tr") then (props["border_radius_tr"] + 0.0) else radius
+                                                                                                                                                                    let br = if props.has("border_radius_br") then (props["border_radius_br"] + 0.0) else radius
+                                                                                                                                                                            let bl = if props.has("border_radius_bl") then (props["border_radius_bl"] + 0.0) else radius
+                                                                                                                                                                                    host_draw_sdf_rect_corners(
+                                                                                                                                                                                        r.x, r.y, r.width, r.height,
+                                                                                                                                                                                        tl, tr, br, bl,
+                                                                                                                                                                                        elevation, focus_w,
+                                                                                                                                                                                        focus_color.r, focus_color.g, focus_color.b, focus_color.a,
+                                                                                                                                                                                        bw, bc.r, bc.g, bc.b, bc.a,
+                                                                                                                                                                                        inner_hl,
+                                                                                                                                                                                        bg_r, bg_g, bg_b, bg.a
+                                                                                                                                                                                    )
+                                                                                                                                                                                } else {
+                                                                                                                                                                                    host_draw_sdf_rect_v2(
+                                                                                                                                                                                        r.x, r.y, r.width, r.height,
+                                                                                                                                                                                        radius,
+                                                                                                                                                                                        elevation, focus_w,
+                                                                                                                                                                                        focus_color.r, focus_color.g, focus_color.b, focus_color.a,
+                                                                                                                                                                                        bw, bc.r, bc.g, bc.b, bc.a,
+                                                                                                                                                                                        inner_hl,
+                                                                                                                                                                                        bg_r, bg_g, bg_b, bg.a
+                                                                                                                                                                                    )
+                                                                                                                                                                                }
+                                                                                                                                                                            }
 
-fn render_overlays(overlays: List) {
-    if overlays.len() == 0 {
-        return
-    }
-    host_reset_camera()
-    let sw = host_screen_width()
-    let sh = host_screen_height()
+                                                                                                                                                                            # 2. Text rendering (weight, alignment, wrapping, ellipsis -- M13)
+                                                                                                                                                                            if node.tag == "label" or props.has("text") {
+                                                                                                                                                                                draw_node_text(node, r)
+                                                                                                                                                                            }
 
-    each ov in overlays {
-        if ov.scrim {
-            # Semi-transparent dark background
-            host_draw_rect(0.0, 0.0, sw, sh, 0.0, 0.0, 0.0, 0.6)
-        }
-        if ov.element != none and ov.element.layout != none {
-            let r = ov.element.layout
+                                                                                                                                                                            # 3. Viewport custom rendering callback (scenes, 2D/3D games)
+                                                                                                                                                                            if props.has("on_render") and props["on_render"] != none {
+                                                                                                                                                                                host_push_clip_rect(r.x, r.y, r.width, r.height)
+                                                                                                                                                                                (props["on_render"])({
+                                                                                                                                                                                        "x": r.x,
+                                                                                                                                                                                        "y": r.y,
+                                                                                                                                                                                        "width": r.width,
+                                                                                                                                                                                        "height": r.height
+                                                                                                                                                                                    })
+                                                                                                                                                                                host_reset_camera()
+                                                                                                                                                                                host_pop_clip_rect()
+                                                                                                                                                                            }
 
-            # M14: a real two-layer soft shadow drawn by the same SDF shader,
-            # centred on the surface with padding for the blur. Previously this
-            # was an opaque offset rectangle, which read as a hard outline
-            # rather than depth.
-            let radius = if ov.element.props.has("border_radius") then (ov.element.props["border_radius"] + 0.0) else 8.0
-            var surface = color_mod.base
-            if ov.element.props.has("background") and ov.element.props["background"] != none {
-                surface = ov.element.props["background"]
-            }
-            host_draw_sdf_rect_v2(
-                r.x, r.y, r.width, r.height,
-                radius,
-                4.0, 0.0,
-                0.0, 0.0, 0.0, 0.0,
-                0.0, 0.0, 0.0, 0.0, 0.0,
-                0.0,
-                0.0, 0.0, 0.0, 0.0
-            )
-            # Draw the surface itself on top so the shadow reads as cast BY it.
-            host_draw_sdf_rect_v2(
-                r.x, r.y, r.width, r.height,
-                radius,
-                0.0, 0.0,
-                0.0, 0.0, 0.0, 0.0,
-                0.0, 0.0, 0.0, 0.0, 0.0,
-                0.0,
-                surface.r, surface.g, surface.b, surface.a
-            )
-            render_node(ov.element)
-        }
-    }
-}
+                                                                                                                                                                            # 3b. Custom drawing callbacks (e.g. icon rendering, vector shapes)
+                                                                                                                                                                            if props.has("on_custom_draw") and props["on_custom_draw"] != none {
+                                                                                                                                                                                (props["on_custom_draw"])(node)
+                                                                                                                                                                            }
 
-fn render_tooltip(tooltip) {
-    if tooltip == none {
-        return
-    }
-    let text = tooltip["text"]
-    let tx = tooltip["x"] + 0.0
-    let ty = tooltip["y"] + 0.0
-    let font_size = 12.0
-    let tw = text_mod.text_measure(text, font_size, 400) + 16.0
-    let th = 24.0
+                                                                                                                                                                            # 4. Recursively render children with clipping support
+                                                                                                                                                                            let should_clip = props.has("clip") and props["clip"] == true
+                                                                                                                                                                            if should_clip {
+                                                                                                                                                                                host_push_clip_rect(r.x, r.y, r.width, r.height)
+                                                                                                                                                                            }
 
-    let sw = host_screen_width()
-    let sh = host_screen_height()
+                                                                                                                                                                            each child in node.children {
+                                                                                                                                                                                render_node(child)
+                                                                                                                                                                            }
 
-    let x = if (tx + tw) > sw then (sw - tw - 8.0) else tx
-    let y = if (ty + th) > sh then (ty - th - 8.0) else ty
+                                                                                                                                                                            if should_clip {
+                                                                                                                                                                                host_pop_clip_rect()
+                                                                                                                                                                            }
+                                                                                                                                                                        }
 
-    # Shadow & card
-    host_draw_rect(x + 2.0, y + 2.0, tw, th, 0.0, 0.0, 0.0, 0.45)
-    host_draw_rect(x, y, tw, th, color_mod.mantle.r, color_mod.mantle.g, color_mod.mantle.b, 0.95)
-    host_draw_rect_lines(x, y, tw, th, 1.0, color_mod.surface_2.r, color_mod.surface_2.g, color_mod.surface_2.b, 1.0)
+                                                                                                                                                                        fn render_tree(root) {
+                                                                                                                                                                            if root != none {
+                                                                                                                                                                                render_node(root)
+                                                                                                                                                                            }
+                                                                                                                                                                        }
 
-    let text_y = text_mod.text_baseline_y(y, th, font_size)
-    host_draw_text(text, x + 8.0, text_y, font_size, color_mod.text.r, color_mod.text.g, color_mod.text.b)
-}
+                                                                                                                                                                        fn render_overlays(overlays: List) {
+                                                                                                                                                                            if overlays.len() == 0 {
+                                                                                                                                                                                return
+                                                                                                                                                                            }
+                                                                                                                                                                            host_reset_camera()
+                                                                                                                                                                            let sw = host_screen_width()
+                                                                                                                                                                            let sh = host_screen_height()
 
-# DevTools Inspector Overlay for Zoe UI
-fn render_inspector_node(node, mx: Float, my: Float, hovered_ref: Dict) {
-    if node == none or node.layout == none {
-        return
-    }
-    let r = node.layout
-    host_draw_rect_lines(r.x, r.y, r.width, r.height, 1.0, 0.4, 0.6, 0.9, 0.35)
+                                                                                                                                                                            each ov in overlays {
+                                                                                                                                                                                if ov.scrim {
+                                                                                                                                                                                    # Semi-transparent dark background
+                                                                                                                                                                                    host_draw_rect(0.0, 0.0, sw, sh, 0.0, 0.0, 0.0, 0.6)
+                                                                                                                                                                                }
+                                                                                                                                                                                if ov.element != none and ov.element.layout != none {
+                                                                                                                                                                                    let r = ov.element.layout
 
-    if r.contains(mx, my) {
-        hovered_ref["node"] = node
-    }
+                                                                                                                                                                                    # M14: a real two-layer soft shadow drawn by the same SDF shader,
+                                                                                                                                                                                    # centred on the surface with padding for the blur. Previously this
+                                                                                                                                                                                    # was an opaque offset rectangle, which read as a hard outline
+                                                                                                                                                                                    # rather than depth.
+                                                                                                                                                                                    let radius = if ov.element.props.has("border_radius") then (ov.element.props["border_radius"] + 0.0) else 8.0
+                                                                                                                                                                                            var surface = color_mod.base
+                                                                                                                                                                                            if ov.element.props.has("background") and ov.element.props["background"] != none {
+                                                                                                                                                                                                surface = ov.element.props["background"]
+                                                                                                                                                                                            }
+                                                                                                                                                                                            host_draw_sdf_rect_v2(
+                                                                                                                                                                                                r.x, r.y, r.width, r.height,
+                                                                                                                                                                                                radius,
+                                                                                                                                                                                                4.0, 0.0,
+                                                                                                                                                                                                0.0, 0.0, 0.0, 0.0,
+                                                                                                                                                                                                0.0, 0.0, 0.0, 0.0, 0.0,
+                                                                                                                                                                                                0.0,
+                                                                                                                                                                                                0.0, 0.0, 0.0, 0.0
+                                                                                                                                                                                            )
+                                                                                                                                                                                            # Draw the surface itself on top so the shadow reads as cast BY it.
+                                                                                                                                                                                            host_draw_sdf_rect_v2(
+                                                                                                                                                                                                r.x, r.y, r.width, r.height,
+                                                                                                                                                                                                radius,
+                                                                                                                                                                                                0.0, 0.0,
+                                                                                                                                                                                                0.0, 0.0, 0.0, 0.0,
+                                                                                                                                                                                                0.0, 0.0, 0.0, 0.0, 0.0,
+                                                                                                                                                                                                0.0,
+                                                                                                                                                                                                surface.r, surface.g, surface.b, surface.a
+                                                                                                                                                                                            )
+                                                                                                                                                                                            render_node(ov.element)
+                                                                                                                                                                                        }
+                                                                                                                                                                                    }
+                                                                                                                                                                                }
 
-    each child in node.children {
-        render_inspector_node(child, mx, my, hovered_ref)
-    }
-}
+                                                                                                                                                                                fn render_tooltip(tooltip) {
+                                                                                                                                                                                    if tooltip == none {
+                                                                                                                                                                                        return
+                                                                                                                                                                                    }
+                                                                                                                                                                                    let text = tooltip["text"]
+                                                                                                                                                                                    let tx = tooltip["x"] + 0.0
+                                                                                                                                                                                    let ty = tooltip["y"] + 0.0
+                                                                                                                                                                                    let font_size = 12.0
+                                                                                                                                                                                    let tw = text_mod.text_measure(text, font_size, 400) + 16.0
+                                                                                                                                                                                    let th = 24.0
 
-fn render_inspector(root, mx: Float, my: Float) {
-    if root == none {
-        return
-    }
-    let hovered_ref = { "node": none }
-    render_inspector_node(root, mx, my, hovered_ref)
+                                                                                                                                                                                    let sw = host_screen_width()
+                                                                                                                                                                                    let sh = host_screen_height()
 
-    let h = hovered_ref["node"]
-    if h != none and h.layout != none {
-        let r = h.layout
-        host_draw_rect(r.x, r.y, r.width, r.height, 0.9, 0.2, 0.6, 0.15)
-        host_draw_rect_lines(r.x, r.y, r.width, r.height, 2.0, 0.9, 0.2, 0.6, 0.85)
+                                                                                                                                                                                    let x = if (tx + tw) > sw then (sw - tw - 8.0) else tx
+                                                                                                                                                                                            let y = if (ty + th) > sh then (ty - th - 8.0) else ty
 
-        let info = f"<{h.tag}#{h.id}> {Int(r.width)}x{Int(r.height)}"
-        let tw = text_mod.text_measure(info, 11.0, 400) + 16.0
-        let th = 22.0
-        let px = if (mx + tw + 12.0) > host_screen_width() then (mx - tw - 8.0) else (mx + 12.0)
-        let py = if (my + th + 12.0) > host_screen_height() then (my - th - 8.0) else (my + 12.0)
+                                                                                                                                                                                                    # Shadow & card
+                                                                                                                                                                                                    host_draw_rect(x + 2.0, y + 2.0, tw, th, 0.0, 0.0, 0.0, 0.45)
+                                                                                                                                                                                                    host_draw_rect(x, y, tw, th, color_mod.mantle.r, color_mod.mantle.g, color_mod.mantle.b, 0.95)
+                                                                                                                                                                                                    host_draw_rect_lines(x, y, tw, th, 1.0, color_mod.surface_2.r, color_mod.surface_2.g, color_mod.surface_2.b, 1.0)
 
-        host_draw_rect(px, py, tw, th, color_mod.crust.r, color_mod.crust.g, color_mod.crust.b, 0.92)
-        host_draw_rect_lines(px, py, tw, th, 1.0, 0.9, 0.2, 0.6, 0.85)
-        host_draw_text(info, px + 8.0, py + 15.0, 11.0, 1.0, 1.0, 1.0)
-    }
-}
+                                                                                                                                                                                                    let text_y = text_mod.text_baseline_y(y, th, font_size)
+                                                                                                                                                                                                    host_draw_text(text, x + 8.0, text_y, font_size, color_mod.text.r, color_mod.text.g, color_mod.text.b)
+                                                                                                                                                                                                }
 
-export draw_text_line, draw_node_text, resolve_text_color
-export render_node, render_tree, render_overlays, render_tooltip, render_inspector
+                                                                                                                                                                                                # DevTools Inspector Overlay for Zoe UI
+                                                                                                                                                                                                fn render_inspector_node(node, mx: Float, my: Float, hovered_ref: Dict) {
+                                                                                                                                                                                                    if node == none or node.layout == none {
+                                                                                                                                                                                                        return
+                                                                                                                                                                                                    }
+                                                                                                                                                                                                    let r = node.layout
+                                                                                                                                                                                                    host_draw_rect_lines(r.x, r.y, r.width, r.height, 1.0, 0.4, 0.6, 0.9, 0.35)
+
+                                                                                                                                                                                                    if r.contains(mx, my) {
+                                                                                                                                                                                                        hovered_ref["node"] = node
+                                                                                                                                                                                                    }
+
+                                                                                                                                                                                                    each child in node.children {
+                                                                                                                                                                                                        render_inspector_node(child, mx, my, hovered_ref)
+                                                                                                                                                                                                    }
+                                                                                                                                                                                                }
+
+                                                                                                                                                                                                fn render_inspector(root, mx: Float, my: Float) {
+                                                                                                                                                                                                    if root == none {
+                                                                                                                                                                                                        return
+                                                                                                                                                                                                    }
+                                                                                                                                                                                                    let hovered_ref = { "node": none }
+                                                                                                                                                                                                    render_inspector_node(root, mx, my, hovered_ref)
+
+                                                                                                                                                                                                    let h = hovered_ref["node"]
+                                                                                                                                                                                                    if h != none and h.layout != none {
+                                                                                                                                                                                                        let r = h.layout
+                                                                                                                                                                                                        host_draw_rect(r.x, r.y, r.width, r.height, 0.9, 0.2, 0.6, 0.15)
+                                                                                                                                                                                                        host_draw_rect_lines(r.x, r.y, r.width, r.height, 2.0, 0.9, 0.2, 0.6, 0.85)
+
+                                                                                                                                                                                                        let info = f"<{h.tag}#{h.id}> {Int(r.width)}x{Int(r.height)}"
+                                                                                                                                                                                                        let tw = text_mod.text_measure(info, 11.0, 400) + 16.0
+                                                                                                                                                                                                        let th = 22.0
+                                                                                                                                                                                                        let px = if (mx + tw + 12.0) > host_screen_width() then (mx - tw - 8.0) else (mx + 12.0)
+                                                                                                                                                                                                                let py = if (my + th + 12.0) > host_screen_height() then (my - th - 8.0) else (my + 12.0)
+
+                                                                                                                                                                                                                        host_draw_rect(px, py, tw, th, color_mod.crust.r, color_mod.crust.g, color_mod.crust.b, 0.92)
+                                                                                                                                                                                                                        host_draw_rect_lines(px, py, tw, th, 1.0, 0.9, 0.2, 0.6, 0.85)
+                                                                                                                                                                                                                        host_draw_text(info, px + 8.0, py + 15.0, 11.0, 1.0, 1.0, 1.0)
+                                                                                                                                                                                                                    }
+                                                                                                                                                                                                                }
+
+                                                                                                                                                                                                                export draw_text_line, draw_node_text, resolve_text_color
+                                                                                                                                                                                                                export render_node, render_tree, render_overlays, render_tooltip, render_inspector
