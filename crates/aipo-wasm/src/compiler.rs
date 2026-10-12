@@ -44,6 +44,8 @@ enum LocalKind {
     List,
     /// A `Dict` value produced by a dict literal.
     Dict,
+    /// A `Bytes` value produced by `Bytes(len)`.
+    Bytes,
 }
 
 /// Describes the byte layout of a struct in linear memory.
@@ -621,6 +623,110 @@ pub fn compile_hir(program: &HirProgram) -> Result<Vec<u8>, WasmCompileError> {
             string_hash_type_idx,
             string_hash_fn_type,
         ),
+    );
+
+    // Function 19: `__aipo_str_concat(ptr_a: i32, ptr_b: i32) -> i32`
+    let str_concat_fn_type =
+        WasmFnType::new(vec![WasmType::I32, WasmType::I32], vec![WasmType::I32]);
+    let str_concat_type_idx = emitter.add_type(str_concat_fn_type.clone());
+    let str_concat_fn = build_string_concat_function(alloc_func_idx);
+    let str_concat_func_idx = emitter.add_function(str_concat_type_idx, str_concat_fn);
+    emitter.export_function("__aipo_str_concat", str_concat_func_idx);
+    functions.insert(
+        "__aipo_str_concat".to_string(),
+        (
+            str_concat_func_idx,
+            str_concat_type_idx,
+            str_concat_fn_type,
+        ),
+    );
+
+    // Function 20: `__aipo_int_to_str(val: i64) -> i32`
+    let int_to_str_fn_type = WasmFnType::new(vec![WasmType::I64], vec![WasmType::I32]);
+    let int_to_str_type_idx = emitter.add_type(int_to_str_fn_type.clone());
+    let int_to_str_fn = build_int_to_str_function(alloc_func_idx);
+    let int_to_str_func_idx = emitter.add_function(int_to_str_type_idx, int_to_str_fn);
+    emitter.export_function("__aipo_int_to_str", int_to_str_func_idx);
+    functions.insert(
+        "__aipo_int_to_str".to_string(),
+        (int_to_str_func_idx, int_to_str_type_idx, int_to_str_fn_type),
+    );
+
+    // Function 21: `__aipo_bool_to_str(val: i32) -> i32`
+    let true_ptr = static_strings.get("true").copied().unwrap_or(0);
+    let false_ptr = static_strings.get("false").copied().unwrap_or(0);
+    let bool_to_str_fn_type = WasmFnType::new(vec![WasmType::I32], vec![WasmType::I32]);
+    let bool_to_str_type_idx = emitter.add_type(bool_to_str_fn_type.clone());
+    let bool_to_str_fn = build_bool_to_str_function(true_ptr, false_ptr);
+    let bool_to_str_func_idx = emitter.add_function(bool_to_str_type_idx, bool_to_str_fn);
+    emitter.export_function("__aipo_bool_to_str", bool_to_str_func_idx);
+    functions.insert(
+        "__aipo_bool_to_str".to_string(),
+        (
+            bool_to_str_func_idx,
+            bool_to_str_type_idx,
+            bool_to_str_fn_type,
+        ),
+    );
+
+    // Function 22: `__aipo_str_eq(ptr_a: i32, ptr_b: i32) -> i32`
+    let str_eq_fn_type =
+        WasmFnType::new(vec![WasmType::I32, WasmType::I32], vec![WasmType::I32]);
+    let str_eq_type_idx = emitter.add_type(str_eq_fn_type.clone());
+    let str_eq_fn = build_string_eq_function();
+    let str_eq_func_idx = emitter.add_function(str_eq_type_idx, str_eq_fn);
+    emitter.export_function("__aipo_str_eq", str_eq_func_idx);
+    functions.insert(
+        "__aipo_str_eq".to_string(),
+        (str_eq_func_idx, str_eq_type_idx, str_eq_fn_type),
+    );
+
+    // Function 23: `__aipo_bytes_new(len: i32) -> i32`
+    let bytes_new_fn_type = WasmFnType::new(vec![WasmType::I32], vec![WasmType::I32]);
+    let bytes_new_type_idx = emitter.add_type(bytes_new_fn_type.clone());
+    let bytes_new_fn = build_bytes_new_function(alloc_func_idx);
+    let bytes_new_func_idx = emitter.add_function(bytes_new_type_idx, bytes_new_fn);
+    emitter.export_function("__aipo_bytes_new", bytes_new_func_idx);
+    functions.insert(
+        "__aipo_bytes_new".to_string(),
+        (bytes_new_func_idx, bytes_new_type_idx, bytes_new_fn_type),
+    );
+
+    // Function 24: `__aipo_bytes_get(buf_ptr: i32, index: i32) -> i64`
+    let bytes_get_fn_type =
+        WasmFnType::new(vec![WasmType::I32, WasmType::I32], vec![WasmType::I64]);
+    let bytes_get_type_idx = emitter.add_type(bytes_get_fn_type.clone());
+    let bytes_get_fn = build_bytes_get_function();
+    let bytes_get_func_idx = emitter.add_function(bytes_get_type_idx, bytes_get_fn);
+    emitter.export_function("__aipo_bytes_get", bytes_get_func_idx);
+    functions.insert(
+        "__aipo_bytes_get".to_string(),
+        (bytes_get_func_idx, bytes_get_type_idx, bytes_get_fn_type),
+    );
+
+    // Function 25: `__aipo_bytes_set(buf_ptr: i32, index: i32, val: i64) -> i64`
+    let bytes_set_fn_type = WasmFnType::new(
+        vec![WasmType::I32, WasmType::I32, WasmType::I64],
+        vec![WasmType::I64],
+    );
+    let bytes_set_type_idx = emitter.add_type(bytes_set_fn_type.clone());
+    let bytes_set_fn = build_bytes_set_function();
+    let bytes_set_func_idx = emitter.add_function(bytes_set_type_idx, bytes_set_fn);
+    emitter.export_function("__aipo_bytes_set", bytes_set_func_idx);
+    functions.insert(
+        "__aipo_bytes_set".to_string(),
+        (bytes_set_func_idx, bytes_set_type_idx, bytes_set_fn_type),
+    );
+
+    // Function 26: `__aipo_bytes_len(buf_ptr: i32) -> i64`
+    let bytes_len_fn_type = WasmFnType::new(vec![WasmType::I32], vec![WasmType::I64]);
+    let bytes_len_type_idx = emitter.add_type(bytes_len_fn_type.clone());
+    let bytes_len_fn = build_bytes_len_function();
+    let bytes_len_func_idx = emitter.add_function(bytes_len_type_idx, bytes_len_fn);
+    emitter.export_function("__aipo_bytes_len", bytes_len_func_idx);
+    functions.insert(
+        "__aipo_bytes_len".to_string(),
+        (bytes_len_func_idx, bytes_len_type_idx, bytes_len_fn_type),
     );
 
     let async_helpers = AsyncHelpers {
@@ -1766,8 +1872,9 @@ fn build_dict_set_function() -> Function {
         align: 3,
         memory_index: 0,
     }));
-    // Depth 2 leaves both the `if` and the `loop`, landing after the outer block.
-    func.instruction(&Instruction::Br(2));
+    // Return `value` immediately without appending or altering entry_count.
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::Return);
     func.instruction(&Instruction::End);
 
     // index += 1
@@ -2405,6 +2512,504 @@ fn build_list_add_function(alloc_func_idx: u32) -> Function {
     func
 }
 
+/// Builds `__aipo_str_concat(ptr_a: i32, ptr_b: i32) -> i32`.
+fn build_string_concat_function(alloc_func_idx: u32) -> Function {
+    let mut func = Function::new([(5, ValType::I32)]);
+    // local 0: ptr_a (param)
+    // local 1: ptr_b (param)
+    // local 2: len_a
+    // local 3: len_b
+    // local 4: total_len
+    // local 5: new_ptr
+    // local 6: i
+
+    // len_a = i32.load(ptr_a)
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::I32Load(MemArg {
+        offset: 0,
+        align: 2,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalSet(2));
+
+    // len_b = i32.load(ptr_b)
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I32Load(MemArg {
+        offset: 0,
+        align: 2,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalSet(3));
+
+    // total_len = len_a + len_b
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::LocalSet(4));
+
+    // new_ptr = alloc(total_len + 4)
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I32Const(4));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::Call(alloc_func_idx));
+    func.instruction(&Instruction::LocalSet(5));
+
+    // store total_len at new_ptr + 0
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I32Store(MemArg {
+        offset: 0,
+        align: 2,
+        memory_index: 0,
+    }));
+
+    // copy bytes from a: loop i from 0 to len_a - 1
+    func.instruction(&Instruction::I32Const(0));
+    func.instruction(&Instruction::LocalSet(6));
+
+    func.instruction(&Instruction::Block(BlockType::Empty));
+    func.instruction(&Instruction::Loop(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I32GeS);
+    func.instruction(&Instruction::BrIf(1));
+
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::I32Load8U(MemArg {
+        offset: 4,
+        align: 0,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::I32Store8(MemArg {
+        offset: 4,
+        align: 0,
+        memory_index: 0,
+    }));
+
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::I32Const(1));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::LocalSet(6));
+    func.instruction(&Instruction::Br(0));
+    func.instruction(&Instruction::End);
+    func.instruction(&Instruction::End);
+
+    // copy bytes from b: loop i from 0 to len_b - 1
+    func.instruction(&Instruction::I32Const(0));
+    func.instruction(&Instruction::LocalSet(6));
+
+    func.instruction(&Instruction::Block(BlockType::Empty));
+    func.instruction(&Instruction::Loop(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I32GeS);
+    func.instruction(&Instruction::BrIf(1));
+
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::I32Load8U(MemArg {
+        offset: 4,
+        align: 0,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::I32Store8(MemArg {
+        offset: 4,
+        align: 0,
+        memory_index: 0,
+    }));
+
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::I32Const(1));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::LocalSet(6));
+    func.instruction(&Instruction::Br(0));
+    func.instruction(&Instruction::End);
+    func.instruction(&Instruction::End);
+
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::End);
+    func
+}
+
+/// Builds `__aipo_int_to_str(val: i64) -> i32`.
+fn build_int_to_str_function(alloc_func_idx: u32) -> Function {
+    let mut func = Function::new([(5, ValType::I32), (2, ValType::I64)]);
+    // local 0: val (param, i64)
+    // local 1: is_neg (i32)
+    // local 2: digits_len (i32)
+    // local 3: total_len (i32)
+    // local 4: ptr (i32)
+    // local 5: idx (i32)
+    // local 6: uval (i64)
+    // local 7: temp (i64)
+
+    // Check if val < 0
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::I64LtS);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    func.instruction(&Instruction::I32Const(1));
+    func.instruction(&Instruction::LocalSet(1));
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::I64Sub);
+    func.instruction(&Instruction::LocalSet(6));
+    func.instruction(&Instruction::Else);
+    func.instruction(&Instruction::I32Const(0));
+    func.instruction(&Instruction::LocalSet(1));
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::LocalSet(6));
+    func.instruction(&Instruction::End);
+
+    // If uval == 0, digits_len = 1
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::I64Eqz);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    func.instruction(&Instruction::I32Const(1));
+    func.instruction(&Instruction::LocalSet(2));
+    func.instruction(&Instruction::Else);
+    func.instruction(&Instruction::I32Const(0));
+    func.instruction(&Instruction::LocalSet(2));
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::LocalSet(7));
+
+    func.instruction(&Instruction::Block(BlockType::Empty));
+    func.instruction(&Instruction::Loop(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(7));
+    func.instruction(&Instruction::I64Eqz);
+    func.instruction(&Instruction::BrIf(1));
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I32Const(1));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::LocalSet(2));
+    func.instruction(&Instruction::LocalGet(7));
+    func.instruction(&Instruction::I64Const(10));
+    func.instruction(&Instruction::I64DivU);
+    func.instruction(&Instruction::LocalSet(7));
+    func.instruction(&Instruction::Br(0));
+    func.instruction(&Instruction::End);
+    func.instruction(&Instruction::End);
+    func.instruction(&Instruction::End);
+
+    // total_len = digits_len + is_neg
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::LocalSet(3));
+
+    // ptr = __aipo_alloc(total_len + 4)
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I32Const(4));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::Call(alloc_func_idx));
+    func.instruction(&Instruction::LocalSet(4));
+
+    // store total_len at ptr + 0
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I32Store(MemArg {
+        offset: 0,
+        align: 2,
+        memory_index: 0,
+    }));
+
+    // If is_neg == 1, store '-' (45) at ptr + 4
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::If(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I32Const(45));
+    func.instruction(&Instruction::I32Store8(MemArg {
+        offset: 4,
+        align: 0,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::End);
+
+    // If uval == 0, store '0' (48) at ptr + 4 + is_neg
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::I64Eqz);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::I32Const(48));
+    func.instruction(&Instruction::I32Store8(MemArg {
+        offset: 4,
+        align: 0,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::Else);
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I32Const(1));
+    func.instruction(&Instruction::I32Sub);
+    func.instruction(&Instruction::LocalSet(5));
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::LocalSet(7));
+
+    func.instruction(&Instruction::Block(BlockType::Empty));
+    func.instruction(&Instruction::Loop(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(7));
+    func.instruction(&Instruction::I64Eqz);
+    func.instruction(&Instruction::BrIf(1));
+
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::LocalGet(7));
+    func.instruction(&Instruction::I64Const(10));
+    func.instruction(&Instruction::I64RemU);
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::I32Const(48));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::I32Store8(MemArg {
+        offset: 4,
+        align: 0,
+        memory_index: 0,
+    }));
+
+    func.instruction(&Instruction::LocalGet(7));
+    func.instruction(&Instruction::I64Const(10));
+    func.instruction(&Instruction::I64DivU);
+    func.instruction(&Instruction::LocalSet(7));
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::I32Const(1));
+    func.instruction(&Instruction::I32Sub);
+    func.instruction(&Instruction::LocalSet(5));
+    func.instruction(&Instruction::Br(0));
+    func.instruction(&Instruction::End);
+    func.instruction(&Instruction::End);
+    func.instruction(&Instruction::End);
+
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::End);
+    func
+}
+
+/// Builds `__aipo_bool_to_str(val: i32) -> i32`.
+fn build_bool_to_str_function(true_ptr: i32, false_ptr: i32) -> Function {
+    let mut func = Function::new([]);
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::If(BlockType::Result(ValType::I32)));
+    func.instruction(&Instruction::I32Const(true_ptr));
+    func.instruction(&Instruction::Else);
+    func.instruction(&Instruction::I32Const(false_ptr));
+    func.instruction(&Instruction::End);
+    func.instruction(&Instruction::End);
+    func
+}
+
+/// Builds `__aipo_str_eq(ptr_a: i32, ptr_b: i32) -> i32`.
+fn build_string_eq_function() -> Function {
+    let mut func = Function::new([(3, ValType::I32)]);
+    // local 0: ptr_a (param)
+    // local 1: ptr_b (param)
+    // local 2: len_a
+    // local 3: len_b
+    // local 4: i
+
+    // if ptr_a == ptr_b return 1
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I32Eq);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    func.instruction(&Instruction::I32Const(1));
+    func.instruction(&Instruction::Return);
+    func.instruction(&Instruction::End);
+
+    // len_a = i32.load(ptr_a)
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::I32Load(MemArg {
+        offset: 0,
+        align: 2,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalSet(2));
+
+    // len_b = i32.load(ptr_b)
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I32Load(MemArg {
+        offset: 0,
+        align: 2,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalSet(3));
+
+    // if len_a != len_b return 0
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I32Ne);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    func.instruction(&Instruction::I32Const(0));
+    func.instruction(&Instruction::Return);
+    func.instruction(&Instruction::End);
+
+    // loop i from 0 to len_a - 1
+    func.instruction(&Instruction::I32Const(0));
+    func.instruction(&Instruction::LocalSet(4));
+
+    func.instruction(&Instruction::Block(BlockType::Empty));
+    func.instruction(&Instruction::Loop(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I32GeS);
+    func.instruction(&Instruction::BrIf(1));
+
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::I32Load8U(MemArg {
+        offset: 4,
+        align: 0,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::I32Load8U(MemArg {
+        offset: 4,
+        align: 0,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::I32Ne);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    func.instruction(&Instruction::I32Const(0));
+    func.instruction(&Instruction::Return);
+    func.instruction(&Instruction::End);
+
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I32Const(1));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::LocalSet(4));
+    func.instruction(&Instruction::Br(0));
+    func.instruction(&Instruction::End);
+    func.instruction(&Instruction::End);
+
+    func.instruction(&Instruction::I32Const(1));
+    func.instruction(&Instruction::End);
+    func
+}
+
+/// Builds `__aipo_bytes_new(len: i32) -> i32`.
+fn build_bytes_new_function(alloc_func_idx: u32) -> Function {
+    let mut func = Function::new([(2, ValType::I32)]);
+    // local 0: len (param)
+    // local 1: ptr
+    // local 2: i
+
+    // alloc size = len + 4
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::I32Const(4));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::Call(alloc_func_idx));
+    func.instruction(&Instruction::LocalSet(1));
+
+    // store len at ptr + 0
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::I32Store(MemArg {
+        offset: 0,
+        align: 2,
+        memory_index: 0,
+    }));
+
+    // Zero out bytes: loop i = 0..len-1
+    func.instruction(&Instruction::I32Const(0));
+    func.instruction(&Instruction::LocalSet(2));
+
+    func.instruction(&Instruction::Block(BlockType::Empty));
+    func.instruction(&Instruction::Loop(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::I32GeS);
+    func.instruction(&Instruction::BrIf(1));
+
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::I32Const(0));
+    func.instruction(&Instruction::I32Store8(MemArg {
+        offset: 4,
+        align: 0,
+        memory_index: 0,
+    }));
+
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I32Const(1));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::LocalSet(2));
+    func.instruction(&Instruction::Br(0));
+    func.instruction(&Instruction::End);
+    func.instruction(&Instruction::End);
+
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::End);
+    func
+}
+
+/// Builds `__aipo_bytes_get(buf_ptr: i32, index: i32) -> i64`.
+fn build_bytes_get_function() -> Function {
+    let mut func = Function::new([]);
+    // local 0: ptr (i32)
+    // local 1: index (i32)
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::I64Load8U(MemArg {
+        offset: 4,
+        align: 0,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::End);
+    func
+}
+
+/// Builds `__aipo_bytes_set(buf_ptr: i32, index: i32, val: i64) -> i64`.
+fn build_bytes_set_function() -> Function {
+    let mut func = Function::new([]);
+    // local 0: ptr (i32)
+    // local 1: index (i32)
+    // local 2: val (i64)
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::I32Store8(MemArg {
+        offset: 4,
+        align: 0,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::End);
+    func
+}
+
+/// Builds `__aipo_bytes_len(buf_ptr: i32) -> i64`.
+fn build_bytes_len_function() -> Function {
+    let mut func = Function::new([]);
+    // local 0: ptr (i32)
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::I32Load(MemArg {
+        offset: 0,
+        align: 2,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::I64ExtendI32U);
+    func.instruction(&Instruction::End);
+    func
+}
+
 /// Builds a wrapper function for an `async fn` that creates a `Task` handle and returns it (`task_ptr: i32`).
 fn build_async_wrapper_function(
     inner_table_idx: u32,
@@ -2463,6 +3068,9 @@ fn collect_program_strings(
         data_segments,
         next_offset,
     );
+    // Ensure boolean string representations are always present in the static pool
+    add_static_string("true", static_strings, data_segments, next_offset);
+    add_static_string("false", static_strings, data_segments, next_offset);
 }
 
 fn collect_stmts_strings(
@@ -2657,7 +3265,7 @@ fn param_wasm_type(param: &HirParam) -> WasmType {
         match ty.name.as_str() {
             "Float" => WasmType::F64,
             "Bool" => WasmType::I32,
-            "String" => WasmType::I32,
+            "String" | "Bytes" => WasmType::I32,
             _ => WasmType::I64,
         }
     } else {
@@ -2679,7 +3287,7 @@ fn resolve_return_type(
             "Float" => Some(WasmType::F64),
             "Bool" => Some(WasmType::I32),
             "None" => None,
-            "String" => Some(WasmType::I32),
+            "String" | "Bytes" => Some(WasmType::I32),
             s if structs.contains_key(s) => Some(WasmType::I32),
             _ => Some(WasmType::I64),
         }
@@ -2697,6 +3305,7 @@ fn resolve_return_type(
                     "Float" => LocalKind::Float,
                     "Bool" => LocalKind::Bool,
                     "String" => LocalKind::String,
+                    "Bytes" => LocalKind::Bytes,
                     other if structs.contains_key(other) => LocalKind::Struct(other.to_string()),
                     _ => LocalKind::Int,
                 }
@@ -3187,8 +3796,15 @@ fn infer_expr_kind(
                 if name == "String" {
                     return LocalKind::String;
                 }
+                if name == "Bytes" {
+                    return LocalKind::Bytes;
+                }
             }
             if let HirExpr::Dot(receiver, method_name, _) = &**callee {
+                let rec_kind = infer_expr_kind(receiver, locals, functions, table_indices, anon_map);
+                if matches!(rec_kind, LocalKind::Bytes) && (method_name == "decode" || method_name == "decode_utf8") {
+                    return LocalKind::String;
+                }
                 if let HirExpr::Identifier(rec_name, _) = &**receiver {
                     if rec_name == "task" && method_name == "spawn" {
                         return LocalKind::Task;
@@ -3241,6 +3857,7 @@ fn compile_function_body(
                 "Float" => LocalKind::Float,
                 "Bool" => LocalKind::Bool,
                 "String" => LocalKind::String,
+                "Bytes" => LocalKind::Bytes,
                 other if structs.contains_key(other) => LocalKind::Struct(other.to_string()),
                 _ => LocalKind::Int,
             }
@@ -3618,6 +4235,63 @@ fn compile_stmts(
                         coerce_type(func, val_ty, WasmType::I64);
                         func.instruction(&Instruction::Call(dict_set_idx));
                         func.instruction(&Instruction::Drop);
+                    } else if matches!(coll_kind, LocalKind::Bytes) {
+                        let (bytes_set_idx, _, _) = functions["__aipo_bytes_set"];
+                        let c_ty = compile_expr(
+                            target_coll,
+                            func,
+                            locals,
+                            functions,
+                            control_stack,
+                            structs,
+                            static_strings,
+                            table_indices,
+                            anon_map,
+                            indirect_sigs,
+                            alloc_func_idx,
+                            async_helpers,
+                            struct_depth,
+                            call_depth,
+                        )?;
+                        coerce_type(func, c_ty, WasmType::I32);
+
+                        let i_ty = compile_expr(
+                            index,
+                            func,
+                            locals,
+                            functions,
+                            control_stack,
+                            structs,
+                            static_strings,
+                            table_indices,
+                            anon_map,
+                            indirect_sigs,
+                            alloc_func_idx,
+                            async_helpers,
+                            struct_depth,
+                            call_depth,
+                        )?;
+                        coerce_type(func, i_ty, WasmType::I32);
+
+                        let val_ty = compile_expr(
+                            expr,
+                            func,
+                            locals,
+                            functions,
+                            control_stack,
+                            structs,
+                            static_strings,
+                            table_indices,
+                            anon_map,
+                            indirect_sigs,
+                            alloc_func_idx,
+                            async_helpers,
+                            struct_depth,
+                            call_depth,
+                        )?;
+                        coerce_type(func, val_ty, WasmType::I64);
+                        func.instruction(&Instruction::Call(bytes_set_idx));
+                        func.instruction(&Instruction::Drop);
                     } else {
                         let (list_set_idx, _, _) = functions["__aipo_list_set"];
                         let c_ty = compile_expr(
@@ -3686,26 +4360,74 @@ fn compile_stmts(
             },
             HirStmt::CompoundAssign(op, target, expr, span) => match target {
                 HirExpr::Identifier(name, _) => {
-                    if let Some(&(local_idx, target_ty, _)) = locals.get(name) {
-                        func.instruction(&Instruction::LocalGet(local_idx));
-                        let expr_ty = compile_expr(
-                            expr,
-                            func,
-                            locals,
-                            functions,
-                            control_stack,
-                            structs,
-                            static_strings,
-                            table_indices,
-                            anon_map,
-                            indirect_sigs,
-                            alloc_func_idx,
-                            async_helpers,
-                            struct_depth,
-                            call_depth,
-                        )?;
-                        emit_binary_op(func, *op, target_ty, expr_ty, *span)?;
-                        func.instruction(&Instruction::LocalSet(local_idx));
+                    if let Some(&(local_idx, target_ty, ref target_kind)) = locals.get(name) {
+                        if *op == BinaryOp::Add && matches!(target_kind, LocalKind::String) {
+                            func.instruction(&Instruction::LocalGet(local_idx));
+                            let expr_kind =
+                                infer_expr_kind(expr, locals, functions, table_indices, anon_map);
+                            let expr_ty = compile_expr(
+                                expr,
+                                func,
+                                locals,
+                                functions,
+                                control_stack,
+                                structs,
+                                static_strings,
+                                table_indices,
+                                anon_map,
+                                indirect_sigs,
+                                alloc_func_idx,
+                                async_helpers,
+                                struct_depth,
+                                call_depth,
+                            )?;
+                            match expr_kind {
+                                LocalKind::String => {
+                                    coerce_type(func, expr_ty, WasmType::I32);
+                                }
+                                LocalKind::Int => {
+                                    coerce_type(func, expr_ty, WasmType::I64);
+                                    let (int_to_str_idx, _, _) = functions["__aipo_int_to_str"];
+                                    func.instruction(&Instruction::Call(int_to_str_idx));
+                                }
+                                LocalKind::Bool => {
+                                    coerce_type(func, expr_ty, WasmType::I32);
+                                    let (bool_to_str_idx, _, _) = functions["__aipo_bool_to_str"];
+                                    func.instruction(&Instruction::Call(bool_to_str_idx));
+                                }
+                                _ => {
+                                    if expr_ty == WasmType::I64 {
+                                        let (int_to_str_idx, _, _) = functions["__aipo_int_to_str"];
+                                        func.instruction(&Instruction::Call(int_to_str_idx));
+                                    } else {
+                                        coerce_type(func, expr_ty, WasmType::I32);
+                                    }
+                                }
+                            }
+                            let (str_concat_idx, _, _) = functions["__aipo_str_concat"];
+                            func.instruction(&Instruction::Call(str_concat_idx));
+                            func.instruction(&Instruction::LocalSet(local_idx));
+                        } else {
+                            func.instruction(&Instruction::LocalGet(local_idx));
+                            let expr_ty = compile_expr(
+                                expr,
+                                func,
+                                locals,
+                                functions,
+                                control_stack,
+                                structs,
+                                static_strings,
+                                table_indices,
+                                anon_map,
+                                indirect_sigs,
+                                alloc_func_idx,
+                                async_helpers,
+                                struct_depth,
+                                call_depth,
+                            )?;
+                            emit_binary_op(func, *op, target_ty, expr_ty, *span)?;
+                            func.instruction(&Instruction::LocalSet(local_idx));
+                        }
                     } else {
                         return Err(WasmCompileError::UnknownVariable {
                             name: name.clone(),
@@ -3825,6 +4547,208 @@ fn compile_stmts(
                             message: format!("unknown field `{field_name}` on struct"),
                             span: *span,
                         });
+                    }
+                }
+                HirExpr::Index(coll, index, index_span) => {
+                    let coll_kind =
+                        infer_expr_kind(coll, locals, functions, table_indices, anon_map);
+                    let dot_temp = locals["__dot_temp"].0;
+                    let c_ty = compile_expr(
+                        coll,
+                        func,
+                        locals,
+                        functions,
+                        control_stack,
+                        structs,
+                        static_strings,
+                        table_indices,
+                        anon_map,
+                        indirect_sigs,
+                        alloc_func_idx,
+                        async_helpers,
+                        struct_depth,
+                        call_depth,
+                    )?;
+                    coerce_type(func, c_ty, WasmType::I32);
+                    func.instruction(&Instruction::LocalSet(dot_temp));
+
+                    if matches!(coll_kind, LocalKind::Dict) {
+                        let (dict_get_idx, _, _) = functions["__aipo_dict_get"];
+                        let (dict_set_idx, _, _) = functions["__aipo_dict_set"];
+                        let (string_hash_idx, _, _) = functions["__aipo_string_hash"];
+                        let key_temp = locals["__or_else_temp_0"].0;
+                        let val_temp = locals["__or_else_temp_1"].0;
+
+                        let index_kind =
+                            infer_expr_kind(index, locals, functions, table_indices, anon_map);
+                        let i_ty = compile_expr(
+                            index,
+                            func,
+                            locals,
+                            functions,
+                            control_stack,
+                            structs,
+                            static_strings,
+                            table_indices,
+                            anon_map,
+                            indirect_sigs,
+                            alloc_func_idx,
+                            async_helpers,
+                            struct_depth,
+                            call_depth,
+                        )?;
+                        if matches!(index_kind, LocalKind::String) {
+                            coerce_type(func, i_ty, WasmType::I32);
+                            func.instruction(&Instruction::Call(string_hash_idx));
+                        } else {
+                            coerce_type(func, i_ty, WasmType::I64);
+                        }
+                        func.instruction(&Instruction::LocalSet(key_temp));
+
+                        // Load current value
+                        func.instruction(&Instruction::LocalGet(dot_temp));
+                        func.instruction(&Instruction::LocalGet(key_temp));
+                        func.instruction(&Instruction::Call(dict_get_idx));
+
+                        // Compile expr and perform op
+                        let expr_ty = compile_expr(
+                            expr,
+                            func,
+                            locals,
+                            functions,
+                            control_stack,
+                            structs,
+                            static_strings,
+                            table_indices,
+                            anon_map,
+                            indirect_sigs,
+                            alloc_func_idx,
+                            async_helpers,
+                            struct_depth,
+                            call_depth,
+                        )?;
+                        emit_binary_op(func, *op, WasmType::I64, expr_ty, *index_span)?;
+                        func.instruction(&Instruction::LocalSet(val_temp));
+
+                        // Store new value
+                        func.instruction(&Instruction::LocalGet(dot_temp));
+                        func.instruction(&Instruction::LocalGet(key_temp));
+                        func.instruction(&Instruction::LocalGet(val_temp));
+                        func.instruction(&Instruction::Call(dict_set_idx));
+                        func.instruction(&Instruction::Drop);
+                    } else if matches!(coll_kind, LocalKind::Bytes) {
+                        let (bytes_get_idx, _, _) = functions["__aipo_bytes_get"];
+                        let (bytes_set_idx, _, _) = functions["__aipo_bytes_set"];
+                        let idx_temp = locals["__call_temp_0"].0;
+                        let val_temp = locals["__or_else_temp_0"].0;
+
+                        let i_ty = compile_expr(
+                            index,
+                            func,
+                            locals,
+                            functions,
+                            control_stack,
+                            structs,
+                            static_strings,
+                            table_indices,
+                            anon_map,
+                            indirect_sigs,
+                            alloc_func_idx,
+                            async_helpers,
+                            struct_depth,
+                            call_depth,
+                        )?;
+                        coerce_type(func, i_ty, WasmType::I32);
+                        func.instruction(&Instruction::LocalSet(idx_temp));
+
+                        // Load current byte
+                        func.instruction(&Instruction::LocalGet(dot_temp));
+                        func.instruction(&Instruction::LocalGet(idx_temp));
+                        func.instruction(&Instruction::Call(bytes_get_idx));
+
+                        // Compile expr and perform op
+                        let expr_ty = compile_expr(
+                            expr,
+                            func,
+                            locals,
+                            functions,
+                            control_stack,
+                            structs,
+                            static_strings,
+                            table_indices,
+                            anon_map,
+                            indirect_sigs,
+                            alloc_func_idx,
+                            async_helpers,
+                            struct_depth,
+                            call_depth,
+                        )?;
+                        emit_binary_op(func, *op, WasmType::I64, expr_ty, *index_span)?;
+                        func.instruction(&Instruction::LocalSet(val_temp));
+
+                        // Store new byte
+                        func.instruction(&Instruction::LocalGet(dot_temp));
+                        func.instruction(&Instruction::LocalGet(idx_temp));
+                        func.instruction(&Instruction::LocalGet(val_temp));
+                        func.instruction(&Instruction::Call(bytes_set_idx));
+                        func.instruction(&Instruction::Drop);
+                    } else {
+                        // List
+                        let (list_get_idx, _, _) = functions["__aipo_list_get"];
+                        let (list_set_idx, _, _) = functions["__aipo_list_set"];
+                        let idx_temp = locals["__call_temp_0"].0;
+                        let val_temp = locals["__or_else_temp_0"].0;
+
+                        let i_ty = compile_expr(
+                            index,
+                            func,
+                            locals,
+                            functions,
+                            control_stack,
+                            structs,
+                            static_strings,
+                            table_indices,
+                            anon_map,
+                            indirect_sigs,
+                            alloc_func_idx,
+                            async_helpers,
+                            struct_depth,
+                            call_depth,
+                        )?;
+                        coerce_type(func, i_ty, WasmType::I32);
+                        func.instruction(&Instruction::LocalSet(idx_temp));
+
+                        // Load current element
+                        func.instruction(&Instruction::LocalGet(dot_temp));
+                        func.instruction(&Instruction::LocalGet(idx_temp));
+                        func.instruction(&Instruction::Call(list_get_idx));
+
+                        // Compile expr and perform op
+                        let expr_ty = compile_expr(
+                            expr,
+                            func,
+                            locals,
+                            functions,
+                            control_stack,
+                            structs,
+                            static_strings,
+                            table_indices,
+                            anon_map,
+                            indirect_sigs,
+                            alloc_func_idx,
+                            async_helpers,
+                            struct_depth,
+                            call_depth,
+                        )?;
+                        emit_binary_op(func, *op, WasmType::I64, expr_ty, *index_span)?;
+                        func.instruction(&Instruction::LocalSet(val_temp));
+
+                        // Store new element
+                        func.instruction(&Instruction::LocalGet(dot_temp));
+                        func.instruction(&Instruction::LocalGet(idx_temp));
+                        func.instruction(&Instruction::LocalGet(val_temp));
+                        func.instruction(&Instruction::Call(list_set_idx));
+                        func.instruction(&Instruction::Drop);
                     }
                 }
                 _ => {
@@ -5651,7 +6575,140 @@ fn compile_expr(
                     func.instruction(&Instruction::I64RemS);
                     Ok(WasmType::I64)
                 }
-                BinaryOp::Add | BinaryOp::Sub | BinaryOp::Mul => {
+                BinaryOp::Add => {
+                    let l_kind = infer_expr_kind(left, locals, functions, table_indices, anon_map);
+                    let r_kind = infer_expr_kind(right, locals, functions, table_indices, anon_map);
+                    if matches!(l_kind, LocalKind::String) || matches!(r_kind, LocalKind::String) {
+                        let (str_concat_idx, _, _) = functions["__aipo_str_concat"];
+                        let (int_to_str_idx, _, _) = functions["__aipo_int_to_str"];
+                        let (bool_to_str_idx, _, _) = functions["__aipo_bool_to_str"];
+
+                        let l_ty = compile_expr(
+                            left,
+                            func,
+                            locals,
+                            functions,
+                            control_stack,
+                            structs,
+                            static_strings,
+                            table_indices,
+                            anon_map,
+                            indirect_sigs,
+                            alloc_func_idx,
+                            async_helpers,
+                            struct_depth,
+                            call_depth,
+                        )?;
+                        match l_kind {
+                            LocalKind::String => {
+                                coerce_type(func, l_ty, WasmType::I32);
+                            }
+                            LocalKind::Int => {
+                                coerce_type(func, l_ty, WasmType::I64);
+                                func.instruction(&Instruction::Call(int_to_str_idx));
+                            }
+                            LocalKind::Bool => {
+                                coerce_type(func, l_ty, WasmType::I32);
+                                func.instruction(&Instruction::Call(bool_to_str_idx));
+                            }
+                            _ => {
+                                if l_ty == WasmType::I64 {
+                                    func.instruction(&Instruction::Call(int_to_str_idx));
+                                } else {
+                                    coerce_type(func, l_ty, WasmType::I32);
+                                }
+                            }
+                        }
+
+                        let r_ty = compile_expr(
+                            right,
+                            func,
+                            locals,
+                            functions,
+                            control_stack,
+                            structs,
+                            static_strings,
+                            table_indices,
+                            anon_map,
+                            indirect_sigs,
+                            alloc_func_idx,
+                            async_helpers,
+                            struct_depth,
+                            call_depth,
+                        )?;
+                        match r_kind {
+                            LocalKind::String => {
+                                coerce_type(func, r_ty, WasmType::I32);
+                            }
+                            LocalKind::Int => {
+                                coerce_type(func, r_ty, WasmType::I64);
+                                func.instruction(&Instruction::Call(int_to_str_idx));
+                            }
+                            LocalKind::Bool => {
+                                coerce_type(func, r_ty, WasmType::I32);
+                                func.instruction(&Instruction::Call(bool_to_str_idx));
+                            }
+                            _ => {
+                                if r_ty == WasmType::I64 {
+                                    func.instruction(&Instruction::Call(int_to_str_idx));
+                                } else {
+                                    coerce_type(func, r_ty, WasmType::I32);
+                                }
+                            }
+                        }
+
+                        func.instruction(&Instruction::Call(str_concat_idx));
+                        return Ok(WasmType::I32);
+                    }
+
+                    let target_ty = if left_ty == WasmType::F64 || right_ty == WasmType::F64 {
+                        WasmType::F64
+                    } else {
+                        WasmType::I64
+                    };
+                    let l_ty = compile_expr(
+                        left,
+                        func,
+                        locals,
+                        functions,
+                        control_stack,
+                        structs,
+                        static_strings,
+                        table_indices,
+                        anon_map,
+                        indirect_sigs,
+                        alloc_func_idx,
+                        async_helpers,
+                        struct_depth,
+                        call_depth,
+                    )?;
+                    coerce_type(func, l_ty, target_ty);
+                    let r_ty = compile_expr(
+                        right,
+                        func,
+                        locals,
+                        functions,
+                        control_stack,
+                        structs,
+                        static_strings,
+                        table_indices,
+                        anon_map,
+                        indirect_sigs,
+                        alloc_func_idx,
+                        async_helpers,
+                        struct_depth,
+                        call_depth,
+                    )?;
+                    coerce_type(func, r_ty, target_ty);
+
+                    if target_ty == WasmType::F64 {
+                        func.instruction(&Instruction::F64Add);
+                    } else {
+                        func.instruction(&Instruction::I64Add);
+                    }
+                    Ok(target_ty)
+                }
+                BinaryOp::Sub | BinaryOp::Mul => {
                     let target_ty = if left_ty == WasmType::F64 || right_ty == WasmType::F64 {
                         WasmType::F64
                     } else {
@@ -5693,8 +6750,6 @@ fn compile_expr(
                     coerce_type(func, r_ty, target_ty);
 
                     match (op, target_ty) {
-                        (BinaryOp::Add, WasmType::F64) => func.instruction(&Instruction::F64Add),
-                        (BinaryOp::Add, _) => func.instruction(&Instruction::I64Add),
                         (BinaryOp::Sub, WasmType::F64) => func.instruction(&Instruction::F64Sub),
                         (BinaryOp::Sub, _) => func.instruction(&Instruction::I64Sub),
                         (BinaryOp::Mul, WasmType::F64) => func.instruction(&Instruction::F64Mul),
@@ -5709,6 +6764,53 @@ fn compile_expr(
                 | BinaryOp::LessEqual
                 | BinaryOp::Greater
                 | BinaryOp::GreaterEqual => {
+                    let l_kind = infer_expr_kind(left, locals, functions, table_indices, anon_map);
+                    let r_kind = infer_expr_kind(right, locals, functions, table_indices, anon_map);
+                    if matches!(l_kind, LocalKind::String) && matches!(r_kind, LocalKind::String)
+                        && matches!(op, BinaryOp::Equal | BinaryOp::NotEqual)
+                    {
+                        let (str_eq_idx, _, _) = functions["__aipo_str_eq"];
+                        let l_ty = compile_expr(
+                            left,
+                            func,
+                            locals,
+                            functions,
+                            control_stack,
+                            structs,
+                            static_strings,
+                            table_indices,
+                            anon_map,
+                            indirect_sigs,
+                            alloc_func_idx,
+                            async_helpers,
+                            struct_depth,
+                            call_depth,
+                        )?;
+                        coerce_type(func, l_ty, WasmType::I32);
+                        let r_ty = compile_expr(
+                            right,
+                            func,
+                            locals,
+                            functions,
+                            control_stack,
+                            structs,
+                            static_strings,
+                            table_indices,
+                            anon_map,
+                            indirect_sigs,
+                            alloc_func_idx,
+                            async_helpers,
+                            struct_depth,
+                            call_depth,
+                        )?;
+                        coerce_type(func, r_ty, WasmType::I32);
+                        func.instruction(&Instruction::Call(str_eq_idx));
+                        if *op == BinaryOp::NotEqual {
+                            func.instruction(&Instruction::I32Eqz);
+                        }
+                        return Ok(WasmType::I32);
+                    }
+
                     let compare_ty = if left_ty == WasmType::F64 || right_ty == WasmType::F64 {
                         WasmType::F64
                     } else {
@@ -6068,7 +7170,7 @@ fn compile_expr(
                         infer_expr_kind(receiver, locals, functions, table_indices, anon_map);
                     if matches!(
                         receiver_kind,
-                        LocalKind::List | LocalKind::Dict | LocalKind::Range | LocalKind::String
+                        LocalKind::List | LocalKind::Dict | LocalKind::Range | LocalKind::String | LocalKind::Bytes
                     ) {
                         let prop = HirExpr::Dot(receiver.clone(), "len".to_string(), *dot_span);
                         return compile_expr(
@@ -6137,6 +7239,290 @@ fn compile_expr(
                         )?;
                         coerce_type(func, val_ty, WasmType::I64);
                         func.instruction(&Instruction::Call(list_add_idx));
+                        return Ok(WasmType::I64);
+                    }
+                }
+            }
+
+            // Case 0.82: Dict `.has(...)` key presence check
+            if let HirExpr::Dot(receiver, method_name, _) = &**callee {
+                if method_name == "has" && args.len() == 1 {
+                    let receiver_kind =
+                        infer_expr_kind(receiver, locals, functions, table_indices, anon_map);
+                    if matches!(receiver_kind, LocalKind::Dict) {
+                        let (dict_has_idx, _, _) = functions["__aipo_dict_has"];
+                        let (string_hash_idx, _, _) = functions["__aipo_string_hash"];
+                        let r_ty = compile_expr(
+                            receiver,
+                            func,
+                            locals,
+                            functions,
+                            control_stack,
+                            structs,
+                            static_strings,
+                            table_indices,
+                            anon_map,
+                            indirect_sigs,
+                            alloc_func_idx,
+                            async_helpers,
+                            struct_depth,
+                            call_depth,
+                        )?;
+                        coerce_type(func, r_ty, WasmType::I32);
+
+                        let key_expr = &args[0].value;
+                        let key_kind =
+                            infer_expr_kind(key_expr, locals, functions, table_indices, anon_map);
+                        let k_ty = compile_expr(
+                            key_expr,
+                            func,
+                            locals,
+                            functions,
+                            control_stack,
+                            structs,
+                            static_strings,
+                            table_indices,
+                            anon_map,
+                            indirect_sigs,
+                            alloc_func_idx,
+                            async_helpers,
+                            struct_depth,
+                            call_depth,
+                        )?;
+                        if matches!(key_kind, LocalKind::String) {
+                            coerce_type(func, k_ty, WasmType::I32);
+                            func.instruction(&Instruction::Call(string_hash_idx));
+                        } else {
+                            coerce_type(func, k_ty, WasmType::I64);
+                        }
+                        func.instruction(&Instruction::Call(dict_has_idx));
+                        return Ok(WasmType::I32);
+                    }
+                }
+            }
+
+            // Case 0.85: Bytes methods
+            if let HirExpr::Dot(receiver, method_name, _) = &**callee {
+                let receiver_kind =
+                    infer_expr_kind(receiver, locals, functions, table_indices, anon_map);
+                if matches!(receiver_kind, LocalKind::Bytes) {
+                    if (method_name == "decode" || method_name == "decode_utf8") && args.is_empty() {
+                        let r_ty = compile_expr(
+                            receiver,
+                            func,
+                            locals,
+                            functions,
+                            control_stack,
+                            structs,
+                            static_strings,
+                            table_indices,
+                            anon_map,
+                            indirect_sigs,
+                            alloc_func_idx,
+                            async_helpers,
+                            struct_depth,
+                            call_depth,
+                        )?;
+                        coerce_type(func, r_ty, WasmType::I32);
+                        return Ok(WasmType::I32);
+                    }
+                    if (method_name == "read_u8"
+                        || method_name == "read_i8"
+                        || method_name == "read_i16"
+                        || method_name == "read_i16_le"
+                        || method_name == "read_u16"
+                        || method_name == "read_u16_le"
+                        || method_name == "read_i32"
+                        || method_name == "read_i32_le"
+                        || method_name == "read_u32"
+                        || method_name == "read_u32_le"
+                        || method_name == "read_i64"
+                        || method_name == "read_i64_le"
+                        || method_name == "read_u64"
+                        || method_name == "read_u64_le")
+                        && args.len() == 1
+                    {
+                        let r_ty = compile_expr(
+                            receiver,
+                            func,
+                            locals,
+                            functions,
+                            control_stack,
+                            structs,
+                            static_strings,
+                            table_indices,
+                            anon_map,
+                            indirect_sigs,
+                            alloc_func_idx,
+                            async_helpers,
+                            struct_depth,
+                            call_depth,
+                        )?;
+                        coerce_type(func, r_ty, WasmType::I32);
+                        let off_ty = compile_expr(
+                            &args[0].value,
+                            func,
+                            locals,
+                            functions,
+                            control_stack,
+                            structs,
+                            static_strings,
+                            table_indices,
+                            anon_map,
+                            indirect_sigs,
+                            alloc_func_idx,
+                            async_helpers,
+                            struct_depth,
+                            call_depth,
+                        )?;
+                        coerce_type(func, off_ty, WasmType::I32);
+                        func.instruction(&Instruction::I32Add);
+                        match method_name.as_str() {
+                            "read_u8" => func.instruction(&Instruction::I64Load8U(MemArg {
+                                offset: 4,
+                                align: 0,
+                                memory_index: 0,
+                            })),
+                            "read_i8" => func.instruction(&Instruction::I64Load8S(MemArg {
+                                offset: 4,
+                                align: 0,
+                                memory_index: 0,
+                            })),
+                            "read_u16" | "read_u16_le" => func.instruction(&Instruction::I64Load16U(MemArg {
+                                offset: 4,
+                                align: 0,
+                                memory_index: 0,
+                            })),
+                            "read_i16" | "read_i16_le" => func.instruction(&Instruction::I64Load16S(MemArg {
+                                offset: 4,
+                                align: 0,
+                                memory_index: 0,
+                            })),
+                            "read_u32" | "read_u32_le" => func.instruction(&Instruction::I64Load32U(MemArg {
+                                offset: 4,
+                                align: 0,
+                                memory_index: 0,
+                            })),
+                            "read_i32" | "read_i32_le" => func.instruction(&Instruction::I64Load32S(MemArg {
+                                offset: 4,
+                                align: 0,
+                                memory_index: 0,
+                            })),
+                            "read_i64" | "read_i64_le" | "read_u64" | "read_u64_le" => func.instruction(&Instruction::I64Load(MemArg {
+                                offset: 4,
+                                align: 0,
+                                memory_index: 0,
+                            })),
+                            _ => unreachable!(),
+                        };
+                        return Ok(WasmType::I64);
+                    }
+                    if (method_name == "write_u8"
+                        || method_name == "write_i8"
+                        || method_name == "write_i16"
+                        || method_name == "write_i16_le"
+                        || method_name == "write_u16"
+                        || method_name == "write_u16_le"
+                        || method_name == "write_i32"
+                        || method_name == "write_i32_le"
+                        || method_name == "write_u32"
+                        || method_name == "write_u32_le"
+                        || method_name == "write_i64"
+                        || method_name == "write_i64_le"
+                        || method_name == "write_u64"
+                        || method_name == "write_u64_le")
+                        && args.len() == 2
+                    {
+                        let r_ty = compile_expr(
+                            receiver,
+                            func,
+                            locals,
+                            functions,
+                            control_stack,
+                            structs,
+                            static_strings,
+                            table_indices,
+                            anon_map,
+                            indirect_sigs,
+                            alloc_func_idx,
+                            async_helpers,
+                            struct_depth,
+                            call_depth,
+                        )?;
+                        coerce_type(func, r_ty, WasmType::I32);
+                        let off_ty = compile_expr(
+                            &args[0].value,
+                            func,
+                            locals,
+                            functions,
+                            control_stack,
+                            structs,
+                            static_strings,
+                            table_indices,
+                            anon_map,
+                            indirect_sigs,
+                            alloc_func_idx,
+                            async_helpers,
+                            struct_depth,
+                            call_depth,
+                        )?;
+                        coerce_type(func, off_ty, WasmType::I32);
+                        func.instruction(&Instruction::I32Add);
+                        let val_ty = compile_expr(
+                            &args[1].value,
+                            func,
+                            locals,
+                            functions,
+                            control_stack,
+                            structs,
+                            static_strings,
+                            table_indices,
+                            anon_map,
+                            indirect_sigs,
+                            alloc_func_idx,
+                            async_helpers,
+                            struct_depth,
+                            call_depth,
+                        )?;
+                        match method_name.as_str() {
+                            "write_u8" | "write_i8" => {
+                                coerce_type(func, val_ty, WasmType::I64);
+                                func.instruction(&Instruction::I32WrapI64);
+                                func.instruction(&Instruction::I32Store8(MemArg {
+                                    offset: 4,
+                                    align: 0,
+                                    memory_index: 0,
+                                }));
+                            }
+                            "write_i16" | "write_i16_le" | "write_u16" | "write_u16_le" => {
+                                coerce_type(func, val_ty, WasmType::I64);
+                                func.instruction(&Instruction::I32WrapI64);
+                                func.instruction(&Instruction::I32Store16(MemArg {
+                                    offset: 4,
+                                    align: 0,
+                                    memory_index: 0,
+                                }));
+                            }
+                            "write_i32" | "write_i32_le" | "write_u32" | "write_u32_le" => {
+                                coerce_type(func, val_ty, WasmType::I64);
+                                func.instruction(&Instruction::I32WrapI64);
+                                func.instruction(&Instruction::I32Store(MemArg {
+                                    offset: 4,
+                                    align: 0,
+                                    memory_index: 0,
+                                }));
+                            }
+                            "write_i64" | "write_i64_le" | "write_u64" | "write_u64_le" => {
+                                coerce_type(func, val_ty, WasmType::I64);
+                                func.instruction(&Instruction::I64Store(MemArg {
+                                    offset: 4,
+                                    align: 0,
+                                    memory_index: 0,
+                                }));
+                            }
+                            _ => unreachable!(),
+                        };
+                        func.instruction(&Instruction::I64Const(0));
                         return Ok(WasmType::I64);
                     }
                 }
@@ -6272,6 +7658,71 @@ fn compile_expr(
 
             // Case 1: Direct function call
             if let HirExpr::Identifier(func_name, _) = &**callee {
+                if func_name == "String" && args.len() == 1 {
+                    let (int_to_str_idx, _, _) = functions["__aipo_int_to_str"];
+                    let (bool_to_str_idx, _, _) = functions["__aipo_bool_to_str"];
+                    let arg = &args[0].value;
+                    let arg_kind = infer_expr_kind(arg, locals, functions, table_indices, anon_map);
+                    let arg_ty = compile_expr(
+                        arg,
+                        func,
+                        locals,
+                        functions,
+                        control_stack,
+                        structs,
+                        static_strings,
+                        table_indices,
+                        anon_map,
+                        indirect_sigs,
+                        alloc_func_idx,
+                        async_helpers,
+                        struct_depth,
+                        call_depth,
+                    )?;
+                    match arg_kind {
+                        LocalKind::String => {
+                            coerce_type(func, arg_ty, WasmType::I32);
+                        }
+                        LocalKind::Int => {
+                            coerce_type(func, arg_ty, WasmType::I64);
+                            func.instruction(&Instruction::Call(int_to_str_idx));
+                        }
+                        LocalKind::Bool => {
+                            coerce_type(func, arg_ty, WasmType::I32);
+                            func.instruction(&Instruction::Call(bool_to_str_idx));
+                        }
+                        _ => {
+                            if arg_ty == WasmType::I64 {
+                                func.instruction(&Instruction::Call(int_to_str_idx));
+                            } else {
+                                coerce_type(func, arg_ty, WasmType::I32);
+                            }
+                        }
+                    }
+                    return Ok(WasmType::I32);
+                }
+                if func_name == "Bytes" && args.len() == 1 {
+                    let (bytes_new_idx, _, _) = functions["__aipo_bytes_new"];
+                    let len_ty = compile_expr(
+                        &args[0].value,
+                        func,
+                        locals,
+                        functions,
+                        control_stack,
+                        structs,
+                        static_strings,
+                        table_indices,
+                        anon_map,
+                        indirect_sigs,
+                        alloc_func_idx,
+                        async_helpers,
+                        struct_depth,
+                        call_depth,
+                    )?;
+                    coerce_type(func, len_ty, WasmType::I32);
+                    func.instruction(&Instruction::Call(bytes_new_idx));
+                    return Ok(WasmType::I32);
+                }
                 if !locals.contains_key(func_name) && functions.contains_key(func_name) {
                     let (func_idx, _, ref fn_type) = functions[func_name];
                     if args.len() != fn_type.params.len() {
@@ -6726,6 +8177,28 @@ fn compile_expr(
                     func.instruction(&Instruction::Call(range_len_idx));
                     return Ok(WasmType::I64);
                 }
+                if matches!(receiver_kind, LocalKind::Bytes) {
+                    let (bytes_len_idx, _, _) = functions["__aipo_bytes_len"];
+                    let r_ty = compile_expr(
+                        receiver,
+                        func,
+                        locals,
+                        functions,
+                        control_stack,
+                        structs,
+                        static_strings,
+                        table_indices,
+                        anon_map,
+                        indirect_sigs,
+                        alloc_func_idx,
+                        async_helpers,
+                        struct_depth,
+                        call_depth,
+                    )?;
+                    coerce_type(func, r_ty, WasmType::I32);
+                    func.instruction(&Instruction::Call(bytes_len_idx));
+                    return Ok(WasmType::I64);
+                }
 
                 let r_ty = compile_expr(
                     receiver,
@@ -7048,6 +8521,46 @@ fn compile_expr(
 
                 let (dict_get_idx, _, _) = functions["__aipo_dict_get"];
                 func.instruction(&Instruction::Call(dict_get_idx));
+                return Ok(WasmType::I64);
+            }
+
+            if matches!(target_kind, LocalKind::Bytes) {
+                let t_ty = compile_expr(
+                    target,
+                    func,
+                    locals,
+                    functions,
+                    control_stack,
+                    structs,
+                    static_strings,
+                    table_indices,
+                    anon_map,
+                    indirect_sigs,
+                    alloc_func_idx,
+                    async_helpers,
+                    struct_depth,
+                    call_depth,
+                )?;
+                coerce_type(func, t_ty, WasmType::I32);
+                let i_ty = compile_expr(
+                    index,
+                    func,
+                    locals,
+                    functions,
+                    control_stack,
+                    structs,
+                    static_strings,
+                    table_indices,
+                    anon_map,
+                    indirect_sigs,
+                    alloc_func_idx,
+                    async_helpers,
+                    struct_depth,
+                    call_depth,
+                )?;
+                coerce_type(func, i_ty, WasmType::I32);
+                let (bytes_get_idx, _, _) = functions["__aipo_bytes_get"];
+                func.instruction(&Instruction::Call(bytes_get_idx));
                 return Ok(WasmType::I64);
             }
 
@@ -7781,8 +9294,11 @@ fn infer_expr_type(
                         }
                     }
                 }
-                if method_name == "add" {
-                    return Ok(WasmType::I64);
+                if method_name == "add" || method_name == "has" {
+                    return Ok(if method_name == "has" { WasmType::I32 } else { WasmType::I64 });
+                }
+                if method_name == "decode" || method_name == "decode_utf8" {
+                    return Ok(WasmType::I32);
                 }
                 for s_name in structs.keys() {
                     let full_name = format!("{s_name}.{method_name}");
@@ -7792,7 +9308,7 @@ fn infer_expr_type(
                 }
             }
             if let HirExpr::Identifier(func_name, _) = &**callee {
-                if func_name == "String" {
+                if func_name == "String" || func_name == "Bytes" {
                     return Ok(WasmType::I32);
                 }
                 if let Some((_, _, fn_type)) = functions.get(func_name) {
