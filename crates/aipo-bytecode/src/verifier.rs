@@ -175,16 +175,14 @@ impl BytecodeVerifier {
                         }
                         let field_count =
                             BigEndian::read_u16(&module.code[cursor + 3..cursor + 5]) as usize;
-                        if let Some(type_name) = module.names.get(type_idx) {
-                            if let Some(info) = module.structs.iter().find(|s| s.name == *type_name)
-                            {
-                                if field_count != info.fields.len() {
-                                    errors.push(format!(
+                        if let Some(type_name) = module.names.get(type_idx)
+                            && let Some(info) = module.structs.iter().find(|s| s.name == *type_name)
+                            && field_count != info.fields.len()
+                        {
+                            errors.push(format!(
                                         "BuildStruct for {type_name} expected {} fields, got {field_count} at offset {cursor}",
                                         info.fields.len()
                                     ));
-                                }
-                            }
                         }
                         let defer_fixed = module.code[cursor + 5];
                         if defer_fixed > 1 {
@@ -338,15 +336,15 @@ impl BytecodeVerifier {
                     if cursor + 3 <= module.code.len() {
                         let slot =
                             BigEndian::read_u16(&module.code[cursor + 1..cursor + 3]) as usize;
-                        if let Some(func) = Self::enclosing_function(module, cursor) {
-                            if slot >= func.upvalues {
-                                errors.push(format!(
+                        if let Some(func) = Self::enclosing_function(module, cursor)
+                            && slot >= func.upvalues
+                        {
+                            errors.push(format!(
                                     "{} slot {slot} out of bounds for function '{}' (limit {}) at offset {cursor}",
                                     if opcode == OpCode::GetUpvalue { "GetUpvalue" } else { "SetUpvalue" },
                                     func.name,
                                     func.upvalues
                                 ));
-                            }
                         }
                     }
                     cursor += 3;
@@ -377,7 +375,8 @@ impl BytecodeVerifier {
         7 + 3 * operations
     }
 
-    fn instruction_size(opcode: OpCode, slice: &[u8]) -> usize {
+    /// Byte length of a decoded instruction, including variable contract operands.
+    pub fn instruction_size(opcode: OpCode, slice: &[u8]) -> usize {
         match opcode {
             OpCode::Constant
             | OpCode::GetLocal

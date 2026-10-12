@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "goal": "P07-G02",
+  "state": "DRAFT",
+  "source_published": true,
+  "source_revision": "33d524b59caecd8b0d33f48f385a64010e14a3c1",
+  "source_tree": "42bfc0d63f9b23484e342991713814372339042c",
+  "checkpoint": "4ad98242a8867da0ab62653d7843ffed83e164b9",
+  "base": "f0a0d70d176be031cd4b600fde1df6179429fb9a",
+  "integrated_main": "23bab1d2a73c295bfc28c7898d92052941b4074a",
+  "branch": "feat/runtime-and-tooling-completion",
+  "environment_blocker_resolved": true,
+  "tests": {
+    "executed": false,
+    "status": "skipped_by_user",
+    "passed": null,
+    "failed": null,
+    "includes": [
+      "Rust tests",
+      "Aipo conformance",
+      "differential suites",
+      "fuzz",
+      "Miri",
+      "ASan",
+      "website unit tests"
+    ]
+  },
+  "checks": "checks.json",
+  "performance": "performance.json",
+  "raw_samples": 480,
+  "guide": "../../development/runtime-and-tooling-guide.md",
+  "source_recovery_complete": true,
+  "verification_scope": "compilation, static checks, documentation build and Reg call microbenchmark; no runtime certification",
+  "updated_at": "2026-10-09T23:08:26.010904+00:00"
+}

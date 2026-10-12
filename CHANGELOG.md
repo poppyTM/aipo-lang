@@ -3,6 +3,25 @@
 Todas as alterações notáveis deste projeto são documentadas neste arquivo.
 O formato baseia-se no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/) e adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
+## Runtime e ferramentas — P07-G02, 2026-10-09
+
+- RegVerifier valida operandos/pools/targets, inicialização definida pelo CFG e escopos. `ExecutionPlan` seleciona Reg verificado ou serviços canônicos com motivo explícito, sem descartar IR.
+- Coleções/Dict recebem revisão estrutural independente do comprimento; guards acompanham callbacks, handlers e tasks. Payloads Rust List/Set/Bytes usam `Collection`, e funções Reg compartilham corpos por Rc.
+- Linker append-only, Session/REPL persistente, multilinha/histórico/completion, reload com migração e rollback de heap/aliases/scheduler. Tarefas e resultados sobrevivem a novas unidades; remoção de declarações e layouts incompatíveis são tratados explicitamente.
+- C ABI liga unidades e acrescenta begin/pump/abort, budgets/erros Reg e recusa de runtime ocupado. Wasm ganha prova semântica conservadora para `is`, rejeição de aliases/shadowing, limites separados de memória/saída/fuel e cache LRU por Engine.
+- CLI recebe new/watch/profile/debug/plan/LSP e vendor offline. Perfis shell/web/embedded, MSRV 1.96, scripts de empacotamento/instalação/checksum e workflows de compilação/distribuição manual.
+- Chamadas Reg movem somente janelas vivas e reutilizam constantes/provas do módulo; protocolo pareado e CSV publicados. Medições e checks têm escopo e revisão descritos na evidência.
+- Guia completo de uso/reimplementação e continuidade dos nove estudos pinados. Goal permanece DRAFT: testes não executados por instrução do usuário, sem merge ou release pública.
+
+## Revisão de runtime — reconstrução de 2026-10-09
+
+- RegEmitter experimental agora retorna Result, rejeita IR/operandos sem suporte e calcula alturas pelo CFG para emitir ramos condicionais corretamente.
+- RegVM usa aritmética/igualdade compartilhadas, verifica operandos/jumps/arity, restaura caller e isola handlers; recebe orçamento cumulativo opt-in, guardas e contratos fundamentais/nominais/nullable.
+- Iteração primária de Dict retorna chaves em VM/Reg/JS; novos opcodes de projeção preservam o registrador completo do índice. String indexing compartilha helper sem Vec<char> temporário.
+- Wasm recebe opções de fuel, MissingExport, checagem de memória do binding de string e entrega de saída após traps de start/entrypoint, com propagação de erro de escrita/flush. Removidos metadados privados mortos; suites JIT/formatter respeitam features.
+- Estudos com nove SHAs completos, fetch/lock fora do repo, guia de uso/reimplementação, compatibilidade, limitações e roteiro de medição.
+- Publicação em draft. Testes não executados nesta reconstrução por pedido do usuário; resultados de arquivos temporários perdidos não certificam esta revisão.
+
 ## [0.11.0] - Em desenvolvimento (Trilha WebAssembly & Self-Hosting)
 
 - **Substrato de Execução WebAssembly & C ABI (ADP-009, ADP-013)**:

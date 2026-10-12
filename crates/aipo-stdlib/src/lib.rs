@@ -966,6 +966,20 @@ fn register_path(registry: &mut NativeRegistry) {
 
 /// Registers `sh` system automation module metadata.
 fn register_sh(registry: &mut NativeRegistry) {
+    for (name, arity, description) in [
+        ("spawn", 1, "Starts an owned process job."),
+        ("wait", 1, "Waits for an owned job."),
+        ("kill", 1, "Terminates and reaps an owned job."),
+        ("jobs", 0, "Lists owned jobs."),
+        ("pipeline", 1, "Runs command lists connected by OS pipes."),
+    ] {
+        registry.register(NativeFunctionMeta::new(
+            name,
+            arity,
+            Some("sh"),
+            description,
+        ));
+    }
     registry.register(
         NativeFunctionMeta::new(
             "run",

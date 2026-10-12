@@ -84,7 +84,7 @@ impl<'de> Visitor<'de> for AipoJsonVisitor {
         while let Some(item) = seq.next_element_seed(AipoJsonSeed)? {
             items.push(item);
         }
-        Ok(Value::List(Rc::new(RefCell::new(items))))
+        Ok(Value::List(Rc::new(RefCell::new((items).into()))))
     }
 
     fn visit_map<M: MapAccess<'de>>(self, mut map: M) -> Result<Self::Value, M::Error> {

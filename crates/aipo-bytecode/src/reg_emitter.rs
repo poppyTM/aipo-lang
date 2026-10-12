@@ -4,7 +4,7 @@ use crate::instruction::{RegInstruction, RegOpCode};
 use crate::opcode::Constant;
 use aipo_ir::{BinaryOp, CoreConstant, CoreFunction, CoreInst, UnaryOp};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 
 /// A compiled function for the virtual register machine.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -75,7 +75,17 @@ impl RegEmitter {
     }
 
     /// Compiles a Core IR function into a register function.
-    pub fn compile_function(mut self, func: &CoreFunction) -> RegCompiledFunction {
+    ///
+    /// # Errors
+    /// Rejects unsupported IR and values that cannot fit the fixed instruction encoding.
+    pub fn compile_function(mut self, func: &CoreFunction) -> Result<RegCompiledFunction, String> {
+        if func.is_async || !func.upvalues.is_empty() {
+            return Err(format!(
+                "function `{}` requires async or closure support; use --engine=vm",
+                func.name
+            ));
+        }
+        let heights = Self::stack_heights(func)?;
         let mut slot_map = HashMap::new();
         for (i, param) in func.params.iter().enumerate() {
             slot_map.insert(param.clone(), i);
@@ -88,9 +98,23 @@ impl RegEmitter {
             self.upvalues.insert(upvalue.clone(), i as u16);
         }
 
-        let temp_base = func.params.len() + func.locals.len();
-        let mut top = temp_base;
-        self.max_reg = temp_base;
+        let temp_base = func
+            .params
+            .len()
+            .checked_add(func.locals.len())
+            .ok_or("local slot count overflow")?;
+        if temp_base >= 256 {
+            return Err("function locals leave no temporary register".into());
+        }
+        let max_height = heights.iter().flatten().copied().max().unwrap_or(0);
+        let required = temp_base
+            .checked_add(max_height)
+            .ok_or("register count overflow")?;
+        if required > 256 {
+            return Err("evaluation stack exceeds 256 registers".into());
+        }
+        let top = temp_base;
+        self.max_reg = temp_base.max(required.saturating_sub(1));
 
         // Emit prologue function bindings (without adding to core_to_reg, so jump targets in func remain exact)
         let prologue = std::mem::take(&mut self.prologue_functions);
@@ -113,8 +137,14 @@ impl RegEmitter {
         let mut core_to_reg: Vec<usize> = Vec::with_capacity(func.instructions.len());
         let mut jump_patches: Vec<(usize, isize, RegOpCode, u8)> = Vec::new();
 
-        for inst in &func.instructions {
+        for (core_index, inst) in func.instructions.iter().enumerate() {
+            // Each branch begins at its incoming CFG height, not the previous
+            // textual branch's height. Preflight checks unsupported unreachable IR.
             core_to_reg.push(self.instructions.len());
+            let Some(height) = heights[core_index] else {
+                continue;
+            };
+            let mut top = temp_base + height;
 
             match inst {
                 CoreInst::Constant(c, _) => {
@@ -170,7 +200,6 @@ impl RegEmitter {
                             ));
                         }
                     }
-                    top += 1;
                 }
                 CoreInst::Load(name, _) => {
                     self.track_reg(top);
@@ -201,7 +230,7 @@ impl RegEmitter {
                             BinaryOp::LessEqual => RegOpCode::LessEqual,
                             BinaryOp::Greater => RegOpCode::Greater,
                             BinaryOp::GreaterEqual => RegOpCode::GreaterEqual,
-                            _ => RegOpCode::Equal,
+                            other => return Err(format!("unsupported binary operator: {other:?}")),
                         };
                         self.emit(RegInstruction::encode_abc(
                             reg_op,
@@ -209,7 +238,6 @@ impl RegEmitter {
                             left as u16,
                             right as u8,
                         ));
-                        top += 1;
                     }
                 }
                 CoreInst::Unary(op, _) => {
@@ -254,6 +282,9 @@ impl RegEmitter {
                     jump_patches.push((patch_pos, *target, RegOpCode::JumpIfFalse, top as u8));
                 }
                 CoreInst::JumpIfSetLocal { slot, target, .. } => {
+                    if *slot >= temp_base {
+                        return Err("default-argument local slot is out of range".into());
+                    }
                     let patch_pos = self.instructions.len();
                     self.emit(RegInstruction::encode_asbx(
                         RegOpCode::JumpIfSetLocal,
@@ -296,21 +327,19 @@ impl RegEmitter {
                             *arg_count as u16,
                             1,
                         ));
-                        top = callee + 1;
                     }
                 }
                 CoreInst::MakeFunction(name, _) => {
                     let func_idx = *self
                         .function_index
                         .get(name)
-                        .expect("function not found in function_index");
+                        .ok_or_else(|| format!("missing function index for `{name}`"))?;
                     self.track_reg(top);
                     self.emit(RegInstruction::encode_abx(
                         RegOpCode::MakeFunction,
                         top as u8,
                         func_idx as u32,
                     ));
-                    top += 1;
                 }
                 CoreInst::GetField(name, _) => {
                     if top > 0 {
@@ -328,13 +357,15 @@ impl RegEmitter {
                         let val = top - 1;
                         let rec = top - 2;
                         let c_idx = self.add_const(Constant::String(name.clone()));
+                        if c_idx > 511 {
+                            return Err("field name exceeds 9-bit constant operand".into());
+                        }
                         self.emit(RegInstruction::encode_abc(
                             RegOpCode::SetField,
                             rec as u8,
                             c_idx as u16,
                             val as u8,
                         ));
-                        top -= 2;
                     }
                 }
                 CoreInst::GetIndex(_) => {
@@ -347,7 +378,6 @@ impl RegEmitter {
                             rec as u16,
                             idx as u8,
                         ));
-                        top -= 1;
                     }
                 }
                 CoreInst::SetIndex(_) => {
@@ -361,14 +391,9 @@ impl RegEmitter {
                             idx as u16,
                             val as u8,
                         ));
-                        top -= 3;
                     }
                 }
-                CoreInst::Pop(_) => {
-                    if top > temp_base {
-                        top -= 1;
-                    }
-                }
+                CoreInst::Pop(_) => {}
                 CoreInst::Dup(_) if top > temp_base => {
                     self.track_reg(top);
                     let prev = top - 1;
@@ -378,7 +403,6 @@ impl RegEmitter {
                         prev as u16,
                         0,
                     ));
-                    top += 1;
                 }
                 CoreInst::BuildList(count, _) if top >= *count => {
                     let start = top - count;
@@ -388,7 +412,6 @@ impl RegEmitter {
                         start as u16,
                         *count as u8,
                     ));
-                    top = start + 1;
                 }
                 CoreInst::BuildDict(count, _) if top >= count * 2 => {
                     let reg_count = count * 2;
@@ -399,7 +422,6 @@ impl RegEmitter {
                         start as u16,
                         *count as u8,
                     ));
-                    top = start + 1;
                 }
                 CoreInst::BuildStruct {
                     type_name,
@@ -409,6 +431,9 @@ impl RegEmitter {
                 } if top >= *field_count => {
                     let start = top - field_count;
                     let c_idx = self.add_const(Constant::String(type_name.clone()));
+                    if c_idx > 511 || *field_count > 255 {
+                        return Err("struct operands exceed instruction encoding".into());
+                    }
                     self.emit(RegInstruction::encode_abc(
                         RegOpCode::NewStruct,
                         start as u8,
@@ -438,7 +463,6 @@ impl RegEmitter {
                         r_start as u16,
                         r_end as u8,
                     ));
-                    top = start + 1;
                 }
                 CoreInst::CloneStruct(_) if top > 0 => {
                     let rec = top - 1;
@@ -475,7 +499,6 @@ impl RegEmitter {
                         0,
                         0,
                     ));
-                    top += 1;
                 }
                 CoreInst::IterGuard(_) => {
                     if top > temp_base {
@@ -487,22 +510,56 @@ impl RegEmitter {
                             0,
                         ));
                     }
+                    self.emit(RegInstruction::encode_abc(
+                        RegOpCode::IterGuard,
+                        top as u8,
+                        0,
+                        0,
+                    ));
+                }
+                CoreInst::IterGuardEnd(_) => {
+                    self.emit(RegInstruction::encode_abc(RegOpCode::IterGuardEnd, 0, 0, 0));
+                }
+                CoreInst::AssertContract {
+                    type_name,
+                    nullable,
+                    position,
+                    operations,
+                    ..
+                } => {
+                    if !operations.is_empty() {
+                        return Err("structural interface contracts require --engine=vm".into());
+                    }
+                    // Keep these constants adjacent; normal deduplication cannot
+                    // preserve the Bx+1 position operand contract.
+                    let index = self.constants.len();
+                    self.constants.push(Constant::String(type_name.clone()));
+                    self.constants.push(Constant::String(position.clone()));
+                    let opcode = if *nullable {
+                        RegOpCode::AssertContractNullable
+                    } else {
+                        RegOpCode::AssertContract
+                    };
+                    self.emit(RegInstruction::encode_abx(
+                        opcode,
+                        (top - 1) as u8,
+                        index as u32,
+                    ));
                 }
                 CoreInst::IterAt(mode, _) if top >= 2 => {
                     let coll = top - 2;
                     let idx = top - 1;
-                    let m = match mode {
-                        aipo_ir::IterMode::Primary => 0,
-                        aipo_ir::IterMode::Key => 1,
-                        aipo_ir::IterMode::Value => 2,
+                    let opcode = match mode {
+                        aipo_ir::IterMode::Primary => RegOpCode::IterPrimary,
+                        aipo_ir::IterMode::Key => RegOpCode::IterKey,
+                        aipo_ir::IterMode::Value => RegOpCode::IterValue,
                     };
                     self.emit(RegInstruction::encode_abc(
-                        RegOpCode::IterAt,
+                        opcode,
                         coll as u8,
                         coll as u16,
-                        ((idx as u8) << 2) | (m as u8),
+                        idx as u8,
                     ));
-                    top -= 1;
                 }
                 CoreInst::TypeIs(_) if top >= 2 => {
                     let val = top - 2;
@@ -513,7 +570,6 @@ impl RegEmitter {
                         val as u16,
                         tag as u8,
                     ));
-                    top -= 1;
                 }
                 CoreInst::TypeIsNullable(_) if top >= 2 => {
                     let val = top - 2;
@@ -524,7 +580,6 @@ impl RegEmitter {
                         val as u16,
                         tag as u8,
                     ));
-                    top -= 1;
                 }
                 CoreInst::PushHandler(target, _) => {
                     self.track_reg(top);
@@ -635,9 +690,6 @@ impl RegEmitter {
                         ));
                     }
                 }
-                CoreInst::IterGuardEnd(_) => {
-                    self.emit(RegInstruction::encode_abc(RegOpCode::IterGuardEnd, 0, 0, 0));
-                }
                 CoreInst::SealStruct(_) => {
                     if top > temp_base {
                         self.emit(RegInstruction::encode_abc(
@@ -660,28 +712,6 @@ impl RegEmitter {
                         top -= 1;
                     }
                 }
-                CoreInst::AssertContract {
-                    type_name,
-                    nullable,
-                    position,
-                    operations,
-                    ..
-                } => {
-                    if top > temp_base {
-                        let idx = self.add_contract(RegContract {
-                            type_name: type_name.clone(),
-                            nullable: *nullable,
-                            position: position.clone(),
-                            operations: operations.clone(),
-                        });
-                        // The contract inspects the value in place, so `top` is unchanged.
-                        self.emit(RegInstruction::encode_abx(
-                            RegOpCode::AssertContract,
-                            (top - 1) as u8,
-                            idx as u32,
-                        ));
-                    }
-                }
                 CoreInst::CheckMutations(_) => {
                     self.emit(RegInstruction::encode_abc(
                         RegOpCode::CheckMutations,
@@ -690,36 +720,31 @@ impl RegEmitter {
                         0,
                     ));
                 }
-                _ => {}
+                unsupported => return Err(format!("unsupported register IR: {unsupported:?}")),
             }
         }
 
-        // Pass 2: Patch jump offsets
-        let total_instructions = self.instructions.len();
+        // A jump to the IR end must land on a real implicit return instruction.
+        let end_target = self.instructions.len();
+        self.emit(RegInstruction::encode_abc(RegOpCode::LoadNil, 0, 0, 0));
+        self.emit(RegInstruction::encode_abc(RegOpCode::Return, 0, 0, 0));
         for (patch_idx, core_target, op, reg_a) in jump_patches {
-            let target_inst_idx = if core_target >= 0 && (core_target as usize) < core_to_reg.len()
-            {
-                core_to_reg[core_target as usize]
-            } else {
-                total_instructions
-            };
-            let offset = (target_inst_idx as i32) - (patch_idx as i32) - 1;
-            self.instructions[patch_idx] = RegInstruction::encode_asbx(op, reg_a, offset);
+            let target = usize::try_from(core_target)
+                .ok()
+                .filter(|target| *target <= core_to_reg.len())
+                .ok_or("jump target outside Core IR")?;
+            let target_inst_idx = core_to_reg.get(target).copied().unwrap_or(end_target);
+            let offset = (target_inst_idx as i128) - (patch_idx as i128) - 1;
+            if !(-65536..=65535).contains(&offset) {
+                return Err("jump exceeds signed 17-bit operand".into());
+            }
+            self.instructions[patch_idx] = RegInstruction::encode_asbx(op, reg_a, offset as i32);
+        }
+        if self.max_reg >= 256 || self.constants.len() > 131072 {
+            return Err("register function exceeds encoding limits".into());
         }
 
-        // Ensure implicit return at end if not present
-        if self
-            .instructions
-            .last()
-            .copied()
-            .and_then(RegInstruction::opcode)
-            != Some(RegOpCode::Return)
-        {
-            self.emit(RegInstruction::encode_abc(RegOpCode::LoadNil, 0, 0, 0));
-            self.emit(RegInstruction::encode_abc(RegOpCode::Return, 0, 1, 0));
-        }
-
-        RegCompiledFunction {
+        Ok(RegCompiledFunction {
             name: func.name.clone(),
             arity: func.params.len(),
             is_async: func.is_async,
@@ -727,7 +752,166 @@ impl RegEmitter {
             constants: self.constants,
             num_registers: (self.max_reg + 1).max(1),
             contracts: self.contracts,
+        })
+    }
+
+    fn stack_heights(func: &CoreFunction) -> Result<Vec<Option<usize>>, String> {
+        let length = func.instructions.len();
+        let mut effects = Vec::with_capacity(length);
+        for inst in &func.instructions {
+            let effect = match inst {
+                CoreInst::Constant(..)
+                | CoreInst::Load(..)
+                | CoreInst::MakeFunction(..)
+                | CoreInst::PushUnset(..)
+                | CoreInst::GetUpvalue(..)
+                | CoreInst::MakeClosure { .. } => (0, 1),
+                CoreInst::Store(..)
+                | CoreInst::Pop(..)
+                | CoreInst::IterGuard(..)
+                | CoreInst::JumpIfFalse(..)
+                | CoreInst::Fail(..)
+                | CoreInst::SetUpvalue(..)
+                | CoreInst::AssertInvariant { .. } => (1, 0),
+                CoreInst::Binary(op, _) => {
+                    if !matches!(
+                        op,
+                        BinaryOp::Add
+                            | BinaryOp::Sub
+                            | BinaryOp::Mul
+                            | BinaryOp::Div
+                            | BinaryOp::IntDiv
+                            | BinaryOp::Mod
+                            | BinaryOp::Equal
+                            | BinaryOp::NotEqual
+                            | BinaryOp::Less
+                            | BinaryOp::LessEqual
+                            | BinaryOp::Greater
+                            | BinaryOp::GreaterEqual
+                    ) {
+                        return Err(format!("unsupported binary operator {op:?}"));
+                    }
+                    (2, 1)
+                }
+                CoreInst::GetIndex(..)
+                | CoreInst::IterAt(..)
+                | CoreInst::Range(..)
+                | CoreInst::TypeIs(..)
+                | CoreInst::TypeIsNullable(..) => (2, 1),
+                CoreInst::SetIndex(..) => (3, 0),
+                CoreInst::SetField(..) => (2, 0),
+                CoreInst::Unary(..)
+                | CoreInst::GetField(..)
+                | CoreInst::CloneStruct(..)
+                | CoreInst::IsVariant(..)
+                | CoreInst::Len(..)
+                | CoreInst::PropagateFailure(..)
+                | CoreInst::Await(..)
+                | CoreInst::SealStruct(..) => (1, 1),
+                CoreInst::AssertContract { operations, .. } => {
+                    if !operations.is_empty() {
+                        return Err("structural interface contracts require --engine=vm".into());
+                    }
+                    (1, 1)
+                }
+                CoreInst::Dup(..) => (1, 2),
+                CoreInst::BuildList(count, _) => {
+                    if *count > 255 {
+                        return Err("list count exceeds 8-bit operand".into());
+                    }
+                    (*count, 1)
+                }
+                CoreInst::BuildDict(count, _) => (
+                    count.checked_mul(2).ok_or("dictionary operand overflow")?,
+                    1,
+                ),
+                CoreInst::BuildStruct {
+                    field_count,
+                    defer_fixed,
+                    ..
+                } => {
+                    if *defer_fixed {
+                        return Err("construction hooks require --engine=vm".into());
+                    }
+                    (*field_count, 1)
+                }
+                CoreInst::Call { arg_count, .. } => {
+                    (arg_count.checked_add(1).ok_or("call operand overflow")?, 1)
+                }
+                CoreInst::Return { has_value, .. } => (usize::from(*has_value), 0),
+                CoreInst::Jump(..)
+                | CoreInst::JumpIfSetLocal { .. }
+                | CoreInst::PushHandler(..)
+                | CoreInst::PopHandler(..)
+                | CoreInst::IterGuardEnd(..)
+                | CoreInst::FillSelfCapture { .. }
+                | CoreInst::CheckMutations(..) => (0, 0),
+                unsupported => return Err(format!("unsupported register IR: {unsupported:?}")),
+            };
+            match inst {
+                CoreInst::Jump(target, _)
+                | CoreInst::JumpIfFalse(target, _)
+                | CoreInst::PushHandler(target, _)
+                | CoreInst::JumpIfSetLocal { target, .. }
+                    if usize::try_from(*target)
+                        .ok()
+                        .filter(|target| *target <= length)
+                        .is_none() =>
+                {
+                    return Err("jump target outside Core IR".into());
+                }
+                _ => {}
+            }
+            effects.push(effect);
         }
+        let mut heights = vec![None; length + 1];
+        let mut pending = VecDeque::from([0]);
+        heights[0] = Some(0usize);
+        while let Some(index) = pending.pop_front() {
+            if index == length {
+                continue;
+            }
+            let height = heights[index].ok_or("missing CFG stack height")?;
+            let (popped, pushed) = effects[index];
+            let next_height = height
+                .checked_sub(popped)
+                .and_then(|height| height.checked_add(pushed))
+                .ok_or_else(|| format!("invalid evaluation stack at IR {index}"))?;
+            let mut successors = Vec::with_capacity(2);
+            match &func.instructions[index] {
+                CoreInst::Return { .. } | CoreInst::Fail(..) => {}
+                CoreInst::Jump(target, _) => successors.push((*target as usize, next_height)),
+                CoreInst::JumpIfFalse(target, _) | CoreInst::JumpIfSetLocal { target, .. } => {
+                    successors.push((*target as usize, next_height));
+                    successors.push((index + 1, next_height));
+                }
+                CoreInst::PushHandler(target, _) => {
+                    successors.push((
+                        *target as usize,
+                        next_height
+                            .checked_add(1)
+                            .ok_or("handler stack height overflow")?,
+                    ));
+                    successors.push((index + 1, next_height));
+                }
+                _ => successors.push((index + 1, next_height)),
+            }
+            for (successor, incoming) in successors {
+                match heights[successor] {
+                    Some(existing) if existing != incoming => {
+                        return Err(format!(
+                            "inconsistent branch stack height at IR {successor}"
+                        ));
+                    }
+                    Some(_) => {}
+                    None => {
+                        heights[successor] = Some(incoming);
+                        pending.push_back(successor);
+                    }
+                }
+            }
+        }
+        Ok(heights)
     }
 
     fn emit(&mut self, inst: RegInstruction) {
@@ -813,7 +997,16 @@ impl RegEmitter {
     }
 
     /// Compiles a CoreModule into a RegCompiledModule.
-    pub fn compile_module(mut self, module: &aipo_ir::CoreModule) -> RegCompiledModule {
+    ///
+    /// # Errors
+    /// Returns an error if any function or its operands cannot be represented.
+    pub fn compile_module(
+        mut self,
+        module: &aipo_ir::CoreModule,
+    ) -> Result<RegCompiledModule, String> {
+        if module.functions.len() > 131072 {
+            return Err("function table exceeds 17-bit index".into());
+        }
         // First pass: assign function indices so MakeFunction can resolve them.
         for (idx, func) in module.functions.iter().enumerate() {
             self.function_index.insert(func.name.clone(), idx);
@@ -833,7 +1026,7 @@ impl RegEmitter {
                 contracts: Vec::new(),
                 max_reg: 0,
             };
-            let compiled = emitter.compile_function(func);
+            let compiled = emitter.compile_function(func)?;
             for c in &compiled.constants {
                 if !module_constants.contains(c) {
                     module_constants.push(c.clone());
@@ -857,19 +1050,21 @@ impl RegEmitter {
             contracts: Vec::new(),
             max_reg: 0,
         };
-        let top_level = top_emitter.compile_function(&module.top_level);
+        let top_level = top_emitter.compile_function(&module.top_level)?;
 
         let mut struct_defs = HashMap::new();
         for s in &module.structs {
             struct_defs.insert(s.name.clone(), s.fields.clone());
         }
 
-        RegCompiledModule {
+        let compiled = RegCompiledModule {
             top_level,
             functions,
             constants: module_constants,
             struct_defs,
-        }
+        };
+        crate::RegVerifier::verify(&compiled)?;
+        Ok(compiled)
     }
 }
 
@@ -878,6 +1073,28 @@ mod tests {
     use super::*;
     use aipo_ir::{BinaryOp, CoreFunction, CoreInst};
     use aipo_source::SourceSpan;
+
+    #[test]
+    fn list_count_must_fit_even_when_registers_fit() {
+        let span = SourceSpan::default();
+        let mut instructions = vec![CoreInst::Constant(CoreConstant::None, span); 256];
+        instructions.push(CoreInst::BuildList(256, span));
+        let func = CoreFunction {
+            name: "too_many_list_items".into(),
+            is_async: false,
+            params: Vec::new(),
+            locals: Vec::new(),
+            upvalues: Vec::new(),
+            instructions,
+            span,
+        };
+        assert!(
+            RegEmitter::new()
+                .compile_function(&func)
+                .unwrap_err()
+                .contains("8-bit operand")
+        );
+    }
 
     #[test]
     fn test_reg_emitter_basic_arithmetic() {
@@ -902,7 +1119,9 @@ mod tests {
             span: dummy_span,
         };
 
-        let compiled = RegEmitter::new().compile_function(&func);
+        let compiled = RegEmitter::new()
+            .compile_function(&func)
+            .expect("supported register IR");
         assert_eq!(compiled.name, "test");
         assert!(!compiled.instructions.is_empty());
         assert_eq!(

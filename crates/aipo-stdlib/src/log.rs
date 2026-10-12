@@ -52,11 +52,11 @@ fn emit_log(level: &str, args: &[Value]) -> Result<Value, VmFault> {
         format!("[{level}] {msg}")
     };
 
-    if let Ok(mut guard) = LOG_SINK.lock() {
-        if let Some(sink) = guard.as_mut() {
-            let _ = writeln!(sink, "{line}");
-            return Ok(Value::None);
-        }
+    if let Ok(mut guard) = LOG_SINK.lock()
+        && let Some(sink) = guard.as_mut()
+    {
+        let _ = writeln!(sink, "{line}");
+        return Ok(Value::None);
     }
 
     crate::io::write_output(&line, true)?;

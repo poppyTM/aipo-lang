@@ -319,7 +319,11 @@ impl<'a> SemanticAnalyzer<'a> {
                 Symbol {
                     name: name.clone(),
                     kind: kind.clone(),
-                    mutability: Mutability::Immutable,
+                    mutability: if surface.is_mutable(name) {
+                        Mutability::Mutable
+                    } else {
+                        Mutability::Immutable
+                    },
                     span: aipo_source::SourceSpan::empty(0),
                 },
             );
@@ -379,17 +383,17 @@ impl<'a> SemanticAnalyzer<'a> {
                         );
                     }
                 }
-                if let Some(init) = &impl_block.init {
-                    if !seen_inits.insert(impl_block.target.clone()) {
-                        self.diagnostics.push(
-                            Diagnostic::error(
-                                DiagnosticCode::AIPO_SEM_HOOK_DUPLICADO,
-                                format!("'{}' já declara 'init'", impl_block.target),
-                            )
-                            .with_primary_span(self.source, init.span)
-                            .with_note("reúna as inicializações em um único `init`"),
-                        );
-                    }
+                if let Some(init) = &impl_block.init
+                    && !seen_inits.insert(impl_block.target.clone())
+                {
+                    self.diagnostics.push(
+                        Diagnostic::error(
+                            DiagnosticCode::AIPO_SEM_HOOK_DUPLICADO,
+                            format!("'{}' já declara 'init'", impl_block.target),
+                        )
+                        .with_primary_span(self.source, init.span)
+                        .with_note("reúna as inicializações em um único `init`"),
+                    );
                 }
                 let methods = self
                     .impl_methods
@@ -461,42 +465,40 @@ impl<'a> SemanticAnalyzer<'a> {
                     if let Some(source) = program.items.iter().find_map(|it| match it {
                         HirItem::Fn(f) if &f.name == function_name => Some(f),
                         _ => None,
-                    }) {
-                        if source.params.first().is_some_and(|p| p.is_self) {
-                            let min_args = source
-                                .params
-                                .iter()
-                                .filter(|p| !p.is_self && p.default.is_none())
-                                .count();
-                            let max_args = source.params.iter().filter(|p| !p.is_self).count();
-                            let is_mut_self = source.params.iter().any(|p| p.is_self && p.is_mut);
-                            let param_types = source
-                                .params
-                                .iter()
-                                .filter(|p| !p.is_self)
-                                .map(|p| (p.name.clone(), p.type_annotation.clone()))
-                                .collect();
-                            let methods =
-                                self.impl_methods.entry(binding.target.clone()).or_default();
-                            methods.insert(
-                                function_name.clone(),
-                                MethodSignature {
-                                    min_args,
-                                    max_args,
-                                    is_mut_self,
-                                    is_async: source.is_async,
-                                    param_types,
-                                    return_type: source.return_type.clone(),
-                                },
-                            );
-                            if source.is_async {
-                                self.async_methods.insert(function_name.clone());
-                            }
-                            self.fn_contracts.insert(
-                                format!("{}.{}", binding.target, function_name),
-                                DeclaredContract::of(source),
-                            );
+                    }) && source.params.first().is_some_and(|p| p.is_self)
+                    {
+                        let min_args = source
+                            .params
+                            .iter()
+                            .filter(|p| !p.is_self && p.default.is_none())
+                            .count();
+                        let max_args = source.params.iter().filter(|p| !p.is_self).count();
+                        let is_mut_self = source.params.iter().any(|p| p.is_self && p.is_mut);
+                        let param_types = source
+                            .params
+                            .iter()
+                            .filter(|p| !p.is_self)
+                            .map(|p| (p.name.clone(), p.type_annotation.clone()))
+                            .collect();
+                        let methods = self.impl_methods.entry(binding.target.clone()).or_default();
+                        methods.insert(
+                            function_name.clone(),
+                            MethodSignature {
+                                min_args,
+                                max_args,
+                                is_mut_self,
+                                is_async: source.is_async,
+                                param_types,
+                                return_type: source.return_type.clone(),
+                            },
+                        );
+                        if source.is_async {
+                            self.async_methods.insert(function_name.clone());
                         }
+                        self.fn_contracts.insert(
+                            format!("{}.{}", binding.target, function_name),
+                            DeclaredContract::of(source),
+                        );
                     }
                 }
             }
@@ -505,20 +507,20 @@ impl<'a> SemanticAnalyzer<'a> {
         for item in &program.items {
             if let HirItem::Struct(s) = item {
                 for dir in &s.directives {
-                    if dir.name.name == "satisfies" {
-                        if let Some(arg) = &dir.argument {
-                            let interfaces: Vec<String> = arg
-                                .split(',')
-                                .map(|part| part.trim().to_string())
-                                .filter(|part| !part.is_empty())
-                                .collect();
-                            let sat = aipo_hir::HirSatisfyDecl {
-                                target: s.name.clone(),
-                                interfaces,
-                                span: dir.span,
-                            };
-                            self.verify_satisfy(&sat);
-                        }
+                    if dir.name.name == "satisfies"
+                        && let Some(arg) = &dir.argument
+                    {
+                        let interfaces: Vec<String> = arg
+                            .split(',')
+                            .map(|part| part.trim().to_string())
+                            .filter(|part| !part.is_empty())
+                            .collect();
+                        let sat = aipo_hir::HirSatisfyDecl {
+                            target: s.name.clone(),
+                            interfaces,
+                            span: dir.span,
+                        };
+                        self.verify_satisfy(&sat);
                     }
                 }
             }
@@ -1136,10 +1138,10 @@ impl<'a> SemanticAnalyzer<'a> {
             HirStmt::Assign(target, value, span) => {
                 self.analyze_expr_top(value);
                 self.check_assignment_target(target, *span);
-                if let HirExpr::Identifier(name, _) = target {
-                    if let Some(st) = extract_inferred_type(value) {
-                        self.var_struct_types.insert(name.clone(), st);
-                    }
+                if let HirExpr::Identifier(name, _) = target
+                    && let Some(st) = extract_inferred_type(value)
+                {
+                    self.var_struct_types.insert(name.clone(), st);
                 }
             }
             HirStmt::CompoundAssign(_, target, value, span) => {
@@ -1250,25 +1252,18 @@ impl<'a> SemanticAnalyzer<'a> {
                                             Mutability::Immutable,
                                             aipo_source::SourceSpan::empty(0),
                                         );
-                                        if let Some(tv) = &target_var {
-                                            if let Some(st_name) = this.var_struct_types.get(tv) {
-                                                if let Some(contracts) =
-                                                    this.struct_field_contracts.get(st_name)
-                                                {
-                                                    if let Some(ann) = contracts.get(field) {
-                                                        if ann.is_nullable {
-                                                            this.var_nullable_types.insert(
-                                                                field.clone(),
-                                                                ann.name.clone(),
-                                                            );
-                                                        } else {
-                                                            this.var_struct_types.insert(
-                                                                field.clone(),
-                                                                ann.name.clone(),
-                                                            );
-                                                        }
-                                                    }
-                                                }
+                                        if let Some(tv) = &target_var
+                                            && let Some(st_name) = this.var_struct_types.get(tv)
+                                            && let Some(contracts) =
+                                                this.struct_field_contracts.get(st_name)
+                                            && let Some(ann) = contracts.get(field)
+                                        {
+                                            if ann.is_nullable {
+                                                this.var_nullable_types
+                                                    .insert(field.clone(), ann.name.clone());
+                                            } else {
+                                                this.var_struct_types
+                                                    .insert(field.clone(), ann.name.clone());
                                             }
                                         }
                                     }
@@ -1298,19 +1293,18 @@ impl<'a> SemanticAnalyzer<'a> {
                                                 );
                                                 if let Some(contracts) =
                                                     this.struct_field_contracts.get(&full_name)
+                                                    && let Some(ann) = contracts.get(field)
                                                 {
-                                                    if let Some(ann) = contracts.get(field) {
-                                                        if ann.is_nullable {
-                                                            this.var_nullable_types.insert(
-                                                                field.clone(),
-                                                                ann.name.clone(),
-                                                            );
-                                                        } else {
-                                                            this.var_struct_types.insert(
-                                                                field.clone(),
-                                                                ann.name.clone(),
-                                                            );
-                                                        }
+                                                    if ann.is_nullable {
+                                                        this.var_nullable_types.insert(
+                                                            field.clone(),
+                                                            ann.name.clone(),
+                                                        );
+                                                    } else {
+                                                        this.var_struct_types.insert(
+                                                            field.clone(),
+                                                            ann.name.clone(),
+                                                        );
                                                     }
                                                 }
                                             }
@@ -1318,11 +1312,10 @@ impl<'a> SemanticAnalyzer<'a> {
                                     }
                                 }
                                 aipo_hir::HirMatchPattern::Value(expr) => {
-                                    if let HirExpr::Identifier(type_name, _) = expr {
-                                        if let Some(tv) = &target_var {
-                                            this.var_struct_types
-                                                .insert(tv.clone(), type_name.clone());
-                                        }
+                                    if let HirExpr::Identifier(type_name, _) = expr
+                                        && let Some(tv) = &target_var
+                                    {
+                                        this.var_struct_types.insert(tv.clone(), type_name.clone());
                                     }
                                 }
                             }
@@ -1668,11 +1661,12 @@ impl<'a> SemanticAnalyzer<'a> {
                                 )
                                 .with_primary_span(self.source, *dot_span),
                             );
-                        } else if !self.in_init {
-                            if let Some(struct_name) = &self.current_struct {
-                                if let Some(fixed_set) = self.struct_fixed_fields.get(struct_name) {
-                                    if fixed_set.contains(member) {
-                                        self.diagnostics.push(
+                        } else if !self.in_init
+                            && let Some(struct_name) = &self.current_struct
+                            && let Some(fixed_set) = self.struct_fixed_fields.get(struct_name)
+                            && fixed_set.contains(member)
+                        {
+                            self.diagnostics.push(
                                             Diagnostic::error(
                                                 DiagnosticCode::AIPO_SEM_FIXED_REASSIGN,
                                                 format!(
@@ -1682,9 +1676,6 @@ impl<'a> SemanticAnalyzer<'a> {
                                             )
                                             .with_primary_span(self.source, *dot_span),
                                         );
-                                    }
-                                }
-                            }
                         }
                     } else {
                         let symbol = self
@@ -1693,12 +1684,12 @@ impl<'a> SemanticAnalyzer<'a> {
                             .flatten();
                         match symbol {
                             Some(_) => {
-                                if let Some(struct_name) = self.var_struct_types.get(root_name) {
-                                    if let Some(fixed_set) =
+                                if let Some(struct_name) = self.var_struct_types.get(root_name)
+                                    && let Some(fixed_set) =
                                         self.struct_fixed_fields.get(struct_name)
-                                    {
-                                        if fixed_set.contains(member) {
-                                            self.diagnostics.push(
+                                    && fixed_set.contains(member)
+                                {
+                                    self.diagnostics.push(
                                                 Diagnostic::error(
                                                     DiagnosticCode::AIPO_SEM_FIXED_REASSIGN,
                                                     format!(
@@ -1708,8 +1699,6 @@ impl<'a> SemanticAnalyzer<'a> {
                                                 )
                                                 .with_primary_span(self.source, *dot_span),
                                             );
-                                        }
-                                    }
                                 }
                             }
                             None => {
@@ -2160,19 +2149,21 @@ impl<'a> SemanticAnalyzer<'a> {
                         kind: SymbolKind::Function { min_args, max_args },
                         ..
                     }) = self.facts.scopes.lookup(self.current_scope, name)
+                        && (args.len() < *min_args || args.len() > *max_args)
                     {
-                        if args.len() < *min_args || args.len() > *max_args {
-                            self.diagnostics.push(
-                                Diagnostic::error(
-                                    DiagnosticCode::AIPO_SEM_ARITY_MISMATCH,
-                                    format!(
-                                        "function '{}' expected between {} and {} arguments, found {}",
-                                        name, min_args, max_args, args.len()
-                                    ),
-                                )
-                                .with_primary_span(self.source, *span),
-                            );
-                        }
+                        self.diagnostics.push(
+                            Diagnostic::error(
+                                DiagnosticCode::AIPO_SEM_ARITY_MISMATCH,
+                                format!(
+                                    "function '{}' expected between {} and {} arguments, found {}",
+                                    name,
+                                    min_args,
+                                    max_args,
+                                    args.len()
+                                ),
+                            )
+                            .with_primary_span(self.source, *span),
+                        );
                     }
                     if let Some(contract) = self.fn_contracts.get(name).cloned() {
                         self.check_argument_contracts(name, args, &contract);
@@ -2230,10 +2221,11 @@ impl<'a> SemanticAnalyzer<'a> {
                     };
                     if let Some(st) = target_struct {
                         let key = format!("{}.{}", st, member);
-                        if let Some(methods) = self.impl_methods.get(&st) {
-                            if let Some(sig) = methods.get(member) {
-                                if args.len() < sig.min_args || args.len() > sig.max_args {
-                                    self.diagnostics.push(
+                        if let Some(methods) = self.impl_methods.get(&st)
+                            && let Some(sig) = methods.get(member)
+                            && (args.len() < sig.min_args || args.len() > sig.max_args)
+                        {
+                            self.diagnostics.push(
                                         Diagnostic::error(
                                             DiagnosticCode::AIPO_SEM_ARITY_MISMATCH,
                                             format!(
@@ -2243,8 +2235,6 @@ impl<'a> SemanticAnalyzer<'a> {
                                         )
                                         .with_primary_span(self.source, *span),
                                     );
-                                }
-                            }
                         }
                         if let Some(contract) = self.fn_contracts.get(&key).cloned() {
                             self.check_argument_contracts(&key, args, &contract);
@@ -2322,19 +2312,19 @@ impl<'a> SemanticAnalyzer<'a> {
                                 .with_primary_span(self.source, *span),
                             );
                         }
-                        if let Some(contract) = contracts.get(name) {
-                            if literal_violates_contract(f_expr, contract) {
-                                self.diagnostics.push(
-                                    Diagnostic::error(
-                                        DiagnosticCode::AIPO_SEM_CONTRACT_VIOLATION_STATIC,
-                                        format!(
-                                            "field '{name}' of '{target}' cannot satisfy contract '{}'",
-                                            contract_label(contract)
-                                        ),
-                                    )
-                                    .with_primary_span(self.source, f_expr.span()),
-                                );
-                            }
+                        if let Some(contract) = contracts.get(name)
+                            && literal_violates_contract(f_expr, contract)
+                        {
+                            self.diagnostics.push(
+                                Diagnostic::error(
+                                    DiagnosticCode::AIPO_SEM_CONTRACT_VIOLATION_STATIC,
+                                    format!(
+                                        "field '{name}' of '{target}' cannot satisfy contract '{}'",
+                                        contract_label(contract)
+                                    ),
+                                )
+                                .with_primary_span(self.source, f_expr.span()),
+                            );
                         }
                         self.analyze_expr(f_expr);
                     }
@@ -2392,10 +2382,10 @@ impl<'a> SemanticAnalyzer<'a> {
     }
 
     fn check_member_access(&mut self, target: &HirExpr, member: &str, span: SourceSpan) {
-        if let HirExpr::Identifier(name, _) = target {
-            if self.is_host_module_reference(name) || self.enum_variants.contains_key(name) {
-                return;
-            }
+        if let HirExpr::Identifier(name, _) = target
+            && (self.is_host_module_reference(name) || self.enum_variants.contains_key(name))
+        {
+            return;
         }
         let target_type = match target {
             HirExpr::Identifier(name, _) if name == "self" => self.current_struct.clone(),
@@ -2517,14 +2507,11 @@ impl<'a> SemanticAnalyzer<'a> {
                     if let Some(underlying) = self.var_nullable_types.get(var_name) {
                         out.push((var_name.clone(), underlying.clone()));
                     }
-                } else if let (
-                    HirExpr::Literal(Literal::None, _),
-                    HirExpr::Identifier(var_name, _),
-                ) = (&**left, &**right)
+                } else if let (HirExpr::Literal(Literal::None, _), HirExpr::Identifier(var_name, _)) =
+                    (&**left, &**right)
+                    && let Some(underlying) = self.var_nullable_types.get(var_name)
                 {
-                    if let Some(underlying) = self.var_nullable_types.get(var_name) {
-                        out.push((var_name.clone(), underlying.clone()));
-                    }
+                    out.push((var_name.clone(), underlying.clone()));
                 }
             }
             HirExpr::Binary(BinaryOp::Equal, left, right, _) if !is_positive => {
@@ -2534,33 +2521,29 @@ impl<'a> SemanticAnalyzer<'a> {
                     if let Some(underlying) = self.var_nullable_types.get(var_name) {
                         out.push((var_name.clone(), underlying.clone()));
                     }
-                } else if let (
-                    HirExpr::Literal(Literal::None, _),
-                    HirExpr::Identifier(var_name, _),
-                ) = (&**left, &**right)
+                } else if let (HirExpr::Literal(Literal::None, _), HirExpr::Identifier(var_name, _)) =
+                    (&**left, &**right)
+                    && let Some(underlying) = self.var_nullable_types.get(var_name)
                 {
-                    if let Some(underlying) = self.var_nullable_types.get(var_name) {
-                        out.push((var_name.clone(), underlying.clone()));
-                    }
+                    out.push((var_name.clone(), underlying.clone()));
                 }
             }
             HirExpr::Call(callee, args, _) if is_positive => {
                 if let HirExpr::Identifier(name, _) = &**callee {
-                    if name == "some" && args.len() == 1 {
-                        if let HirExpr::Identifier(var_name, _) = &args[0].value {
-                            if let Some(underlying) = self.var_nullable_types.get(var_name) {
-                                out.push((var_name.clone(), underlying.clone()));
-                            }
-                        }
+                    if name == "some"
+                        && args.len() == 1
+                        && let HirExpr::Identifier(var_name, _) = &args[0].value
+                        && let Some(underlying) = self.var_nullable_types.get(var_name)
+                    {
+                        out.push((var_name.clone(), underlying.clone()));
                     }
-                } else if let HirExpr::Dot(target, member, _) = &**callee {
-                    if member == "some" && args.is_empty() {
-                        if let HirExpr::Identifier(var_name, _) = &**target {
-                            if let Some(underlying) = self.var_nullable_types.get(var_name) {
-                                out.push((var_name.clone(), underlying.clone()));
-                            }
-                        }
-                    }
+                } else if let HirExpr::Dot(target, member, _) = &**callee
+                    && member == "some"
+                    && args.is_empty()
+                    && let HirExpr::Identifier(var_name, _) = &**target
+                    && let Some(underlying) = self.var_nullable_types.get(var_name)
+                {
+                    out.push((var_name.clone(), underlying.clone()));
                 }
             }
             _ => {}

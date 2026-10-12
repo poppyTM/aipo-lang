@@ -1,0 +1,103 @@
+{
+  "schema": 1,
+  "goal": "P07-G02",
+  "state": "DRAFT",
+  "source_revision": "33d524b59caecd8b0d33f48f385a64010e14a3c1",
+  "source_tree": "42bfc0d63f9b23484e342991713814372339042c",
+  "environment": {
+    "compiler": "rustc 1.96.0 (ac68faa20 2026-05-25)",
+    "host": "x86_64-unknown-linux-gnu",
+    "CARGO_INCREMENTAL": "0",
+    "CARGO_BUILD_JOBS": "2",
+    "CARGO_PROFILE_DEV_DEBUG": "0"
+  },
+  "checks": [
+    {
+      "command": "cargo +1.96.0 clippy --workspace --all-targets --locked -- -D warnings",
+      "exit_code": 0,
+      "tests_executed": false
+    },
+    {
+      "command": "cargo +1.96.0 fmt --all -- --check",
+      "exit_code": 0
+    },
+    {
+      "command": "cargo +1.96.0 doc --workspace --no-deps --locked",
+      "RUSTDOCFLAGS": "-D warnings",
+      "exit_code": 0,
+      "cache_recovery": "previous generated target/doc renamed after Directory not empty; fresh rerun passed",
+      "CARGO_BUILD_JOBS": "1"
+    },
+    {
+      "command": "cargo +1.96.0 check -p aipo-cli --all-targets --locked --no-default-features --features profile-shell",
+      "exit_code": 0
+    },
+    {
+      "command": "cargo +1.96.0 check -p aipo-cli --all-targets --locked --no-default-features --features profile-web",
+      "exit_code": 0
+    },
+    {
+      "command": "cargo +1.96.0 check -p aipo-cli --all-targets --locked --no-default-features --features profile-embedded",
+      "exit_code": 0
+    },
+    {
+      "command": "cargo +1.96.0 check -p aipo-cli --all-targets --locked --no-default-features",
+      "exit_code": 0
+    },
+    {
+      "command": "cc -std=c11 -Wall -Wextra -Werror -fsyntax-only; c++ -std=c++17 -Wall -Wextra -Werror -fsyntax-only; include aipo.h via stdin",
+      "exit_code": 0,
+      "export_scan": {
+        "total": 29,
+        "missing": 0
+      },
+      "scope": "header syntax only; no linking or runtime execution"
+    },
+    {
+      "command": "Python ast.parse for scripts/perf/reg_calls.py and scripts/release/{package,install}.py",
+      "exit_code": 0,
+      "scope": "syntax only; installer and packager not executed"
+    },
+    {
+      "command": "git diff --check; relative links in guide/studies/profiles resolved locally",
+      "exit_code": 0
+    },
+    {
+      "static_scripts": [
+        "node scripts/verify-progress.mjs",
+        "node scripts/check-docs.mjs",
+        "node scripts/check-usage-docs.mjs"
+      ],
+      "static_exit_code": 0,
+      "build": "npm run build",
+      "build_exit_code": 0,
+      "tests_executed": false,
+      "notes": "npm run check was not invoked because it includes test:progress; Aipo code fences fall back to plain text"
+    }
+  ],
+  "tests": {
+    "executed": false,
+    "status": "skipped_by_user",
+    "passed": null,
+    "failed": null,
+    "includes": [
+      "Rust tests",
+      "Aipo conformance",
+      "differential suites",
+      "fuzz",
+      "Miri",
+      "ASan",
+      "website unit tests"
+    ]
+  },
+  "limitations": [
+    "Compiler checks do not prove runtime correctness or backend parity.",
+    "No multi-OS workflows or public release were observed.",
+    "Benchmark is a separate execution and not a conformance suite."
+  ],
+  "resolved_failures": [
+    "Clippy 1.96 nonminimal_bool in parser and github_http test sources corrected without weakening lints.",
+    "Rustdoc removal failed on retained generated directory; old target/doc renamed and fresh single-job generation passed.",
+    "CSV line endings normalized CRLF to LF after collection; 480 observations unchanged, both hashes preserved and git diff --check passed."
+  ]
+}

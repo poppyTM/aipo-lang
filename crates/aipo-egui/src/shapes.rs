@@ -11,32 +11,37 @@ use egui::epaint::{ClippedShape, Color32, ColorMode, Pos2, Rect, Shape};
 /// Converts an egui `Color32` into an Aipo List `[r, g, b, a]` (0..255).
 #[must_use]
 pub fn color_to_value(c: Color32) -> Value {
-    Value::List(Rc::new(RefCell::new(vec![
-        Value::Int(i64::from(c.r())),
-        Value::Int(i64::from(c.g())),
-        Value::Int(i64::from(c.b())),
-        Value::Int(i64::from(c.a())),
-    ])))
+    Value::List(Rc::new(RefCell::new(
+        (vec![
+            Value::Int(i64::from(c.r())),
+            Value::Int(i64::from(c.g())),
+            Value::Int(i64::from(c.b())),
+            Value::Int(i64::from(c.a())),
+        ])
+        .into(),
+    )))
 }
 
 /// Converts an egui `Rect` into an Aipo List `[min_x, min_y, max_x, max_y]`.
 #[must_use]
 pub fn rect_to_value(r: Rect) -> Value {
-    Value::List(Rc::new(RefCell::new(vec![
-        Value::Float(f64::from(r.min.x)),
-        Value::Float(f64::from(r.min.y)),
-        Value::Float(f64::from(r.max.x)),
-        Value::Float(f64::from(r.max.y)),
-    ])))
+    Value::List(Rc::new(RefCell::new(
+        (vec![
+            Value::Float(f64::from(r.min.x)),
+            Value::Float(f64::from(r.min.y)),
+            Value::Float(f64::from(r.max.x)),
+            Value::Float(f64::from(r.max.y)),
+        ])
+        .into(),
+    )))
 }
 
 /// Converts an egui `Pos2` into an Aipo List `[x, y]`.
 #[must_use]
 pub fn pos_to_value(p: Pos2) -> Value {
-    Value::List(Rc::new(RefCell::new(vec![
-        Value::Float(f64::from(p.x)),
-        Value::Float(f64::from(p.y)),
-    ])))
+    Value::List(Rc::new(RefCell::new(
+        (vec![Value::Float(f64::from(p.x)), Value::Float(f64::from(p.y))]).into(),
+    )))
 }
 
 fn color_mode_to_color(cm: &ColorMode) -> Color32 {
@@ -72,7 +77,10 @@ pub fn shape_to_value(clipped: &ClippedShape) -> Value {
                     })
                 })
                 .collect();
-            entries.push((str_val("shapes"), Value::List(Rc::new(RefCell::new(list)))));
+            entries.push((
+                str_val("shapes"),
+                Value::List(Rc::new(RefCell::new((list).into()))),
+            ));
         }
         Shape::Circle(circle) => {
             entries.push((str_val("type"), str_val("circle")));
@@ -87,10 +95,9 @@ pub fn shape_to_value(clipped: &ClippedShape) -> Value {
         }
         Shape::LineSegment { points, stroke } => {
             entries.push((str_val("type"), str_val("line")));
-            let pts = Value::List(Rc::new(RefCell::new(vec![
-                pos_to_value(points[0]),
-                pos_to_value(points[1]),
-            ])));
+            let pts = Value::List(Rc::new(RefCell::new(
+                (vec![pos_to_value(points[0]), pos_to_value(points[1])]).into(),
+            )));
             entries.push((str_val("points"), pts));
             entries.push((str_val("color"), color_to_value(stroke.color)));
             entries.push((str_val("width"), Value::Float(f64::from(stroke.width))));
@@ -98,7 +105,10 @@ pub fn shape_to_value(clipped: &ClippedShape) -> Value {
         Shape::Path(path) => {
             entries.push((str_val("type"), str_val("path")));
             let pts: Vec<Value> = path.points.iter().copied().map(pos_to_value).collect();
-            entries.push((str_val("points"), Value::List(Rc::new(RefCell::new(pts)))));
+            entries.push((
+                str_val("points"),
+                Value::List(Rc::new(RefCell::new((pts).into()))),
+            ));
             entries.push((str_val("closed"), Value::Bool(path.closed)));
             entries.push((str_val("fill"), color_to_value(path.fill)));
             let stroke_color = match path.stroke.color {
@@ -126,12 +136,15 @@ pub fn shape_to_value(clipped: &ClippedShape) -> Value {
             let cr = rect_shape.corner_radius;
             entries.push((
                 str_val("corner_radius"),
-                Value::List(Rc::new(RefCell::new(vec![
-                    Value::Float(f64::from(cr.nw)),
-                    Value::Float(f64::from(cr.ne)),
-                    Value::Float(f64::from(cr.se)),
-                    Value::Float(f64::from(cr.sw)),
-                ]))),
+                Value::List(Rc::new(RefCell::new(
+                    (vec![
+                        Value::Float(f64::from(cr.nw)),
+                        Value::Float(f64::from(cr.ne)),
+                        Value::Float(f64::from(cr.se)),
+                        Value::Float(f64::from(cr.sw)),
+                    ])
+                    .into(),
+                ))),
             ));
         }
         Shape::Text(text_shape) => {
@@ -144,20 +157,26 @@ pub fn shape_to_value(clipped: &ClippedShape) -> Value {
             let size = text_shape.galley.size();
             entries.push((
                 str_val("size"),
-                Value::List(Rc::new(RefCell::new(vec![
-                    Value::Float(f64::from(size.x)),
-                    Value::Float(f64::from(size.y)),
-                ]))),
+                Value::List(Rc::new(RefCell::new(
+                    (vec![
+                        Value::Float(f64::from(size.x)),
+                        Value::Float(f64::from(size.y)),
+                    ])
+                    .into(),
+                ))),
             ));
             entries.push((str_val("color"), color_to_value(text_shape.fallback_color)));
         }
         Shape::Ellipse(ellipse) => {
             entries.push((str_val("type"), str_val("ellipse")));
             entries.push((str_val("center"), pos_to_value(ellipse.center)));
-            let rad = Value::List(Rc::new(RefCell::new(vec![
-                Value::Float(f64::from(ellipse.radius.x)),
-                Value::Float(f64::from(ellipse.radius.y)),
-            ])));
+            let rad = Value::List(Rc::new(RefCell::new(
+                (vec![
+                    Value::Float(f64::from(ellipse.radius.x)),
+                    Value::Float(f64::from(ellipse.radius.y)),
+                ])
+                .into(),
+            )));
             entries.push((str_val("radius"), rad));
             entries.push((str_val("fill"), color_to_value(ellipse.fill)));
             entries.push((
@@ -171,11 +190,14 @@ pub fn shape_to_value(clipped: &ClippedShape) -> Value {
         }
         Shape::QuadraticBezier(bez) => {
             entries.push((str_val("type"), str_val("bezier")));
-            let pts = Value::List(Rc::new(RefCell::new(vec![
-                pos_to_value(bez.points[0]),
-                pos_to_value(bez.points[1]),
-                pos_to_value(bez.points[2]),
-            ])));
+            let pts = Value::List(Rc::new(RefCell::new(
+                (vec![
+                    pos_to_value(bez.points[0]),
+                    pos_to_value(bez.points[1]),
+                    pos_to_value(bez.points[2]),
+                ])
+                .into(),
+            )));
             entries.push((str_val("points"), pts));
             entries.push((str_val("fill"), color_to_value(bez.fill)));
             entries.push((
@@ -189,12 +211,15 @@ pub fn shape_to_value(clipped: &ClippedShape) -> Value {
         }
         Shape::CubicBezier(bez) => {
             entries.push((str_val("type"), str_val("cubic_bezier")));
-            let pts = Value::List(Rc::new(RefCell::new(vec![
-                pos_to_value(bez.points[0]),
-                pos_to_value(bez.points[1]),
-                pos_to_value(bez.points[2]),
-                pos_to_value(bez.points[3]),
-            ])));
+            let pts = Value::List(Rc::new(RefCell::new(
+                (vec![
+                    pos_to_value(bez.points[0]),
+                    pos_to_value(bez.points[1]),
+                    pos_to_value(bez.points[2]),
+                    pos_to_value(bez.points[3]),
+                ])
+                .into(),
+            )));
             entries.push((str_val("points"), pts));
             entries.push((str_val("fill"), color_to_value(bez.fill)));
             entries.push((

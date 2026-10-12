@@ -68,6 +68,9 @@ assert.ok(!R.valuesEqual(R.vList([R.vInt(1)]), R.vList([R.vInt(2)])));
 // --- dict: insertion order preserved ---
 const d = R.vDict([[R.vStr('b'), R.vInt(2)], [R.vStr('a'), R.vInt(1)]]);
 assert.deepEqual(R.dictNatives.keys(d, []).items.map(k => k.v), ['b', 'a']);
+assert.equal(R.iterAt(null, d, 1, 0).v, 'a');
+assert.equal(R.iterAt(null, d, 1, 1).v, 'a');
+assert.equal(R.iterAt(null, d, 1, 2).v, 1);
 assert.equal(R.dictNatives.get(d, [R.vStr('a')]).v, 1);
 assert.ok(R.dictNatives.get(d, [R.vStr('zzz')]).t === 'none');
 

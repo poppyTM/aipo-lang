@@ -80,7 +80,7 @@ impl BytecodeModule {
     /// Looks up a compiled function by its canonical name.
     #[must_use]
     pub fn function_by_name(&self, name: &str) -> Option<&FunctionInfo> {
-        self.functions.iter().find(|f| f.name == name)
+        self.functions.iter().rev().find(|f| f.name == name)
     }
 
     /// Serializes the module into the binary `.aibc` format.

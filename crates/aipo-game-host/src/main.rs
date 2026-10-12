@@ -198,10 +198,10 @@ impl SnakeGameState {
             self.next_dir = Direction::Right;
         }
 
-        if self.next_dir != prev_dir {
-            if let Ok(mut audio) = AUDIO.lock() {
-                audio.play_preset("click", 0.35, 1.2);
-            }
+        if self.next_dir != prev_dir
+            && let Ok(mut audio) = AUDIO.lock()
+        {
+            audio.play_preset("click", 0.35, 1.2);
         }
     }
 
@@ -590,10 +590,10 @@ impl ScriptRuntime {
         }
 
         // Call init() if defined
-        if let Some(init_fn) = find_callable(&vm, &module, &["init", "on_init", "setup"]) {
-            if let Err(err) = vm.invoke(&module, init_fn, &[]) {
-                return Err(format!("init() error: {err}"));
-            }
+        if let Some(init_fn) = find_callable(&vm, &module, &["init", "on_init", "setup"])
+            && let Err(err) = vm.invoke(&module, init_fn, &[])
+        {
+            return Err(format!("init() error: {err}"));
         }
 
         let update_fn = find_callable(&vm, &module, &["update", "step", "on_update"]);

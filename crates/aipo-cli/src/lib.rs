@@ -56,6 +56,12 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 mod ahs;
 mod headless;
+mod lsp;
+pub mod repl;
+pub mod session;
+mod tooling;
+mod vendor;
+pub use session::Session;
 pub mod modules;
 
 static NEXT_LOCK_TEMP: AtomicU64 = AtomicU64::new(0);
@@ -87,7 +93,14 @@ USAGE:
     aipo build <path> [--target <js|wasm>] [--out <dir>] [--package-cache <dir>] [--message-format=<human|jsonl>]
     aipo disasm <path> [--wasm] [--package-cache <dir>] [--message-format=<human|jsonl>]
     aipo fmt <paths...> [--check]
+    aipo new <directory>
+    aipo watch <path>
+    aipo profile <path> [--budget <instructions>] [--json]
+    aipo debug <path>
+    aipo plan <path>
+    aipo lsp
     aipo package lock <package-dir> [--fetch-github --cache <dir>] [--github-token-env <name>]
+    aipo package vendor <package-dir> --out <directory> [--cache <directory>]
     aipo package audit <package-dir>
     aipo package cache verify <cache-dir>
     aipo package cache prune <cache-dir> --lock <lockfile> [--apply]
@@ -143,6 +156,9 @@ fn usage_text() -> String {
 /// Keeping the streams injectable makes the whole command surface testable without
 /// spawning a process.
 pub fn run_with(args: &[String], out: &mut dyn Write, err: &mut dyn Write) -> u8 {
+    if let Some(code) = tooling::dispatch(args, out, err) {
+        return code;
+    }
     let parsed = match Command::parse(args) {
         Ok(command) => command,
         Err(usage) => {
@@ -352,7 +368,8 @@ pub fn eval_source(source_text: &str, out: &mut dyn Write, err: &mut dyn Write) 
 /// Returns exit code `0` on success, `1` on error.
 pub fn eval_source_reg(source_text: &str, out: &mut dyn Write, err: &mut dyn Write) -> u8 {
     let source = Source::new(SourceId::next(), "<eval>", source_text);
-    let (reg_module, diagnostics) = analyze_to_reg_module(&source, Path::new("<eval>"), None, None);
+    let (reg_module, diagnostics) =
+        analyze_to_execution_plan(&source, Path::new("<eval>"), None, None);
     let has_errors = diagnostics
         .iter()
         .any(|diag| diag.severity == Severity::Error);
@@ -367,7 +384,7 @@ pub fn eval_source_reg(source_text: &str, out: &mut dyn Write, err: &mut dyn Wri
         return EXIT_LANGUAGE_FAILURE;
     };
 
-    match execute_reg_module_with_host(&reg_module, None, None) {
+    match execute_plan_with_host(&reg_module, None, None) {
         Ok(_) => EXIT_SUCCESS,
         Err(error) => {
             let diagnostic = runtime_diagnostic(&source, &error);
@@ -482,6 +499,13 @@ enum CliError {
 impl CliError {
     fn diagnostic(code: DiagnosticCode, message: impl Into<String>) -> Self {
         Self::Diagnostic(Box::new(Diagnostic::error(code, message)))
+    }
+}
+
+fn cli_error_message(error: CliError) -> String {
+    match error {
+        CliError::Usage(message) => message,
+        CliError::Diagnostic(diagnostic) => diagnostic.message,
     }
 }
 
@@ -1300,6 +1324,17 @@ pub fn analyze_full(
     extra_surface: Option<&PreludeSurface>,
     optimize: bool,
 ) -> Compiled {
+    analyze_full_with_catalog(source, path, package_paths, extra_surface, optimize, None)
+}
+
+pub(crate) fn analyze_full_with_catalog(
+    source: &Source,
+    path: &Path,
+    package_paths: Option<&PackagePathMap>,
+    extra_surface: Option<&PreludeSurface>,
+    optimize: bool,
+    mut catalog: Option<&mut Vec<aipo_hir::HirItem>>,
+) -> Compiled {
     let (program, mut diagnostics) = aipo_syntax::parse(source);
     if diagnostics.iter().any(|d| d.severity == Severity::Error) {
         return Compiled {
@@ -1319,7 +1354,23 @@ pub fn analyze_full(
             diagnostics,
         };
     }
-    let hir = resolved.program;
+    let mut hir = resolved.program;
+    if let Some(previous) = catalog.as_deref() {
+        let new_keys: std::collections::HashSet<_> = hir
+            .items
+            .iter()
+            .filter_map(crate::session::item_key)
+            .collect();
+        let mut items: Vec<_> = previous
+            .iter()
+            .filter(|item| {
+                crate::session::item_key(item).is_some_and(|key| !new_keys.contains(&key))
+            })
+            .cloned()
+            .collect();
+        items.append(&mut hir.items);
+        hir.items = items;
+    }
 
     let mut surface = prelude_surface();
     if let Some(extra) = extra_surface {
@@ -1329,7 +1380,11 @@ pub fn analyze_full(
                     surface.add_function(name, *min_args, *max_args);
                 }
                 _ => {
-                    surface.add_variable(name);
+                    if extra.is_mutable(name) {
+                        surface.add_mutable_variable(name);
+                    } else {
+                        surface.add_variable(name);
+                    }
                 }
             }
         }
@@ -1353,10 +1408,20 @@ pub fn analyze_full(
     let ir = aipo_ir::lower_to_ir(&hir);
     let ir = if optimize { aipo_ir::optimize(&ir) } else { ir };
     match aipo_bytecode::compile(&ir) {
-        Ok(module) => Compiled {
-            module,
-            diagnostics,
-        },
+        Ok(module) => {
+            if let Some(catalog) = catalog.as_mut() {
+                **catalog = hir
+                    .items
+                    .iter()
+                    .filter(|item| crate::session::item_key(item).is_some())
+                    .cloned()
+                    .collect();
+            }
+            Compiled {
+                module,
+                diagnostics,
+            }
+        }
         Err(errors) => {
             for error in errors {
                 diagnostics.push(verification_diagnostic(&error));
@@ -1409,7 +1474,11 @@ pub fn analyze_to_reg_module(
                     surface.add_function(name, *min_args, *max_args);
                 }
                 _ => {
-                    surface.add_variable(name);
+                    if extra.is_mutable(name) {
+                        surface.add_mutable_variable(name);
+                    } else {
+                        surface.add_variable(name);
+                    }
                 }
             }
         }
@@ -1428,8 +1497,88 @@ pub fn analyze_to_reg_module(
 
     let ir = aipo_ir::lower_to_ir(&hir);
     let ir = aipo_ir::optimize(&ir);
-    let reg_module = RegEmitter::new().compile_module(&ir);
-    (Some(reg_module), diagnostics)
+    match RegEmitter::new().compile_module(&ir) {
+        Ok(reg_module) => (Some(reg_module), diagnostics),
+        Err(reason) => {
+            let code = DiagnosticCode::AIPO_COMPILE_REG_UNSUPPORTED;
+            let locale = aipo_diagnostics::Locale::detect();
+            let help = match locale {
+                aipo_diagnostics::Locale::En => "Run this program with --engine=vm.",
+                aipo_diagnostics::Locale::PtBr => "Execute este programa com --engine=vm.",
+            };
+            diagnostics.push(
+                Diagnostic::error(code, code.title(locale))
+                    .with_note(reason)
+                    .with_suggestion(aipo_diagnostics::Suggestion {
+                        message: help.into(),
+                        replacement: String::new(),
+                        start: 0,
+                        end: 0,
+                    }),
+            );
+            (None, diagnostics)
+        }
+    }
+}
+
+/// Compiles an explicit execution plan with canonical fallback for shared VM services.
+pub fn analyze_to_execution_plan(
+    source: &Source,
+    path: &Path,
+    package_paths: Option<&PackagePathMap>,
+    extra_surface: Option<&PreludeSurface>,
+) -> (Option<aipo_bytecode::ExecutionPlan>, Vec<Diagnostic>) {
+    let (program, mut diagnostics) = aipo_syntax::parse(source);
+    if diagnostics.iter().any(|d| d.severity == Severity::Error) {
+        return (None, diagnostics);
+    }
+
+    let hir = aipo_hir::lower(program);
+    let resolved = modules::resolve(path, hir, package_paths);
+    diagnostics.extend(resolved.diagnostics);
+    if diagnostics.iter().any(|d| d.severity == Severity::Error) {
+        return (None, diagnostics);
+    }
+    let hir = resolved.program;
+
+    let mut surface = prelude_surface();
+    if let Some(extra) = extra_surface {
+        for (name, kind) in extra.iter() {
+            match kind {
+                aipo_sema::SymbolKind::Function { min_args, max_args } => {
+                    surface.add_function(name, *min_args, *max_args);
+                }
+                _ => {
+                    if extra.is_mutable(name) {
+                        surface.add_mutable_variable(name);
+                    } else {
+                        surface.add_variable(name);
+                    }
+                }
+            }
+        }
+        for (module, functions) in extra.host_modules() {
+            surface.add_host_module(module, functions.clone());
+        }
+    }
+    for name in &resolved.imported_names {
+        surface.add_variable(name);
+    }
+    let (_, sema_diagnostics) = aipo_sema::check_with_prelude(source, &hir, &surface);
+    diagnostics.extend(sema_diagnostics);
+    if diagnostics.iter().any(|d| d.severity == Severity::Error) {
+        return (None, diagnostics);
+    }
+
+    let ir = aipo_ir::lower_to_ir(&hir);
+    let ir = aipo_ir::optimize(&ir);
+    match aipo_bytecode::compile_execution_plan(&ir) {
+        Ok(plan) => (Some(plan), diagnostics),
+        Err(errors) => {
+            diagnostics.extend(errors.iter().map(|error| verification_diagnostic(error)));
+            (None, diagnostics)
+        }
+    }
 }
 
 fn verification_diagnostic(reason: &str) -> Diagnostic {
@@ -2283,8 +2432,17 @@ fn execute(
         }
 
         if reg {
-            let (reg_module, reg_diagnostics) =
-                analyze_to_reg_module(&source, path, package_paths.as_ref(), surface);
+            let (reg_module, reg_diagnostics) = if host.is_some() {
+                (
+                    Some(aipo_bytecode::ExecutionPlan::Canonical {
+                        module: Box::new(compiled.module.clone()),
+                        reason: "host callbacks require the canonical host context".into(),
+                    }),
+                    Vec::new(),
+                )
+            } else {
+                analyze_to_execution_plan(&source, path, package_paths.as_ref(), surface)
+            };
             let reg_has_errors = reg_diagnostics
                 .iter()
                 .any(|diag| diag.severity == Severity::Error);
@@ -2295,7 +2453,7 @@ fn execute(
             let Some(reg_module) = reg_module else {
                 return EXIT_LANGUAGE_FAILURE;
             };
-            return match execute_reg_module_with_host(&reg_module, host, budget) {
+            return match execute_plan_with_host(&reg_module, host, budget) {
                 Ok(_) => EXIT_SUCCESS,
                 Err(error) => {
                     let diagnostic = runtime_diagnostic(&source, &error);
@@ -2739,8 +2897,8 @@ fn execute_module_with_host(
 ///
 /// # Errors
 /// Returns the runtime error raised by the program.
-fn execute_reg_module_with_host(
-    module: &RegCompiledModule,
+fn execute_plan_with_host(
+    plan: &aipo_bytecode::ExecutionPlan,
     host: Option<HostProfile>,
     budget: Option<u64>,
 ) -> Result<aipo_vm::Value, VmError> {
@@ -2748,11 +2906,24 @@ fn execute_reg_module_with_host(
     if let Some(HostProfile::HeadlessTest) = host {
         headless::install(&mut stack_vm);
     }
-    let mut reg_vm = RegVm::new();
-    reg_vm.globals = stack_vm.globals.clone();
-    reg_vm.method_natives = stack_vm.method_natives.clone();
-    reg_vm.set_max_instructions(budget);
-    reg_vm.run_module(module).map_err(VmError::Fault)
+    match plan {
+        aipo_bytecode::ExecutionPlan::Canonical { module, .. } => {
+            stack_vm.set_max_instructions(budget);
+            register_module_symbols(&mut stack_vm, module);
+            stack_vm.run(module)
+        }
+        aipo_bytecode::ExecutionPlan::Register(module) => {
+            let mut reg_vm = RegVm::new();
+            reg_vm.globals = stack_vm.globals.clone();
+            reg_vm.method_natives = stack_vm.method_natives.clone();
+            reg_vm.set_max_instructions(budget);
+            let value = reg_vm.run_module(module).map_err(VmError::Fault)?;
+            if let aipo_vm::Value::Failure(failure) = &value {
+                return Err(VmError::UncaughtFailure(failure.message.clone()));
+            }
+            Ok(value)
+        }
+    }
 }
 
 fn collect_test_files(target: Option<&Path>) -> Result<Vec<PathBuf>, String> {

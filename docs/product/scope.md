@@ -25,18 +25,20 @@ The following remain product work after the language release:
 
 - Godot and other engine adapters.
 - The future Aipo/Petunia3D engine; its core design is intentionally deferred.
-- `aipo new`, `aipo watch`, LSP, REPL, debugger and profiler.
+- Complete IDE tooling: navigation/refactoring, DAP, lexical frame inspection and interactive line editing beyond the initial tools.
 - DOM/storage web profile, `fetch`, workers and WebAssembly.
-- Registry, publication, SemVer solving, vendor trees and hot reload.
+- Registry, publication and SemVer range solving; distributed/resource-aware reload beyond the initial guest transaction.
 - Visual editors, lifecycle scripts and complete third-party framework ports.
 
 ## Current implementation status
 
-The language, VM, JavaScript backend, async surface, host contracts, local/GitHub package path and cache verification are implemented. The C ABI, minimal test runner and the three interoperability proofs are the next implementation targets for `v0.1.0`.
+The language, VM, JavaScript and Wasm backends, async surface, host contracts, C ABI, test command and local/GitHub package path/cache are implemented. P07-G02 adds register verification and explicit canonical execution plans, persistent sessions and guest-heap reload, cooperative C execution, initial LSP/debug/profile/watch/new commands, offline vendor trees and native packaging automation.
+
+This is implementation status, not release certification. Tests were explicitly not executed in P07-G02; platform workflows and thin-proof execution remain gates to assess from actual evidence. See the [usage/reimplementation guide](../development/runtime-and-tooling-guide.md) and [evidence](../evidence/P07-G02/README.md).
 
 ## Compatibility constraints
 
-- Implementation edition: Rust Edition 2024.
+- Implementation edition: Rust Edition 2024; workspace MSRV 1.96 (locked Wasmtime/Cranelift dependency requirements).
 - Target platforms: Tier 1 Linux (x86_64, aarch64), macOS (Apple Silicon, Intel), Windows (x86_64).
-- Safe Rust first: `unsafe_code = "forbid"` across workspace.
+- Safe Rust first: `unsafe_code = "forbid"` for the language; narrowly documented C ABI/arena FFI exceptions retain their boundary rules.
 - No Rust panic may ever leak as an Aipo runtime error.

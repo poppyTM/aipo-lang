@@ -1306,15 +1306,15 @@ fn verify_cached_expected(
             actual: input.manifest.name.clone(),
         });
     }
-    if let Some(version) = &expected.version {
-        if version != &input.manifest.version {
-            return Err(ResolveError::VersionConflict {
-                coordinate: expected.coordinate.clone(),
-                expected: version.clone(),
-                actual: input.manifest.version.clone(),
-                dependent: expected.dependent.clone(),
-            });
-        }
+    if let Some(version) = &expected.version
+        && version != &input.manifest.version
+    {
+        return Err(ResolveError::VersionConflict {
+            coordinate: expected.coordinate.clone(),
+            expected: version.clone(),
+            actual: input.manifest.version.clone(),
+            dependent: expected.dependent.clone(),
+        });
     }
     Ok(())
 }
@@ -1962,7 +1962,7 @@ mod tests {
             .store(&source, GitHubArtifact::new(manifest(), entry()))
             .expect("store");
         assert!(cache.remove_verified(&source).expect("remove succeeds"));
-        assert!(!cache.load(&source).expect("load after remove").is_some());
+        assert!(cache.load(&source).expect("load after remove").is_none());
         assert!(
             !cache
                 .remove_verified(&source)

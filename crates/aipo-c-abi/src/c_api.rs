@@ -549,50 +549,82 @@ pub unsafe extern "C" fn aipo_runtime_reset_instruction_count(
     aipo_status_t::AIPO_OK
 }
 
-/// Creates a new virtual register machine instance.
-#[unsafe(no_mangle)]
-pub extern "C" fn aipo_reg_vm_create() -> *mut aipo_reg_vm_t {
-    let result = catch_unwind(AssertUnwindSafe(|| {
-        Box::into_raw(Box::new(aipo_vm::RegVm::new())).cast::<aipo_reg_vm_t>()
-    }));
-    result.unwrap_or(std::ptr::null_mut())
+struct RegHandle {
+    vm: aipo_vm::RegVm,
+    last_error: String,
 }
 
-/// Destroys a virtual register machine instance.
-///
+/// Creates a new register execution handle. The handle is thread-confined.
+#[unsafe(no_mangle)]
+pub extern "C" fn aipo_reg_vm_create() -> *mut aipo_reg_vm_t {
+    catch_unwind(AssertUnwindSafe(|| {
+        Box::into_raw(Box::new(RegHandle {
+            vm: aipo_vm::RegVm::new(),
+            last_error: String::new(),
+        }))
+        .cast()
+    }))
+    .unwrap_or(std::ptr::null_mut())
+}
+
+/// Destroys a register handle.
 /// # Safety
-/// If non-null, `vm` must be a valid pointer returned by [`aipo_reg_vm_create`].
+/// `vm` must be null or a live handle created by `aipo_reg_vm_create`.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn aipo_reg_vm_destroy(vm: *mut aipo_reg_vm_t) {
-    if !vm.is_null() {
+    if !vm.is_null() && !crate::runtime::in_host_callback() {
         let _ = catch_unwind(AssertUnwindSafe(|| {
-            drop(unsafe { Box::from_raw(vm.cast::<aipo_vm::RegVm>()) });
+            drop(unsafe { Box::from_raw(vm.cast::<RegHandle>()) })
         }));
     }
 }
 
-/// Sets an integer into a specific register.
-///
+fn reg_operation(
+    vm: *mut aipo_reg_vm_t,
+    operation: impl FnOnce(&mut aipo_vm::RegVm) -> Result<(), String>,
+) -> aipo_status_t {
+    if vm.is_null() {
+        return aipo_status_t::AIPO_ERR_NULL_POINTER;
+    }
+    if crate::runtime::in_host_callback() {
+        return aipo_status_t::AIPO_ERR_USAGE;
+    }
+    let handle = unsafe { &mut *vm.cast::<RegHandle>() };
+    match catch_unwind(AssertUnwindSafe(|| operation(&mut handle.vm))) {
+        Ok(Ok(())) => {
+            handle.last_error.clear();
+            aipo_status_t::AIPO_OK
+        }
+        Ok(Err(error)) => {
+            handle.last_error = error;
+            aipo_status_t::AIPO_ERR_FAULT
+        }
+        Err(_) => {
+            handle.last_error = "panic contained at register C boundary".into();
+            aipo_status_t::AIPO_ERR_FAULT
+        }
+    }
+}
+
+/// Sets an Aipo-safe integer in a register.
 /// # Safety
-/// `vm` must point to a live [`aipo_reg_vm_t`].
+/// `vm` must be a live, exclusively owned handle.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn aipo_reg_vm_set_reg_int(
     vm: *mut aipo_reg_vm_t,
     reg: u8,
     val: i64,
 ) -> aipo_status_t {
-    if vm.is_null() {
-        return aipo_status_t::AIPO_ERR_NULL_POINTER;
-    }
-    let r_vm = unsafe { &mut *vm.cast::<aipo_vm::RegVm>() };
-    r_vm.registers[reg as usize] = aipo_vm::Value::Int(val);
-    aipo_status_t::AIPO_OK
+    reg_operation(vm, |runtime| {
+        aipo_vm::value::check_safe_int(val).map_err(|error| error.to_string())?;
+        runtime.registers[reg as usize] = aipo_vm::Value::Int(val);
+        Ok(())
+    })
 }
 
-/// Reads an integer from a specific register.
-///
+/// Reads an integer register.
 /// # Safety
-/// `vm` must point to a live [`aipo_reg_vm_t`], and `out_val` must point to a valid writable `i64`.
+/// `vm` must be live and `out_val` must point to writable aligned `i64` storage.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn aipo_reg_vm_get_reg_int(
     vm: *const aipo_reg_vm_t,
@@ -602,20 +634,95 @@ pub unsafe extern "C" fn aipo_reg_vm_get_reg_int(
     if vm.is_null() || out_val.is_null() {
         return aipo_status_t::AIPO_ERR_NULL_POINTER;
     }
-    let r_vm = unsafe { &*vm.cast::<aipo_vm::RegVm>() };
-    match &r_vm.registers[reg as usize] {
-        aipo_vm::Value::Int(n) => {
-            unsafe { *out_val = *n };
-            aipo_status_t::AIPO_OK
-        }
-        _ => aipo_status_t::AIPO_ERR_FAULT,
+    if crate::runtime::in_host_callback() {
+        return aipo_status_t::AIPO_ERR_USAGE;
     }
+    catch_unwind(AssertUnwindSafe(|| {
+        let handle = unsafe { &*vm.cast::<RegHandle>() };
+        if let aipo_vm::Value::Int(value) = handle.vm.registers[reg as usize] {
+            unsafe {
+                *out_val = value;
+            }
+            aipo_status_t::AIPO_OK
+        } else {
+            aipo_status_t::AIPO_ERR_FAULT
+        }
+    }))
+    .unwrap_or(aipo_status_t::AIPO_ERR_FAULT)
 }
 
-/// Executes a buffer of 32-bit register instructions on the register machine.
-///
+/// Sets a cumulative instruction limit; zero disables it and resets consumption.
 /// # Safety
-/// `vm` must point to a live [`aipo_reg_vm_t`]. `instructions` must point to `count` aligned `u32` words.
+/// `vm` must be a live, exclusively owned handle.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aipo_reg_vm_set_instruction_budget(
+    vm: *mut aipo_reg_vm_t,
+    limit: u64,
+) -> aipo_status_t {
+    reg_operation(vm, |runtime| {
+        runtime.set_instruction_budget((limit != 0).then_some(limit));
+        Ok(())
+    })
+}
+
+/// Reads cumulative bytecode consumption; returns zero for a null handle.
+/// # Safety
+/// A non-null `vm` must be live and must not be executing a callback.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aipo_reg_vm_instruction_count(vm: *const aipo_reg_vm_t) -> u64 {
+    if vm.is_null() || crate::runtime::in_host_callback() {
+        return 0;
+    }
+    catch_unwind(AssertUnwindSafe(|| unsafe {
+        (&*vm.cast::<RegHandle>()).vm.instruction_count()
+    }))
+    .unwrap_or(0)
+}
+
+/// Resets consumption without changing the limit.
+/// # Safety
+/// `vm` must be a live, exclusively owned handle.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aipo_reg_vm_reset_instruction_count(
+    vm: *mut aipo_reg_vm_t,
+) -> aipo_status_t {
+    reg_operation(vm, |runtime| {
+        runtime.reset_instruction_count();
+        Ok(())
+    })
+}
+
+/// Copies the last diagnostic, including its NUL terminator; returns required bytes.
+/// The copied prefix is NUL-terminated when capacity is nonzero. Query with null/zero.
+/// # Safety
+/// `vm` must be live; `buffer` must have `capacity` writable bytes when non-null.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aipo_reg_vm_copy_last_error(
+    vm: *const aipo_reg_vm_t,
+    buffer: *mut std::ffi::c_char,
+    capacity: usize,
+) -> usize {
+    if vm.is_null() || crate::runtime::in_host_callback() {
+        return 0;
+    }
+    catch_unwind(AssertUnwindSafe(|| {
+        let bytes = unsafe { (&*vm.cast::<RegHandle>()).last_error.as_bytes() };
+        if !buffer.is_null() && capacity > 0 {
+            let count = bytes.len().min(capacity - 1);
+            unsafe {
+                std::ptr::copy_nonoverlapping(bytes.as_ptr(), buffer.cast(), count);
+                *buffer.add(count) = 0;
+            }
+        }
+        bytes.len() + 1
+    }))
+    .unwrap_or(0)
+}
+
+/// Verifies then executes a buffer of 32-bit register instructions.
+/// # Safety
+/// `vm` must be exclusively owned. `instructions` must cover `count` aligned words.
+/// A non-null `out_int` must point to writable aligned `i64` storage.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn aipo_reg_vm_run(
     vm: *mut aipo_reg_vm_t,
@@ -623,28 +730,144 @@ pub unsafe extern "C" fn aipo_reg_vm_run(
     count: usize,
     out_int: *mut i64,
 ) -> aipo_status_t {
-    if vm.is_null() || (instructions.is_null() && count > 0) {
+    if instructions.is_null() && count > 0 {
         return aipo_status_t::AIPO_ERR_NULL_POINTER;
     }
-    let r_vm = unsafe { &mut *vm.cast::<aipo_vm::RegVm>() };
-    let slice = if count == 0 {
-        &[]
-    } else {
-        unsafe {
-            std::slice::from_raw_parts(instructions.cast::<aipo_bytecode::RegInstruction>(), count)
-        }
-    };
-    match r_vm.run(slice) {
-        Ok(val) => {
-            if !out_int.is_null() {
-                if let aipo_vm::Value::Int(n) = val {
-                    unsafe { *out_int = n };
-                }
-            }
-            aipo_status_t::AIPO_OK
-        }
-        Err(_) => aipo_status_t::AIPO_ERR_FAULT,
+    if count > isize::MAX as usize / std::mem::size_of::<u32>() {
+        return aipo_status_t::AIPO_ERR_USAGE;
     }
+    reg_operation(vm, |runtime| {
+        let code = if count == 0 {
+            &[]
+        } else {
+            unsafe {
+                std::slice::from_raw_parts(
+                    instructions.cast::<aipo_bytecode::RegInstruction>(),
+                    count,
+                )
+            }
+        };
+        let result = runtime.run(code).map_err(|error| error.to_string())?;
+        if !out_int.is_null() {
+            let aipo_vm::Value::Int(value) = result else {
+                return Err("register result is not Int".into());
+            };
+            unsafe {
+                *out_int = value;
+            }
+        }
+        Ok(())
+    })
+}
+
+/// Begins a cooperative function call. Use `aipo_runtime_pump` to drive it.
+/// # Safety
+/// All pointers must be live; strings are NUL-terminated; `args` covers `argc` values.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aipo_runtime_begin(
+    rt: *mut aipo_runtime_t,
+    module: *const c_char,
+    function: *const c_char,
+    args: *const aipo_value_t,
+    argc: usize,
+) -> aipo_status_t {
+    if rt.is_null() || module.is_null() || function.is_null() || (argc > 0 && args.is_null()) {
+        return aipo_status_t::AIPO_ERR_NULL_POINTER;
+    }
+    if crate::runtime::in_host_callback() || argc > 65535 {
+        return aipo_status_t::AIPO_ERR_USAGE;
+    }
+    catch_unwind(AssertUnwindSafe(|| {
+        let runtime = unsafe { &mut *rt };
+        let names = unsafe {
+            (
+                std::ffi::CStr::from_ptr(module).to_str(),
+                std::ffi::CStr::from_ptr(function).to_str(),
+            )
+        };
+        let (Ok(module), Ok(function)) = names else {
+            return aipo_status_t::AIPO_ERR_USAGE;
+        };
+        let values = if argc == 0 {
+            &[]
+        } else {
+            unsafe { std::slice::from_raw_parts(args, argc) }
+        };
+        match runtime.begin(module, function, values) {
+            Ok(()) => aipo_status_t::AIPO_OK,
+            Err((status, message)) => {
+                runtime.last_error = Some(message);
+                status
+            }
+        }
+    }))
+    .unwrap_or(aipo_status_t::AIPO_ERR_FAULT)
+}
+
+/// Drives bounded scheduler quanta; writes a value only when `completed` is true.
+/// Release returned heap snapshots with `aipo_value_release`.
+/// # Safety
+/// Runtime must be exclusively owned; outputs must be valid writable aligned storage.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aipo_runtime_pump(
+    rt: *mut aipo_runtime_t,
+    steps: usize,
+    completed: *mut bool,
+    out_value: *mut aipo_value_t,
+) -> aipo_status_t {
+    if rt.is_null() || completed.is_null() || out_value.is_null() {
+        return aipo_status_t::AIPO_ERR_NULL_POINTER;
+    }
+    if crate::runtime::in_host_callback() {
+        return aipo_status_t::AIPO_ERR_USAGE;
+    }
+    unsafe {
+        *completed = false;
+    }
+    let result = catch_unwind(AssertUnwindSafe(|| {
+        let runtime = unsafe { &mut *rt };
+        match runtime.pump(steps) {
+            Ok(Some(value)) => {
+                unsafe {
+                    *out_value = value;
+                    *completed = true;
+                }
+                aipo_status_t::AIPO_OK
+            }
+            Ok(None) => aipo_status_t::AIPO_OK,
+            Err((status, message)) => {
+                runtime.last_error = Some(message);
+                status
+            }
+        }
+    }));
+    match result {
+        Ok(status) => status,
+        Err(_) => {
+            let runtime = unsafe { &mut *rt };
+            runtime.abort();
+            runtime.last_error = Some("panic contained during cooperative execution".into());
+            aipo_status_t::AIPO_ERR_FAULT
+        }
+    }
+}
+
+/// Stops cooperative execution, retaining current guest state and completed side effects.
+/// # Safety
+/// Runtime must be live and exclusively owned, outside a host callback.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aipo_runtime_abort(rt: *mut aipo_runtime_t) -> aipo_status_t {
+    if rt.is_null() {
+        return aipo_status_t::AIPO_ERR_NULL_POINTER;
+    }
+    if crate::runtime::in_host_callback() {
+        return aipo_status_t::AIPO_ERR_USAGE;
+    }
+    catch_unwind(AssertUnwindSafe(|| {
+        unsafe { &mut *rt }.abort();
+        aipo_status_t::AIPO_OK
+    }))
+    .unwrap_or(aipo_status_t::AIPO_ERR_FAULT)
 }
 
 /// Loads and executes an already compiled Aipo bytecode module (.aibc).

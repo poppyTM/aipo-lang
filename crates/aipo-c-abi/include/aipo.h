@@ -316,10 +316,12 @@ aipo_status_t aipo_runtime_set_instruction_budget(
 );
 
 /**
- * \brief Returns the total number of instructions executed on this runtime.
+ * \brief Returns the instruction counter maintained while a budget is enabled.
  *
  * \param rt Runtime pointer.
- * \return Number of instructions executed since creation or last reset.
+ * Budgeted calls retain consumption until reset. An unbudgeted execution may reset
+ * the counter and does not count instructions unless VM metrics are enabled.
+ * \return Current counter value, or 0 for a null runtime.
  */
 uint64_t aipo_runtime_instruction_count(const aipo_runtime_t *rt);
 
@@ -388,6 +390,83 @@ aipo_status_t aipo_reg_vm_run(
     size_t count,
     int64_t *out_int
 );
+
+/**
+ * \brief Configures instruction budget limit on the register machine.
+ *
+ * \param vm Register machine pointer.
+ * \param limit Maximum instructions allowed, or 0 to disable.
+ * \return AIPO_OK on success, or error status code.
+ */
+aipo_status_t aipo_reg_vm_set_instruction_budget(aipo_reg_vm_t *vm, uint64_t limit);
+
+/**
+ * \brief Returns the number of instructions executed by the register machine.
+ *
+ * \param vm Register machine pointer.
+ * \return Cumulative executed instruction count.
+ */
+uint64_t aipo_reg_vm_instruction_count(const aipo_reg_vm_t *vm);
+
+/**
+ * \brief Resets the instruction execution counter of the register machine.
+ *
+ * \param vm Register machine pointer.
+ * \return AIPO_OK on success, or error status code.
+ */
+aipo_status_t aipo_reg_vm_reset_instruction_count(aipo_reg_vm_t *vm);
+
+/**
+ * \brief Copies the last error message from the register machine into the provided buffer.
+ *
+ * \param vm Register machine pointer.
+ * \param buffer Buffer to receive null-terminated error string, or NULL to query required length.
+ * \param capacity Size of buffer in bytes.
+ * \return Required byte count including null terminator.
+ */
+size_t aipo_reg_vm_copy_last_error(const aipo_reg_vm_t *vm, char *buffer, size_t capacity);
+
+/**
+ * \brief Starts a function as the cooperative main computation.
+ *
+ * \param rt Runtime pointer.
+ * \param module Module name containing the function.
+ * \param function Function name to invoke.
+ * \param args Array of argument values.
+ * \param argc Number of argument values in args.
+ * \return AIPO_OK on success, or error status code.
+ */
+aipo_status_t aipo_runtime_begin(
+    aipo_runtime_t *rt,
+    const char *module,
+    const char *function,
+    const aipo_value_t *args,
+    size_t argc
+);
+
+/**
+ * \brief Pumps up to `steps` cooperative execution quanta.
+ *
+ * \param rt Runtime pointer.
+ * \param steps Maximum quanta steps to run.
+ * \param completed Out-pointer set to true if execution finished, false if pending.
+ * \param out Out-pointer to receive completion value when completed is true.
+ * \return AIPO_OK on success, or error status code.
+ */
+aipo_status_t aipo_runtime_pump(
+    aipo_runtime_t *rt,
+    size_t steps,
+    bool *completed,
+    aipo_value_t *out
+);
+
+/**
+ * \brief Cancels the active cooperative computation.
+ *
+ * \param rt Runtime pointer.
+ * \return AIPO_OK on success, or error status code.
+ */
+aipo_status_t aipo_runtime_abort(aipo_runtime_t *rt);
 
 /**
  * \brief Loads and initializes an Aipo module from precompiled bytecode (.aibc).

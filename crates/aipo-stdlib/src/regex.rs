@@ -149,7 +149,7 @@ pub fn method_pattern_find_all(receiver: &Value, args: &[Value]) -> Result<Value
             .map(|m| Value::String(Rc::new(m.as_str().to_string())))
             .collect::<Vec<_>>()
     }) {
-        Ok(matches) => Ok(Value::List(Rc::new(RefCell::new(matches)))),
+        Ok(matches) => Ok(Value::List(Rc::new(RefCell::new((matches).into())))),
         Err(err) => Ok(recoverable(format!("regex error: {err}"))),
     }
 }
@@ -201,7 +201,7 @@ pub fn method_pattern_split(receiver: &Value, args: &[Value]) -> Result<Value, V
             .map(|s| Value::String(Rc::new(s.to_string())))
             .collect::<Vec<_>>()
     }) {
-        Ok(parts) => Ok(Value::List(Rc::new(RefCell::new(parts)))),
+        Ok(parts) => Ok(Value::List(Rc::new(RefCell::new((parts).into())))),
         Err(err) => Ok(recoverable(format!("regex error: {err}"))),
     }
 }

@@ -1,23 +1,19 @@
 # ADP-003 — Orçamentos de Execução para Programas Não Confiáveis (fuel, memória, interrupção)
 
-**Status:** rascunho (questão em aberto — nenhuma semântica implementada, nada decidido)
+**Status:** rascunho; política unificada de memória, interrupção, sinais e paridade ainda aberta. APIs parciais de orçamento já existem.
 **Relacionado:** `docs/evidence/P01-G02-*.md` (suíte de exaustão de recursos), contratos das crates
 (linha Owns de `aipo-vm` corrigida pelo mesmo goal), Fechamento Arquitetural §10–11
 **Autoridade:** subordinada a `docs/canon/Aipo V1 — Language Reference…` e
 `docs/language/authority-map.md` (política de não invenção)
 
-## Fatos verificados (não são decisões)
+## Fatos de implementação (não encerram o ADP)
 
-- Hoje a VM impõe exatamente um orçamento de execução: o limite de profundidade da
-  operand stack (1024), que se manifesta como `AIPO_RT_OVERFLOW` com uma dica de recursão.
-- **Não** existe orçamento de instruções/fuel, nem contabilização de alocação/memória, nem
-  mecanismo de interrupção dentro da VM. Um programa `loop … end` executa até que o host o
-  mate; a suíte de testes prova isso com um watchdog externo, não com uma garantia da VM.
-- O contrato das crates listava historicamente "contabilização de fuel/débito no nível da VM"
-  em Owns de `aipo-vm`. Essa linha descrevia uma aspiração, não a implementação, e foi
-  corrigida para o limite de profundidade da stack, com um ponteiro para este documento.
-- A execução de `cargo-fuzz`/libFuzzer, o Miri e as execuções com sanitizers são avaliações
-  de nível CI, não gates atuais (veja o registro de evidência do gauntlet).
+- Stack VM e C ABI já tinham mecanismos de orçamento na base desta revisão, além do limite da operand stack. A afirmação histórica de inexistência de instruction budget ficou obsoleta.
+- RegVM expõe `set_instruction_budget(Some(n))`, contador cumulativo e reset explícito. Exaustão usa `VmFault::Overflow`; callbacks nativos não são contabilizados pelo limite.
+- O runner Wasm expõe fuel opt-in em `WasmExecutionOptions`, configurado antes de instanciar o módulo. Sem opções, a API legada continua sem limite.
+- Não há, nesta revisão, orçamento global de memória, limite de output, interrupção de trabalho nativo ou regra equivalente no shim JavaScript.
+- Os testes desta reconstrução não foram executados a pedido do usuário. Source e APIs publicados não equivalem à certificação dos gates.
+- Veja o [guia de runtime](../development/runtime-hardening-guide.md) para uso, escopo e riscos.
 
 ## Questões em aberto (todas indecididas)
 

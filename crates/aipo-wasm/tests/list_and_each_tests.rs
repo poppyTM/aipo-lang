@@ -1,3 +1,5 @@
+#![cfg(feature = "wasmtime")]
+
 //! End-to-end tests for List literals, Indexing, and Each iteration in Wasm.
 
 use aipo_hir::lower;

@@ -728,10 +728,10 @@ fn rewrite_expr(expr: HirExpr, scope: &ModuleScope) -> HirExpr {
 
 /// Rewrites a call callee that names an imported member (`alias.fn(...)`).
 fn rewrite_alias_callee(callee: HirExpr, scope: &ModuleScope) -> HirExpr {
-    if let HirExpr::Dot(receiver, member, span) = &callee {
-        if let Some(resolved) = scope.rewrite_alias_access(receiver, member) {
-            return HirExpr::Identifier(resolved, *span);
-        }
+    if let HirExpr::Dot(receiver, member, span) = &callee
+        && let Some(resolved) = scope.rewrite_alias_access(receiver, member)
+    {
+        return HirExpr::Identifier(resolved, *span);
     }
     rewrite_expr(callee, scope)
 }

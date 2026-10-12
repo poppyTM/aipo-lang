@@ -1,0 +1,18 @@
+# Reg profile must preserve shared capture and scheduler semantics.
+fn make_step() {
+    var count = 0
+    fn step() {
+        count += 1
+        return count
+    }
+    return step
+}
+let step = make_step()
+io.println(step())
+io.println(step())
+async fn answer() {
+    return 42
+}
+let pending = answer()
+let completed = await pending
+io.println(completed)

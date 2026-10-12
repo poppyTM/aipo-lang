@@ -706,10 +706,10 @@ pub fn math_pow(args: &[Value]) -> Result<Value, VmFault> {
         (Value::Int(base), Value::Int(exp)) if *exp >= 0 && *exp <= 53 => {
             #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
             let exp_u32 = *exp as u32;
-            if let Some(res) = base.checked_pow(exp_u32) {
-                if (MIN_SAFE_INT..=MAX_SAFE_INT).contains(&res) {
-                    return Ok(Value::Int(res));
-                }
+            if let Some(res) = base.checked_pow(exp_u32)
+                && (MIN_SAFE_INT..=MAX_SAFE_INT).contains(&res)
+            {
+                return Ok(Value::Int(res));
             }
             #[allow(clippy::cast_precision_loss)]
             let f = (*base as f64).powf(*exp as f64);

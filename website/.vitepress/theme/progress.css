@@ -1,0 +1,61 @@
+/* Aipo progress — adapted to VitePress. Follows the Petunia3D progress interaction model. */
+.VPDoc .content-container:has(.aipo-progress) { max-width: 1200px !important; }
+.aipo-progress { --ap-rule: var(--vp-c-divider); color: var(--vp-c-text-1); font-size: .94rem; line-height: 1.55; }
+.aipo-progress * { box-sizing: border-box; }
+.aipo-progress a { overflow-wrap: anywhere; }
+.aipo-progress .ap-kicker { font-size: .79rem; color: var(--vp-c-text-2); font-weight: 650; letter-spacing: .045em; }
+.aipo-progress .ap-kicker code { color: var(--vp-c-brand-1); background: var(--vp-c-brand-soft); padding: .2em .45em; border-radius: 5px; }
+.aipo-progress .ap-intro { max-width: 70ch; font-size: 1rem; color: var(--vp-c-text-2); }
+.aipo-progress .ap-meta { margin: 10px 0 14px; color: var(--vp-c-text-2); font-size: .85rem; }
+.aipo-progress .ap-totals { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 20px 0; }
+.aipo-progress .ap-totals > div { display: flex; flex-direction: column; gap: 4px; padding: 16px 18px; background: var(--vp-c-bg-soft); border: 1px solid var(--ap-rule); border-radius: 12px; }
+.aipo-progress .ap-totals dt { color: var(--vp-c-text-2); font-weight: 650; font-size: .74rem; letter-spacing: .04em; }
+.aipo-progress .ap-totals dd { font-size: 1.7rem; line-height: 1.25; font-variant-numeric: tabular-nums; font-weight: 720; margin: 0; }
+.aipo-progress .ap-filters { display: grid; grid-template-columns: minmax(210px, 2fr) minmax(145px, 1fr) minmax(190px, 1.4fr) auto; align-items: end; gap: 12px; margin: 12px 0 18px; }
+.aipo-progress .ap-filters > div { min-width: 0; }
+.aipo-progress .ap-filters label { display: block; margin: 0 0 5px; font-size: .83rem; color: var(--vp-c-text-2); font-weight: 650; }
+.aipo-progress .ap-filters input, .aipo-progress .ap-filters select { display: block; width: 100%; height: 42px; padding: 0 12px; color: var(--vp-c-text-1); border: 1px solid var(--ap-rule); border-radius: 8px; background: var(--vp-c-bg); font: inherit; }
+.aipo-progress .ap-clear, .aipo-progress .ap-empty button { cursor: pointer; padding: 10px 13px; border: 1px solid var(--ap-rule); border-radius: 8px; color: var(--vp-c-text-1); background: var(--vp-c-bg-soft); font: inherit; font-size: .85rem; font-weight: 600; }
+.aipo-progress .ap-clear:hover, .aipo-progress .ap-empty button:hover { border-color: var(--vp-c-brand-1); }
+.aipo-progress .ap-warning { max-width: none; border-left: 3px solid var(--vp-c-brand-1); padding: 10px 14px; background: var(--vp-c-bg-soft); border-radius: 0 7px 7px 0; font-size: .85rem; color: var(--vp-c-text-2); }
+.aipo-progress .ap-group { margin: 34px 0; }
+.aipo-progress .ap-group h2 { margin-bottom: 4px; font-size: 1.28rem; }
+.aipo-progress .ap-phase-desc { font-size: .88rem; color: var(--vp-c-text-2); margin: 4px 0 12px; }
+.aipo-progress .ap-phase-count { color: var(--vp-c-text-2); background: var(--vp-c-bg-soft); font-size: .7em; padding: 2px 9px; border-radius: 99px; border: 1px solid var(--ap-rule); vertical-align: middle; }
+.aipo-progress .ap-scroll { max-width: 100%; overflow-x: auto; border: 1px solid var(--ap-rule); border-radius: 12px; }
+.aipo-progress table { margin: 0; border-collapse: collapse; min-width: 760px; width: 100%; display: table; line-height: 1.45; font-size: .84rem; }
+.aipo-progress th, .aipo-progress td { background: transparent; border: 0; border-bottom: 1px solid var(--ap-rule); text-align: left; padding: 14px 12px; vertical-align: top; }
+.aipo-progress tr:last-child td, .aipo-progress tr:last-child th { border-bottom: 0; }
+.aipo-progress thead { background: var(--vp-c-bg-soft); }
+.aipo-progress thead th { font-weight: 650; font-size: .78rem; color: var(--vp-c-text-2); white-space: nowrap; }
+.aipo-progress .ap-id { width: 66px; font-family: var(--vp-font-family-mono); white-space: nowrap; font-weight: 700; }
+.aipo-progress .ap-main { min-width: 330px; width: 55%; }
+.aipo-progress .ap-main > p { color: var(--vp-c-text-2); font-size: .83rem; line-height: 1.5; margin: 4px 0 10px; }
+.aipo-progress .ap-title { font-weight: 700; color: var(--vp-c-text-1); text-decoration-color: var(--vp-c-brand-1); }
+.aipo-progress .ap-state-cell { width: 180px; }
+.aipo-progress .ap-state { display: inline-block; white-space: nowrap; border-radius: 6px; border: 1px solid var(--ap-rule); padding: 5px 8px; font: 650 .74rem/1.3 var(--vp-font-family-mono); }
+.aipo-progress .ap-in-progress { background: var(--vp-c-brand-soft); color: var(--vp-c-brand-1); border-color: var(--vp-c-brand-2); }
+.aipo-progress .ap-done { background: var(--vp-c-bg-soft); color: var(--vp-c-text-1); }
+.aipo-progress .ap-todo { color: var(--vp-c-text-2); }
+.aipo-progress .ap-state-cell progress { display: block; width: 100%; height: 7px; accent-color: var(--vp-c-brand-1); margin-top: 9px; }
+.aipo-progress .ap-state-cell small { display: block; margin-top: 7px; font-size: .73rem; color: var(--vp-c-text-2); }
+.aipo-progress .ap-doc { min-width: 110px; white-space: normal; }
+.aipo-progress details { margin: 10px 0 0; background: var(--vp-c-bg-soft); border-radius: 8px; padding: 9px 10px; }
+.aipo-progress details details { border: 1px solid var(--ap-rule); background: var(--vp-c-bg); }
+.aipo-progress summary { cursor: pointer; color: var(--vp-c-text-1); font-weight: 620; }
+.aipo-progress .ap-baseline { margin: 10px 0; font-size: .79rem; color: var(--vp-c-text-2); }
+.aipo-progress .ap-checkpoints { list-style: none; margin: 10px 0 6px; padding: 0; }
+.aipo-progress .ap-checkpoints li { padding: 8px 0; margin: 0; border-bottom: 1px solid var(--ap-rule); font-size: .81rem; }
+.aipo-progress .ap-checkpoints li:last-child { border-bottom: 0; }
+.aipo-progress .ap-point { display: inline-block; vertical-align: baseline; margin-right: 5px; padding: 2px 5px; border: 1px solid var(--ap-rule); border-radius: 4px; font-size: .69rem; font-weight: 650; color: var(--vp-c-text-2); }
+.aipo-progress .ap-point-done { color: var(--vp-c-brand-1); border-color: var(--vp-c-brand-2); }
+.aipo-progress .ap-proof { margin: 6px 0 0 8px; color: var(--vp-c-text-2); font-size: .74rem; line-height: 1.5; }
+.aipo-progress .ap-sources ul { padding-left: 17px; font-size: .79rem; }
+.aipo-progress tr:target { outline: 2px solid var(--vp-c-brand-1); outline-offset: -2px; background: var(--vp-c-brand-soft); scroll-margin-top: 115px; }
+.aipo-progress .ap-empty { padding: 35px 18px; border: 1px dashed var(--ap-rule); border-radius: 12px; }
+.aipo-progress .ap-footnote { max-width: none; color: var(--vp-c-text-2); font-size: .78rem; margin: 22px 0; }
+.aipo-progress .visually-hidden { position: absolute; clip: rect(0 0 0 0); width: 1px; height: 1px; overflow: hidden; white-space: nowrap; }
+@media (max-width: 850px) { .aipo-progress .ap-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); } .aipo-progress .ap-filters > div:first-child { grid-column: 1 / -1; } .aipo-progress .ap-filters .ap-clear { justify-self: start; } }
+@media (max-width: 520px) { .aipo-progress .ap-totals { gap: 6px; } .aipo-progress .ap-totals > div { padding: 12px 10px; } .aipo-progress .ap-totals dt { font-size: .64rem; } .aipo-progress .ap-totals dd { font-size: 1.4rem; } .aipo-progress .ap-filters { grid-template-columns: 1fr; } .aipo-progress .ap-filters > div:first-child { grid-column: auto; } .aipo-progress .ap-group h2 { font-size: 1.1rem; } }
+@media (prefers-reduced-motion: reduce) { .aipo-progress * { scroll-behavior: auto !important; } }
+@media print { .aipo-progress .ap-filters { display: none; } .aipo-progress .ap-scroll { overflow: visible; } .aipo-progress table { min-width: 0; } .aipo-progress details { display: block; } }

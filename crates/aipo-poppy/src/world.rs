@@ -169,19 +169,19 @@ impl World {
                     let _ = self.entities.remove(handle);
                 }
                 PoppyCommand::SetPosition { handle, x, y } => {
-                    if let Some(record) = self.entities.get_mut(handle) {
-                        if !record.marked_for_despawn {
-                            record.x = x;
-                            record.y = y;
-                        }
+                    if let Some(record) = self.entities.get_mut(handle)
+                        && !record.marked_for_despawn
+                    {
+                        record.x = x;
+                        record.y = y;
                     }
                 }
                 PoppyCommand::SetVelocity { handle, vx, vy } => {
-                    if let Some(record) = self.entities.get_mut(handle) {
-                        if !record.marked_for_despawn {
-                            record.vx = vx;
-                            record.vy = vy;
-                        }
+                    if let Some(record) = self.entities.get_mut(handle)
+                        && !record.marked_for_despawn
+                    {
+                        record.vx = vx;
+                        record.vy = vy;
                     }
                 }
             }

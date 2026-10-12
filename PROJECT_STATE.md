@@ -1,5 +1,9 @@
 # Current Project State
 
+> **Rodada P07-G02 (DRAFT), 2026-10-09:** implementação das cinco frentes publicada em `feat/runtime-and-tooling-completion`, com base P07-G01 e integração da `main` atual. Verifier Reg, revisões estruturais, planos explícitos, linker, sessão/scheduler persistentes, reload transacional guest, C cooperativo, provas/limites Wasm, ferramentas, perfis e distribuição. Testes não executados a pedido do usuário; não há certificação universal de paridade, merge ou release. Veja [guia](docs/development/runtime-and-tooling-guide.md), [evidência](docs/evidence/P07-G02/README.md) e [estudos](docs/studies/runtime-and-tooling-follow-up.md). Os estados históricos abaixo não certificam esta revisão.
+
+> **Revisão adicional P07-G01 (DRAFT), 2026-10-09:** correções de runtime e estudos reconstruídos sobre `488905ff`, integrados à `main` `bcbc4c9`, com documentação completa e publicação autorizada em draft. Testes não executados nesta reconstrução a pedido do usuário; nenhuma transição Prumo foi simulada. A fase/goal histórica abaixo é preservada. Veja [guia](docs/development/runtime-hardening-guide.md) e [evidência](docs/evidence/P07-G01-runtime-hardening.md).
+
 - Project: **aipo**
 - Prumo: **0.6.0**
 - Current phase: **P06 — WebAssembly Execution Substrate & Self-Hosting Foundation (ADP-013)**

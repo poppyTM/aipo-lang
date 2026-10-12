@@ -57,9 +57,9 @@ pub(crate) fn length_of(value: &Value) -> Result<Value, VmFault> {
 /// Returns `VmFault::TypeMismatch` when the receiver is not iterable.
 pub(crate) fn iterable_items(receiver: &Value) -> Result<Vec<Value>, VmFault> {
     match receiver {
-        Value::List(list) => Ok(list.borrow().clone()),
+        Value::List(list) => Ok(list.borrow().to_vec()),
         Value::Dict(dict) => Ok(dict.borrow().values()),
-        Value::Set(items) => Ok(items.borrow().clone()),
+        Value::Set(items) => Ok(items.borrow().to_vec()),
         Value::String(text) => Ok(text
             .chars()
             .map(|ch| Value::String(Rc::new(ch.to_string())))

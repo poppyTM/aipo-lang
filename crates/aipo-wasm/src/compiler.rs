@@ -10,7 +10,8 @@ use aipo_hir::{
 };
 use aipo_lexer::{parse_float_literal, parse_int_literal};
 use aipo_source::SourceSpan;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use std::ops::{Deref, DerefMut};
 use wasm_encoder::{BlockType, ConstExpr, Function, GlobalType, Instruction, MemArg, ValType};
 
 /// Represents a frame in the WebAssembly structured control stack.
@@ -31,6 +32,8 @@ enum ControlFrame {
 /// High-level type tag for local variables to disambiguate field accesses, string properties, and function pointers.
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum LocalKind {
+    Unknown,
+    None,
     Int,
     Float,
     Bool,
@@ -46,6 +49,90 @@ enum LocalKind {
     Dict,
     /// A `Bytes` value produced by `Bytes(len)`.
     Bytes,
+}
+
+/// Function symbols and module bindings relevant to static semantic proofs.
+struct FunctionTable {
+    symbols: HashMap<String, (u32, u32, WasmFnType)>,
+    global_bindings: HashSet<String>,
+    declared_types: HashSet<String>,
+}
+
+impl FunctionTable {
+    fn new(program: &HirProgram) -> Self {
+        Self {
+            symbols: HashMap::new(),
+            global_bindings: program
+                .statements
+                .iter()
+                .filter_map(|statement| match statement {
+                    HirStmt::Let(name, ..) | HirStmt::Var(name, ..) => Some(name.clone()),
+                    _ => None,
+                })
+                .collect(),
+            declared_types: program
+                .items
+                .iter()
+                .filter_map(|item| match item {
+                    HirItem::Struct(declaration) => Some(declaration.name.clone()),
+                    HirItem::Enum(declaration) => Some(declaration.name.clone()),
+                    _ => None,
+                })
+                .collect(),
+        }
+    }
+
+    fn builtin_is_unshadowed(&self, name: &str) -> bool {
+        !self.symbols.contains_key(name)
+            && !self.global_bindings.contains(name)
+            && !self.declared_types.contains(name)
+    }
+}
+
+impl Deref for FunctionTable {
+    type Target = HashMap<String, (u32, u32, WasmFnType)>;
+    fn deref(&self) -> &Self::Target {
+        &self.symbols
+    }
+}
+
+impl DerefMut for FunctionTable {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.symbols
+    }
+}
+
+fn annotated_kind(
+    annotation: Option<&aipo_ast::TypeAnnotation>,
+    structs: &HashMap<String, StructLayout>,
+) -> LocalKind {
+    let Some(annotation) = annotation.filter(|annotation| !annotation.is_nullable) else {
+        return LocalKind::Unknown;
+    };
+    match annotation.name.as_str() {
+        "Int" => LocalKind::Int,
+        "Float" => LocalKind::Float,
+        "Bool" => LocalKind::Bool,
+        "String" => LocalKind::String,
+        "List" => LocalKind::List,
+        "Dict" => LocalKind::Dict,
+        "Range" => LocalKind::Range,
+        "Task" => LocalKind::Task,
+        "Bytes" => LocalKind::Bytes,
+        name if structs.contains_key(name) && !name.contains('.') => {
+            // An enum parent annotation does not identify the concrete variant.
+            if structs
+                .keys()
+                .any(|variant| variant.starts_with(&format!("{name}.")))
+            {
+                LocalKind::Unknown
+            } else {
+                LocalKind::Struct(name.to_string())
+            }
+        }
+        name if structs.contains_key(name) => LocalKind::Struct(name.to_string()),
+        _ => LocalKind::Unknown,
+    }
 }
 
 /// Describes the byte layout of a struct in linear memory.
@@ -106,7 +193,7 @@ struct AsyncHelpers {
 /// or type mismatch is encountered.
 pub fn compile_hir(program: &HirProgram) -> Result<Vec<u8>, WasmCompileError> {
     let mut emitter = WasmEmitter::new();
-    let mut functions = HashMap::new();
+    let mut functions = FunctionTable::new(program);
     let mut structs = HashMap::new();
 
     // Pass 0: Collect Struct and Enum definitions and compute layouts
@@ -1150,10 +1237,10 @@ fn scan_expr_for_constructs(expr: &HirExpr, structs: &mut HashMap<String, Struct
             let mut float_fields = Vec::new();
             for (maybe_name, field_expr) in fields {
                 scan_expr_for_constructs(field_expr, structs);
-                if let Some(name) = maybe_name {
-                    if matches!(field_expr, HirExpr::Literal(Literal::Float(..), _)) {
-                        float_fields.push(name.clone());
-                    }
+                if let Some(name) = maybe_name
+                    && matches!(field_expr, HirExpr::Literal(Literal::Float(..), _))
+                {
+                    float_fields.push(name.clone());
                 }
             }
             if let Some(layout) = structs.get_mut(type_name) {
@@ -1303,10 +1390,10 @@ fn scan_expr_for_io(expr: &HirExpr) -> bool {
                     return true;
                 }
                 HirExpr::Dot(base, member, _) if member == "print" || member == "println" => {
-                    if let HirExpr::Identifier(base_name, _) = &**base {
-                        if base_name == "io" {
-                            return true;
-                        }
+                    if let HirExpr::Identifier(base_name, _) = &**base
+                        && base_name == "io"
+                    {
+                        return true;
                     }
                 }
                 _ => {}
@@ -3274,7 +3361,7 @@ fn resolve_return_type(
     annot: &Option<aipo_ast::TypeAnnotation>,
     params: &[HirParam],
     body: &[HirStmt],
-    functions: &HashMap<String, (u32, u32, WasmFnType)>,
+    functions: &FunctionTable,
     structs: &HashMap<String, StructLayout>,
 ) -> Option<WasmType> {
     if let Some(ty) = annot {
@@ -3295,21 +3382,14 @@ fn resolve_return_type(
         let mut locals = HashMap::new();
         for (i, param) in params.iter().enumerate() {
             let ty = param_wasm_type(param);
-            let kind = if let Some(t) = &param.type_annotation {
-                match t.name.as_str() {
-                    "Float" => LocalKind::Float,
-                    "Bool" => LocalKind::Bool,
-                    "String" => LocalKind::String,
-                    "Bytes" => LocalKind::Bytes,
-                    other if structs.contains_key(other) => LocalKind::Struct(other.to_string()),
-                    _ => LocalKind::Int,
+            let kind = match annotated_kind(param.type_annotation.as_ref(), structs) {
+                LocalKind::Unknown
+                    if (param.name == "self" || param.is_self)
+                        && struct_target.is_some_and(|s| structs.contains_key(s)) =>
+                {
+                    LocalKind::Struct(struct_target.unwrap().to_string())
                 }
-            } else if (param.name == "self" || param.is_self)
-                && struct_target.is_some_and(|s| structs.contains_key(s))
-            {
-                LocalKind::Struct(struct_target.unwrap().to_string())
-            } else {
-                LocalKind::Int
+                other => other,
             };
             locals.insert(param.name.clone(), (i as u32, ty, kind));
         }
@@ -3328,7 +3408,7 @@ fn resolve_return_type(
 fn infer_body_return_type(
     body: &[HirStmt],
     locals: &mut HashMap<String, (u32, WasmType, LocalKind)>,
-    functions: &HashMap<String, (u32, u32, WasmFnType)>,
+    functions: &FunctionTable,
     structs: &HashMap<String, StructLayout>,
     table_indices: &HashMap<String, u32>,
     anon_map: &HashMap<SourceSpan, String>,
@@ -3375,17 +3455,17 @@ fn infer_body_return_type(
                         return Some(ty);
                     }
                 }
-                if let Some(else_branch) = &s.else_branch {
-                    if let Some(ty) = infer_body_return_type(
+                if let Some(else_branch) = &s.else_branch
+                    && let Some(ty) = infer_body_return_type(
                         else_branch,
                         locals,
                         functions,
                         structs,
                         table_indices,
                         anon_map,
-                    ) {
-                        return Some(ty);
-                    }
+                    )
+                {
+                    return Some(ty);
                 }
             }
             HirStmt::While(_, loop_body, _)
@@ -3419,10 +3499,10 @@ fn infer_body_return_type(
         }
     }
     // If the last statement is an expression statement, its type is the implicit return
-    if let Some(HirStmt::Expr(expr)) = body.last() {
-        if let Ok(ty) = infer_expr_type(expr, locals, functions, structs, table_indices) {
-            return Some(ty);
-        }
+    if let Some(HirStmt::Expr(expr)) = body.last()
+        && let Ok(ty) = infer_expr_type(expr, locals, functions, structs, table_indices)
+    {
+        return Some(ty);
     }
     if has_return {
         Some(WasmType::I64)
@@ -3438,7 +3518,7 @@ fn pre_scan_stmts(
     params_count: usize,
     locals: &mut HashMap<String, (u32, WasmType, LocalKind)>,
     declared_locals: &mut Vec<WasmType>,
-    functions: &HashMap<String, (u32, u32, WasmFnType)>,
+    functions: &FunctionTable,
     structs: &HashMap<String, StructLayout>,
     table_indices: &HashMap<String, u32>,
     anon_map: &HashMap<SourceSpan, String>,
@@ -3453,6 +3533,21 @@ fn pre_scan_stmts(
                 let idx = (params_count + declared_locals.len()) as u32;
                 declared_locals.push(ty);
                 locals.insert(name.clone(), (idx, ty, kind));
+            }
+            HirStmt::CompoundAssign(op, HirExpr::Identifier(name, _), _, _)
+                if *op == BinaryOp::Add
+                    && locals.get(name).is_some_and(|(_, _, k)| *k == LocalKind::String) =>
+            {
+                // String compound addition preserves String kind!
+            }
+            HirStmt::Assign(HirExpr::Identifier(name, _), value, _)
+            | HirStmt::CompoundAssign(_, HirExpr::Identifier(name, _), value, _) => {
+                let assigned = infer_expr_kind(value, locals, functions, table_indices, anon_map);
+                if let Some((_, _, kind)) = locals.get_mut(name)
+                    && *kind != assigned
+                {
+                    *kind = LocalKind::Unknown;
+                }
             }
             HirStmt::If(s) => {
                 pre_scan_stmts(
@@ -3548,7 +3643,7 @@ fn pre_scan_stmts(
                 declared_locals.push(WasmType::I64);
                 locals.insert(
                     format!("__match_target_{id}"),
-                    (slot, WasmType::I64, LocalKind::Int),
+                    (slot, WasmType::I64, LocalKind::Unknown),
                 );
                 for arm in &match_stmt.when_arms {
                     for pat in &arm.patterns {
@@ -3560,7 +3655,7 @@ fn pre_scan_stmts(
                                         declared_locals.push(WasmType::I64);
                                         locals.insert(
                                             f.clone(),
-                                            (slot, WasmType::I64, LocalKind::Int),
+                                            (slot, WasmType::I64, LocalKind::Unknown),
                                         );
                                     }
                                 }
@@ -3581,7 +3676,7 @@ fn pre_scan_stmts(
                                         declared_locals.push(WasmType::I64);
                                         locals.insert(
                                             f.clone(),
-                                            (slot, WasmType::I64, LocalKind::Int),
+                                            (slot, WasmType::I64, LocalKind::Unknown),
                                         );
                                     }
                                 }
@@ -3671,7 +3766,7 @@ fn pre_scan_stmts(
                 for name in bindings {
                     let slot = (params_count + declared_locals.len()) as u32;
                     declared_locals.push(WasmType::I64);
-                    locals.insert(name.clone(), (slot, WasmType::I64, LocalKind::Int));
+                    locals.insert(name.clone(), (slot, WasmType::I64, LocalKind::Unknown));
                 }
                 let _ = iterable;
                 pre_scan_stmts(
@@ -3706,10 +3801,10 @@ fn pre_scan_stmts(
                     if let Some((_, type_idx, _)) = functions.get(anon_name) {
                         LocalKind::Fn(*type_idx)
                     } else {
-                        LocalKind::Int
+                        LocalKind::Unknown
                     }
                 } else {
-                    LocalKind::Int
+                    LocalKind::Unknown
                 };
                 locals.insert(f.name.clone(), (idx, WasmType::I32, fn_kind));
                 pre_scan_stmts(
@@ -3734,12 +3829,13 @@ fn pre_scan_stmts(
 fn infer_expr_kind(
     expr: &HirExpr,
     locals: &HashMap<String, (u32, WasmType, LocalKind)>,
-    functions: &HashMap<String, (u32, u32, WasmFnType)>,
+    functions: &FunctionTable,
     table_indices: &HashMap<String, u32>,
     anon_map: &HashMap<SourceSpan, String>,
 ) -> LocalKind {
     match expr {
         HirExpr::Literal(Literal::Int(..), _) => LocalKind::Int,
+        HirExpr::Literal(Literal::None, _) => LocalKind::None,
         HirExpr::Literal(Literal::Float(..), _) => LocalKind::Float,
         HirExpr::Literal(Literal::Bool(..), _) => LocalKind::Bool,
         HirExpr::Literal(Literal::String(..), _) => LocalKind::String,
@@ -3747,14 +3843,16 @@ fn infer_expr_kind(
         HirExpr::Identifier(name, _) => {
             if let Some((_, _, k)) = locals.get(name) {
                 k.clone()
+            } else if functions.global_bindings.contains(name) {
+                LocalKind::Unknown
             } else if table_indices.contains_key(name) {
                 if let Some((_, type_idx, _)) = functions.get(name) {
                     LocalKind::Fn(*type_idx)
                 } else {
-                    LocalKind::Int
+                    LocalKind::Unknown
                 }
             } else {
-                LocalKind::Int
+                LocalKind::Unknown
             }
         }
         HirExpr::Fn(func_expr) => {
@@ -3762,10 +3860,10 @@ fn infer_expr_kind(
                 if let Some((_, type_idx, _)) = functions.get(anon_name) {
                     LocalKind::Fn(*type_idx)
                 } else {
-                    LocalKind::Int
+                    LocalKind::Unknown
                 }
             } else {
-                LocalKind::Int
+                LocalKind::Unknown
             }
         }
         HirExpr::Binary(BinaryOp::Range, ..) => LocalKind::Range,
@@ -3780,18 +3878,41 @@ fn infer_expr_kind(
         HirExpr::Binary(BinaryOp::Add, left, right, _) => {
             let lk = infer_expr_kind(left, locals, functions, table_indices, anon_map);
             let rk = infer_expr_kind(right, locals, functions, table_indices, anon_map);
-            if matches!(lk, LocalKind::String) || matches!(rk, LocalKind::String) {
-                LocalKind::String
-            } else {
-                LocalKind::Int
+            match (lk, rk) {
+                (LocalKind::String, _) | (_, LocalKind::String) => LocalKind::String,
+                (LocalKind::Int, LocalKind::Int) => LocalKind::Int,
+                (LocalKind::Int | LocalKind::Float, LocalKind::Int | LocalKind::Float) => {
+                    LocalKind::Float
+                }
+                // The numeric lowering does not prove string concatenation or dynamic operands.
+                _ => LocalKind::Unknown,
             }
         }
+        HirExpr::Binary(
+            BinaryOp::Is
+            | BinaryOp::IsNullable
+            | BinaryOp::Equal
+            | BinaryOp::NotEqual
+            | BinaryOp::Less
+            | BinaryOp::LessEqual
+            | BinaryOp::Greater
+            | BinaryOp::GreaterEqual
+            | BinaryOp::And
+            | BinaryOp::Or,
+            ..,
+        ) => LocalKind::Bool,
         HirExpr::Call(callee, _, _) => {
             if let HirExpr::Identifier(name, _) = &**callee {
-                if name == "String" {
+                if name == "String"
+                    && !locals.contains_key(name)
+                    && functions.builtin_is_unshadowed(name)
+                {
                     return LocalKind::String;
                 }
-                if name == "Bytes" {
+                if name == "Bytes"
+                    && !locals.contains_key(name)
+                    && functions.builtin_is_unshadowed(name)
+                {
                     return LocalKind::Bytes;
                 }
             }
@@ -3803,22 +3924,70 @@ fn infer_expr_kind(
                 {
                     return LocalKind::String;
                 }
-                if let HirExpr::Identifier(rec_name, _) = &**receiver {
-                    if rec_name == "task" && method_name == "spawn" {
-                        return LocalKind::Task;
-                    }
+                if let HirExpr::Identifier(rec_name, _) = &**receiver
+                    && rec_name == "task"
+                    && !locals.contains_key(rec_name)
+                    && functions.builtin_is_unshadowed(rec_name)
+                    && method_name == "spawn"
+                {
+                    return LocalKind::Task;
                 }
             }
-            if let HirExpr::Identifier(name, _) = &**callee {
-                if let Some((_, _, fn_type)) = functions.get(name) {
-                    if fn_type.results.first() == Some(&WasmType::I32) {
-                        return LocalKind::Task;
-                    }
-                }
+            if let HirExpr::Identifier(name, _) = &**callee
+                && !locals.contains_key(name)
+                && !functions.global_bindings.contains(name)
+                && let Some((_, _, fn_type)) = functions.get(name)
+                && fn_type.results.first() == Some(&WasmType::F64)
+            {
+                return LocalKind::Float;
             }
-            LocalKind::Int
+            // I64 also represents `none`; storage type alone proves no semantic type.
+            LocalKind::Unknown
         }
-        _ => LocalKind::Int,
+        HirExpr::Binary(BinaryOp::Div, left, right, _) => {
+            let left = infer_expr_kind(left, locals, functions, table_indices, anon_map);
+            let right = infer_expr_kind(right, locals, functions, table_indices, anon_map);
+            if matches!(left, LocalKind::Int | LocalKind::Float)
+                && matches!(right, LocalKind::Int | LocalKind::Float)
+            {
+                LocalKind::Float
+            } else {
+                LocalKind::Unknown
+            }
+        }
+        HirExpr::Binary(
+            BinaryOp::Sub | BinaryOp::Mul | BinaryOp::IntDiv | BinaryOp::Mod,
+            left,
+            right,
+            _,
+        ) => {
+            let left = infer_expr_kind(left, locals, functions, table_indices, anon_map);
+            let right = infer_expr_kind(right, locals, functions, table_indices, anon_map);
+            match (left, right) {
+                (LocalKind::Int, LocalKind::Int) => LocalKind::Int,
+                (LocalKind::Int | LocalKind::Float, LocalKind::Int | LocalKind::Float) => {
+                    LocalKind::Float
+                }
+                _ => LocalKind::Unknown,
+            }
+        }
+        HirExpr::Unary(UnaryOp::Not, ..) => LocalKind::Bool,
+        HirExpr::Unary(UnaryOp::Neg | UnaryOp::Pos, value, _) => {
+            match infer_expr_kind(value, locals, functions, table_indices, anon_map) {
+                kind @ (LocalKind::Int | LocalKind::Float) => kind,
+                _ => LocalKind::Unknown,
+            }
+        }
+        HirExpr::If(_, left, right, _) | HirExpr::Binary(BinaryOp::OrElse, left, right, _) => {
+            let left = infer_expr_kind(left, locals, functions, table_indices, anon_map);
+            let right = infer_expr_kind(right, locals, functions, table_indices, anon_map);
+            if left == right {
+                left
+            } else {
+                LocalKind::Unknown
+            }
+        }
+        _ => LocalKind::Unknown,
     }
 }
 
@@ -3829,7 +3998,7 @@ fn compile_function_body(
     params: &[HirParam],
     return_type: Option<WasmType>,
     body: &[HirStmt],
-    functions: &HashMap<String, (u32, u32, WasmFnType)>,
+    functions: &FunctionTable,
     structs: &HashMap<String, StructLayout>,
     static_strings: &HashMap<String, i32>,
     table_indices: &HashMap<String, u32>,
@@ -3850,21 +4019,14 @@ fn compile_function_body(
     // Map parameters to locals 0..params.len()
     for (i, param) in params.iter().enumerate() {
         let ty = param_wasm_type(param);
-        let kind = if let Some(t) = &param.type_annotation {
-            match t.name.as_str() {
-                "Float" => LocalKind::Float,
-                "Bool" => LocalKind::Bool,
-                "String" => LocalKind::String,
-                "Bytes" => LocalKind::Bytes,
-                other if structs.contains_key(other) => LocalKind::Struct(other.to_string()),
-                _ => LocalKind::Int,
+        let kind = match annotated_kind(param.type_annotation.as_ref(), structs) {
+            LocalKind::Unknown
+                if (param.name == "self" || param.is_self)
+                    && struct_target.is_some_and(|s| structs.contains_key(s)) =>
+            {
+                LocalKind::Struct(struct_target.unwrap().to_string())
             }
-        } else if (param.name == "self" || param.is_self)
-            && struct_target.is_some_and(|s| structs.contains_key(s))
-        {
-            LocalKind::Struct(struct_target.unwrap().to_string())
-        } else {
-            LocalKind::Int
+            other => other,
         };
         locals.insert(param.name.clone(), (i as u32, ty, kind));
     }
@@ -3967,18 +4129,16 @@ fn compile_function_body(
     )?;
 
     // Ensure valid Wasm block termination
-    if !terminated {
-        if let Some(ret_ty) = return_type {
-            match ret_ty {
-                WasmType::I64 => {
-                    func.instruction(&Instruction::I64Const(0));
-                }
-                WasmType::F64 => {
-                    func.instruction(&Instruction::F64Const(0.0.into()));
-                }
-                WasmType::I32 => {
-                    func.instruction(&Instruction::I32Const(0));
-                }
+    if !terminated && let Some(ret_ty) = return_type {
+        match ret_ty {
+            WasmType::I64 => {
+                func.instruction(&Instruction::I64Const(0));
+            }
+            WasmType::F64 => {
+                func.instruction(&Instruction::F64Const(0.0.into()));
+            }
+            WasmType::I32 => {
+                func.instruction(&Instruction::I32Const(0));
             }
         }
     }
@@ -3993,7 +4153,7 @@ fn compile_stmts(
     stmts: &[HirStmt],
     func: &mut Function,
     locals: &HashMap<String, (u32, WasmType, LocalKind)>,
-    functions: &HashMap<String, (u32, u32, WasmFnType)>,
+    functions: &FunctionTable,
     control_stack: &mut Vec<ControlFrame>,
     structs: &HashMap<String, StructLayout>,
     static_strings: &HashMap<String, i32>,
@@ -5060,13 +5220,12 @@ fn compile_stmts(
                 )?;
             }
             HirStmt::FnDecl(f) => {
-                if let Some(anon_name) = anon_map.get(&f.span) {
-                    if let Some(&table_idx) = table_indices.get(anon_name) {
-                        if let Some(&(local_idx, _, _)) = locals.get(&f.name) {
-                            func.instruction(&Instruction::I32Const(table_idx as i32));
-                            func.instruction(&Instruction::LocalSet(local_idx));
-                        }
-                    }
+                if let Some(anon_name) = anon_map.get(&f.span)
+                    && let Some(&table_idx) = table_indices.get(anon_name)
+                    && let Some(&(local_idx, _, _)) = locals.get(&f.name)
+                {
+                    func.instruction(&Instruction::I32Const(table_idx as i32));
+                    func.instruction(&Instruction::LocalSet(local_idx));
                 }
             }
         }
@@ -5087,7 +5246,7 @@ fn compile_if_stmt(
     if_stmt: &HirIfStmt,
     func: &mut Function,
     locals: &HashMap<String, (u32, WasmType, LocalKind)>,
-    functions: &HashMap<String, (u32, u32, WasmFnType)>,
+    functions: &FunctionTable,
     control_stack: &mut Vec<ControlFrame>,
     structs: &HashMap<String, StructLayout>,
     static_strings: &HashMap<String, i32>,
@@ -5232,7 +5391,7 @@ fn compile_while_stmt(
     loop_body: &[HirStmt],
     func: &mut Function,
     locals: &HashMap<String, (u32, WasmType, LocalKind)>,
-    functions: &HashMap<String, (u32, u32, WasmFnType)>,
+    functions: &FunctionTable,
     control_stack: &mut Vec<ControlFrame>,
     structs: &HashMap<String, StructLayout>,
     static_strings: &HashMap<String, i32>,
@@ -5319,7 +5478,7 @@ fn compile_loop_stmt(
     loop_body: &[HirStmt],
     func: &mut Function,
     locals: &HashMap<String, (u32, WasmType, LocalKind)>,
-    functions: &HashMap<String, (u32, u32, WasmFnType)>,
+    functions: &FunctionTable,
     control_stack: &mut Vec<ControlFrame>,
     structs: &HashMap<String, StructLayout>,
     static_strings: &HashMap<String, i32>,
@@ -5382,7 +5541,7 @@ fn compile_repeat_stmt(
     loop_body: &[HirStmt],
     func: &mut Function,
     locals: &HashMap<String, (u32, WasmType, LocalKind)>,
-    functions: &HashMap<String, (u32, u32, WasmFnType)>,
+    functions: &FunctionTable,
     control_stack: &mut Vec<ControlFrame>,
     structs: &HashMap<String, StructLayout>,
     static_strings: &HashMap<String, i32>,
@@ -5498,7 +5657,7 @@ fn compile_each_stmt(
     loop_body: &[HirStmt],
     func: &mut Function,
     locals: &HashMap<String, (u32, WasmType, LocalKind)>,
-    functions: &HashMap<String, (u32, u32, WasmFnType)>,
+    functions: &FunctionTable,
     control_stack: &mut Vec<ControlFrame>,
     structs: &HashMap<String, StructLayout>,
     static_strings: &HashMap<String, i32>,
@@ -5650,7 +5809,7 @@ fn compile_match_stmt(
     match_stmt: &HirMatchStmt,
     func: &mut Function,
     locals: &HashMap<String, (u32, WasmType, LocalKind)>,
-    functions: &HashMap<String, (u32, u32, WasmFnType)>,
+    functions: &FunctionTable,
     control_stack: &mut Vec<ControlFrame>,
     structs: &HashMap<String, StructLayout>,
     static_strings: &HashMap<String, i32>,
@@ -5966,7 +6125,7 @@ fn compile_match_condition(
     target_ty: WasmType,
     func: &mut Function,
     locals: &HashMap<String, (u32, WasmType, LocalKind)>,
-    functions: &HashMap<String, (u32, u32, WasmFnType)>,
+    functions: &FunctionTable,
     control_stack: &mut Vec<ControlFrame>,
     structs: &HashMap<String, StructLayout>,
     static_strings: &HashMap<String, i32>,
@@ -6030,7 +6189,7 @@ fn compile_attempt_stmt(
     attempt: &HirAttemptStmt,
     func: &mut Function,
     locals: &HashMap<String, (u32, WasmType, LocalKind)>,
-    functions: &HashMap<String, (u32, u32, WasmFnType)>,
+    functions: &FunctionTable,
     control_stack: &mut Vec<ControlFrame>,
     structs: &HashMap<String, StructLayout>,
     static_strings: &HashMap<String, i32>,
@@ -6082,11 +6241,11 @@ fn compile_attempt_stmt(
     func.instruction(&Instruction::GlobalSet(fg.status_idx));
 
     // Bind the error variable, if the source named one.
-    if let Some(err_name) = &attempt.error_binding {
-        if let Some(&(slot, _, _)) = locals.get(err_name) {
-            func.instruction(&Instruction::GlobalGet(fg.message_idx));
-            func.instruction(&Instruction::LocalSet(slot));
-        }
+    if let Some(err_name) = &attempt.error_binding
+        && let Some(&(slot, _, _)) = locals.get(err_name)
+    {
+        func.instruction(&Instruction::GlobalGet(fg.message_idx));
+        func.instruction(&Instruction::LocalSet(slot));
     }
 
     compile_stmts(
@@ -6118,11 +6277,11 @@ fn compress_locals(types: &[WasmType]) -> Vec<(u32, ValType)> {
     let mut compressed = Vec::new();
     for &ty in types {
         let val_ty: ValType = ty.into();
-        if let Some((count, last_ty)) = compressed.last_mut() {
-            if *last_ty == val_ty {
-                *count += 1;
-                continue;
-            }
+        if let Some((count, last_ty)) = compressed.last_mut()
+            && *last_ty == val_ty
+        {
+            *count += 1;
+            continue;
         }
         compressed.push((1, val_ty));
     }
@@ -6136,10 +6295,11 @@ fn is_string_or_format_expr(
     match expr {
         HirExpr::Literal(Literal::String(..), _) => true,
         HirExpr::Call(callee, args, _) => {
-            if let HirExpr::Identifier(name, _) = &**callee {
-                if name == "String" && args.len() == 1 {
-                    return true;
-                }
+            if let HirExpr::Identifier(name, _) = &**callee
+                && name == "String"
+                && args.len() == 1
+            {
+                return true;
             }
             false
         }
@@ -6162,7 +6322,7 @@ fn compile_print_arg(
     expr: &HirExpr,
     func: &mut Function,
     locals: &HashMap<String, (u32, WasmType, LocalKind)>,
-    functions: &HashMap<String, (u32, u32, WasmFnType)>,
+    functions: &FunctionTable,
     control_stack: &mut Vec<ControlFrame>,
     structs: &HashMap<String, StructLayout>,
     static_strings: &HashMap<String, i32>,
@@ -6287,7 +6447,7 @@ fn compile_expr(
     expr: &HirExpr,
     func: &mut Function,
     locals: &HashMap<String, (u32, WasmType, LocalKind)>,
-    functions: &HashMap<String, (u32, u32, WasmFnType)>,
+    functions: &FunctionTable,
     control_stack: &mut Vec<ControlFrame>,
     structs: &HashMap<String, StructLayout>,
     static_strings: &HashMap<String, i32>,
@@ -6425,7 +6585,70 @@ fn compile_expr(
         }
         HirExpr::Binary(op, left, right, span) => {
             if matches!(op, BinaryOp::Is | BinaryOp::IsNullable) {
-                let l_ty = compile_expr(
+                let kind = infer_expr_kind(left, locals, functions, table_indices, anon_map);
+                let HirExpr::Identifier(type_name, _) = &**right else {
+                    return Err(WasmCompileError::UnsupportedExpr {
+                        message:
+                            "Wasm type tests require an unshadowed static type; use --engine=vm"
+                                .into(),
+                        span: *span,
+                    });
+                };
+                let fundamental = matches!(
+                    type_name.as_str(),
+                    "Int"
+                        | "Float"
+                        | "Bool"
+                        | "Byte"
+                        | "String"
+                        | "List"
+                        | "Dict"
+                        | "Bytes"
+                        | "Set"
+                        | "Duration"
+                );
+                let nominal = structs.contains_key(type_name)
+                    || structs.keys().any(|name| {
+                        name.split_once('.')
+                            .is_some_and(|(parent, _)| parent == type_name)
+                    });
+                if locals.contains_key(type_name)
+                    || functions.contains_key(type_name)
+                    || functions.global_bindings.contains(type_name)
+                    || (fundamental && functions.declared_types.contains(type_name))
+                    || !(fundamental || nominal)
+                {
+                    return Err(WasmCompileError::UnsupportedExpr {
+                        message: "Wasm cannot resolve a dynamic, aliased or shadowed type target; use --engine=vm".into(),
+                        span: *span,
+                    });
+                }
+                if kind == LocalKind::Unknown {
+                    return Err(WasmCompileError::UnsupportedExpr {
+                        message:
+                            "Wasm cannot prove the semantic type of this value; use --engine=vm"
+                                .into(),
+                        span: *span,
+                    });
+                }
+                let matches = match (&kind, type_name.as_str()) {
+                    (LocalKind::Int, "Int")
+                    | (LocalKind::Float, "Float")
+                    | (LocalKind::Bool, "Bool")
+                    | (LocalKind::String, "String")
+                    | (LocalKind::List, "List")
+                    | (LocalKind::Dict, "Dict") => true,
+                    (LocalKind::Struct(name), expected) => {
+                        name == expected
+                            || name
+                                .split_once('.')
+                                .is_some_and(|(parent, _)| parent == expected)
+                    }
+                    (LocalKind::None, _) => *op == BinaryOp::IsNullable,
+                    _ => false,
+                };
+                // Evaluate the left side once, preserving its effects, even for a constant proof.
+                compile_expr(
                     left,
                     func,
                     locals,
@@ -6442,16 +6665,7 @@ fn compile_expr(
                     call_depth,
                 )?;
                 func.instruction(&Instruction::Drop);
-                let matches = match &**right {
-                    HirExpr::Identifier(type_name, _) => match type_name.as_str() {
-                        "Int" => l_ty == WasmType::I64,
-                        "Float" => l_ty == WasmType::F64,
-                        "Bool" => l_ty == WasmType::I32,
-                        _ => true,
-                    },
-                    _ => true,
-                };
-                func.instruction(&Instruction::I32Const(if matches { 1 } else { 0 }));
+                func.instruction(&Instruction::I32Const(i32::from(matches)));
                 return Ok(WasmType::I32);
             }
 
@@ -6954,36 +7168,6 @@ fn compile_expr(
                     func.instruction(&Instruction::Call(range_fn_idx));
                     Ok(WasmType::I32)
                 }
-                BinaryOp::Is | BinaryOp::IsNullable => {
-                    let l_ty = compile_expr(
-                        left,
-                        func,
-                        locals,
-                        functions,
-                        control_stack,
-                        structs,
-                        static_strings,
-                        table_indices,
-                        anon_map,
-                        indirect_sigs,
-                        alloc_func_idx,
-                        async_helpers,
-                        struct_depth,
-                        call_depth,
-                    )?;
-                    func.instruction(&Instruction::Drop);
-                    let matches = match &**right {
-                        HirExpr::Identifier(type_name, _) => match type_name.as_str() {
-                            "Int" => l_ty == WasmType::I64,
-                            "Float" => l_ty == WasmType::F64,
-                            "Bool" => l_ty == WasmType::I32,
-                            _ => true,
-                        },
-                        _ => true,
-                    };
-                    func.instruction(&Instruction::I32Const(if matches { 1 } else { 0 }));
-                    Ok(WasmType::I32)
-                }
                 other => Err(WasmCompileError::UnsupportedExpr {
                     message: format!("operator `{other:?}` is not yet supported in Wasm backend"),
                     span: *span,
@@ -7075,10 +7259,59 @@ fn compile_expr(
                 _ => (false, false),
             };
 
-            if is_io_call {
-                if let Some(io) = async_helpers.host_io {
-                    for arg in args {
-                        compile_print_arg(
+            if is_io_call && let Some(io) = async_helpers.host_io {
+                for arg in args {
+                    compile_print_arg(
+                        &arg.value,
+                        func,
+                        locals,
+                        functions,
+                        control_stack,
+                        structs,
+                        static_strings,
+                        table_indices,
+                        anon_map,
+                        indirect_sigs,
+                        alloc_func_idx,
+                        async_helpers,
+                        struct_depth,
+                        call_depth,
+                        io,
+                    )?;
+                }
+                if is_println {
+                    func.instruction(&Instruction::Call(io.println_idx));
+                }
+                func.instruction(&Instruction::I64Const(0));
+                return Ok(WasmType::I64);
+            }
+
+            // Case 0.5: Enum tuple variant constructor call: `Enum.Variant(...)`
+            if let HirExpr::Dot(receiver, variant_name, _) = &**callee
+                && let HirExpr::Identifier(enum_name, _) = &**receiver
+            {
+                let candidate_variant = format!("{enum_name}.{variant_name}");
+                if let Some(layout) = structs.get(&candidate_variant)
+                    && let Some(&str_ptr) = static_strings.get(&candidate_variant)
+                {
+                    let temp_name = format!("__struct_temp_{}", struct_depth.min(7));
+                    let struct_temp = locals[&temp_name].0;
+
+                    func.instruction(&Instruction::I32Const(layout.size as i32));
+                    func.instruction(&Instruction::Call(alloc_func_idx));
+                    func.instruction(&Instruction::LocalSet(struct_temp));
+
+                    func.instruction(&Instruction::LocalGet(struct_temp));
+                    func.instruction(&Instruction::I32Const(str_ptr));
+                    func.instruction(&Instruction::I32Store(MemArg {
+                        offset: 0,
+                        align: 2,
+                        memory_index: 0,
+                    }));
+
+                    for (i, arg) in args.iter().enumerate() {
+                        func.instruction(&Instruction::LocalGet(struct_temp));
+                        let arg_ty = compile_expr(
                             &arg.value,
                             func,
                             locals,
@@ -7091,70 +7324,19 @@ fn compile_expr(
                             indirect_sigs,
                             alloc_func_idx,
                             async_helpers,
-                            struct_depth,
+                            struct_depth + 1,
                             call_depth,
-                            io,
                         )?;
+                        coerce_type(func, arg_ty, WasmType::I64);
+                        func.instruction(&Instruction::I64Store(MemArg {
+                            offset: (8 + i * 8) as u64,
+                            align: 3,
+                            memory_index: 0,
+                        }));
                     }
-                    if is_println {
-                        func.instruction(&Instruction::Call(io.println_idx));
-                    }
-                    func.instruction(&Instruction::I64Const(0));
-                    return Ok(WasmType::I64);
-                }
-            }
 
-            // Case 0.5: Enum tuple variant constructor call: `Enum.Variant(...)`
-            if let HirExpr::Dot(receiver, variant_name, _) = &**callee {
-                if let HirExpr::Identifier(enum_name, _) = &**receiver {
-                    let candidate_variant = format!("{enum_name}.{variant_name}");
-                    if let Some(layout) = structs.get(&candidate_variant) {
-                        if let Some(&str_ptr) = static_strings.get(&candidate_variant) {
-                            let temp_name = format!("__struct_temp_{}", struct_depth.min(7));
-                            let struct_temp = locals[&temp_name].0;
-
-                            func.instruction(&Instruction::I32Const(layout.size as i32));
-                            func.instruction(&Instruction::Call(alloc_func_idx));
-                            func.instruction(&Instruction::LocalSet(struct_temp));
-
-                            func.instruction(&Instruction::LocalGet(struct_temp));
-                            func.instruction(&Instruction::I32Const(str_ptr));
-                            func.instruction(&Instruction::I32Store(MemArg {
-                                offset: 0,
-                                align: 2,
-                                memory_index: 0,
-                            }));
-
-                            for (i, arg) in args.iter().enumerate() {
-                                func.instruction(&Instruction::LocalGet(struct_temp));
-                                let arg_ty = compile_expr(
-                                    &arg.value,
-                                    func,
-                                    locals,
-                                    functions,
-                                    control_stack,
-                                    structs,
-                                    static_strings,
-                                    table_indices,
-                                    anon_map,
-                                    indirect_sigs,
-                                    alloc_func_idx,
-                                    async_helpers,
-                                    struct_depth + 1,
-                                    call_depth,
-                                )?;
-                                coerce_type(func, arg_ty, WasmType::I64);
-                                func.instruction(&Instruction::I64Store(MemArg {
-                                    offset: (8 + i * 8) as u64,
-                                    align: 3,
-                                    memory_index: 0,
-                                }));
-                            }
-
-                            func.instruction(&Instruction::LocalGet(struct_temp));
-                            return Ok(WasmType::I32);
-                        }
-                    }
+                    func.instruction(&Instruction::LocalGet(struct_temp));
+                    return Ok(WasmType::I32);
                 }
             }
 
@@ -7163,36 +7345,37 @@ fn compile_expr(
             // resolves, so compiling the callee as a property and then emitting
             // `call_indirect` on the length would invoke garbage (or recurse
             // into table entry 0 for an empty list). Compile it as the property.
-            if let HirExpr::Dot(receiver, method_name, dot_span) = &**callee {
-                if method_name == "len" && args.is_empty() {
-                    let receiver_kind =
-                        infer_expr_kind(receiver, locals, functions, table_indices, anon_map);
-                    if matches!(
-                        receiver_kind,
-                        LocalKind::List
-                            | LocalKind::Dict
-                            | LocalKind::Range
-                            | LocalKind::String
-                            | LocalKind::Bytes
-                    ) {
-                        let prop = HirExpr::Dot(receiver.clone(), "len".to_string(), *dot_span);
-                        return compile_expr(
-                            &prop,
-                            func,
-                            locals,
-                            functions,
-                            control_stack,
-                            structs,
-                            static_strings,
-                            table_indices,
-                            anon_map,
-                            indirect_sigs,
-                            alloc_func_idx,
-                            async_helpers,
-                            struct_depth,
-                            call_depth,
-                        );
-                    }
+            if let HirExpr::Dot(receiver, method_name, dot_span) = &**callee
+                && method_name == "len"
+                && args.is_empty()
+            {
+                let receiver_kind =
+                    infer_expr_kind(receiver, locals, functions, table_indices, anon_map);
+                if matches!(
+                    receiver_kind,
+                    LocalKind::List
+                        | LocalKind::Dict
+                        | LocalKind::Range
+                        | LocalKind::String
+                        | LocalKind::Bytes
+                ) {
+                    let prop = HirExpr::Dot(receiver.clone(), "len".to_string(), *dot_span);
+                    return compile_expr(
+                        &prop,
+                        func,
+                        locals,
+                        functions,
+                        control_stack,
+                        structs,
+                        static_strings,
+                        table_indices,
+                        anon_map,
+                        indirect_sigs,
+                        alloc_func_idx,
+                        async_helpers,
+                        struct_depth,
+                        call_depth,
+                    );
                 }
             }
 
@@ -8073,26 +8256,26 @@ fn compile_expr(
         HirExpr::Dot(receiver, field_name, span) => {
             if let HirExpr::Identifier(rec_name, _) = &**receiver {
                 let candidate_variant = format!("{rec_name}.{field_name}");
-                if let Some(variant_layout) = structs.get(&candidate_variant) {
-                    if let Some(&str_ptr) = static_strings.get(&candidate_variant) {
-                        let temp_name = format!("__struct_temp_{}", struct_depth.min(7));
-                        let struct_temp = locals[&temp_name].0;
+                if let Some(variant_layout) = structs.get(&candidate_variant)
+                    && let Some(&str_ptr) = static_strings.get(&candidate_variant)
+                {
+                    let temp_name = format!("__struct_temp_{}", struct_depth.min(7));
+                    let struct_temp = locals[&temp_name].0;
 
-                        func.instruction(&Instruction::I32Const(variant_layout.size as i32));
-                        func.instruction(&Instruction::Call(alloc_func_idx));
-                        func.instruction(&Instruction::LocalSet(struct_temp));
+                    func.instruction(&Instruction::I32Const(variant_layout.size as i32));
+                    func.instruction(&Instruction::Call(alloc_func_idx));
+                    func.instruction(&Instruction::LocalSet(struct_temp));
 
-                        func.instruction(&Instruction::LocalGet(struct_temp));
-                        func.instruction(&Instruction::I32Const(str_ptr));
-                        func.instruction(&Instruction::I32Store(MemArg {
-                            offset: 0,
-                            align: 2,
-                            memory_index: 0,
-                        }));
+                    func.instruction(&Instruction::LocalGet(struct_temp));
+                    func.instruction(&Instruction::I32Const(str_ptr));
+                    func.instruction(&Instruction::I32Store(MemArg {
+                        offset: 0,
+                        align: 2,
+                        memory_index: 0,
+                    }));
 
-                        func.instruction(&Instruction::LocalGet(struct_temp));
-                        return Ok(WasmType::I32);
-                    }
+                    func.instruction(&Instruction::LocalGet(struct_temp));
+                    return Ok(WasmType::I32);
                 }
             }
 
@@ -8881,7 +9064,7 @@ fn compile_logical_short_circuit(
     right: &HirExpr,
     func: &mut Function,
     locals: &HashMap<String, (u32, WasmType, LocalKind)>,
-    functions: &HashMap<String, (u32, u32, WasmFnType)>,
+    functions: &FunctionTable,
     control_stack: &mut Vec<ControlFrame>,
     structs: &HashMap<String, StructLayout>,
     static_strings: &HashMap<String, i32>,
@@ -9152,7 +9335,7 @@ fn expr_may_fail(expr: &HirExpr) -> bool {
 fn infer_expr_is_range(
     expr: &HirExpr,
     locals: &HashMap<String, (u32, WasmType, LocalKind)>,
-    functions: &HashMap<String, (u32, u32, WasmFnType)>,
+    functions: &FunctionTable,
     _structs: &HashMap<String, StructLayout>,
     table_indices: &HashMap<String, u32>,
 ) -> bool {
@@ -9176,7 +9359,7 @@ fn infer_expr_is_range(
 fn infer_expr_type(
     expr: &HirExpr,
     locals: &HashMap<String, (u32, WasmType, LocalKind)>,
-    functions: &HashMap<String, (u32, u32, WasmFnType)>,
+    functions: &FunctionTable,
     structs: &HashMap<String, StructLayout>,
     table_indices: &HashMap<String, u32>,
 ) -> Result<WasmType, WasmCompileError> {
@@ -9297,15 +9480,14 @@ fn infer_expr_type(
             }
         }
         HirExpr::Call(callee, _, _) => {
-            if let HirExpr::Dot(receiver, method_name, _) = &**callee {
-                if let HirExpr::Identifier(rec_name, _) = &**receiver {
-                    if rec_name == "task" {
-                        match method_name.as_str() {
-                            "spawn" => return Ok(WasmType::I32),
-                            "sleep" | "cancel" | "race" | "all" => return Ok(WasmType::I64),
-                            _ => {}
-                        }
-                    }
+            if let HirExpr::Dot(receiver, method_name, _) = &**callee
+                && let HirExpr::Identifier(rec_name, _) = &**receiver
+                && rec_name == "task"
+            {
+                match method_name.as_str() {
+                    "spawn" => return Ok(WasmType::I32),
+                    "sleep" | "cancel" | "race" | "all" => return Ok(WasmType::I64),
+                    _ => {}
                 }
                 if method_name == "add" || method_name == "has" {
                     return Ok(if method_name == "has" {
@@ -9328,10 +9510,10 @@ fn infer_expr_type(
                 if func_name == "String" || func_name == "Bytes" {
                     return Ok(WasmType::I32);
                 }
-                if let Some((_, _, fn_type)) = functions.get(func_name) {
-                    if let Some(&ret) = fn_type.results.first() {
-                        return Ok(ret);
-                    }
+                if let Some((_, _, fn_type)) = functions.get(func_name)
+                    && let Some(&ret) = fn_type.results.first()
+                {
+                    return Ok(ret);
                 }
             }
             Ok(WasmType::I64)

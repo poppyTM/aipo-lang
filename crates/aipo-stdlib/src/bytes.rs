@@ -8,7 +8,7 @@ use aipo_vm::{FailureValue, Value, Vm, VmFault, check_finite_float, check_safe_i
 use std::cell::RefCell;
 use std::rc::Rc;
 
-fn expect_bytes(receiver: &Value) -> Result<Rc<RefCell<Vec<u8>>>, VmFault> {
+fn expect_bytes(receiver: &Value) -> Result<Rc<RefCell<aipo_vm::Collection<u8>>>, VmFault> {
     match receiver {
         Value::Bytes(b) => Ok(Rc::clone(b)),
         other => Err(VmFault::TypeMismatch {
@@ -878,10 +878,10 @@ pub fn bytes_slice(receiver: &Value, args: &[Value]) -> Result<Value, VmFault> {
         (end_idx as usize).min(len)
     };
     if actual_start >= actual_end {
-        Ok(Value::Bytes(Rc::new(RefCell::new(Vec::new()))))
+        Ok(Value::Bytes(Rc::new(RefCell::new((Vec::new()).into()))))
     } else {
         let sub = b[actual_start..actual_end].to_vec();
-        Ok(Value::Bytes(Rc::new(RefCell::new(sub))))
+        Ok(Value::Bytes(Rc::new(RefCell::new((sub).into()))))
     }
 }
 
@@ -914,7 +914,7 @@ pub fn string_encode(receiver: &Value, args: &[Value]) -> Result<Value, VmFault>
         });
     };
     let bytes = s.as_bytes().to_vec();
-    Ok(Value::Bytes(Rc::new(RefCell::new(bytes))))
+    Ok(Value::Bytes(Rc::new(RefCell::new((bytes).into()))))
 }
 
 /// Registers all Bytes methods and String.encode on the VM.

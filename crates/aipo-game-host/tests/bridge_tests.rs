@@ -640,15 +640,14 @@ fn test_zoe_ui_editor_compilation_and_execution() {
         .get("_is_3d_mode")
         .cloned()
         .expect("_is_3d_mode exists");
-    if let Value::Struct(struct_ref) = is_3d_sig {
-        if let Some((_, val)) = struct_ref
+    if let Value::Struct(struct_ref) = is_3d_sig
+        && let Some((_, val)) = struct_ref
             .borrow_mut()
             .fields
             .iter_mut()
             .find(|(k, _)| k == "value")
-        {
-            *val = Value::Bool(true);
-        }
+    {
+        *val = Value::Bool(true);
     }
 
     // 9. Multi-frame simulation and 3D rendering in editor

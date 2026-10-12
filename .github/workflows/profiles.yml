@@ -1,0 +1,31 @@
+name: Profile compilation
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  profiles:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        rust: ['1.96.0', stable]
+        profile: [shell, web, embedded]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install compiler
+        shell: bash
+        run: rustup toolchain install '${{ matrix.rust }}' --profile minimal
+      - name: Compile profile
+        shell: bash
+        run: cargo +${{ matrix.rust }} check -p aipo-cli --locked --no-default-features --features profile-${{ matrix.profile }}
+  default-msrv:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: rustup toolchain install 1.96.0 --profile minimal
+      - run: cargo +1.96.0 check -p aipo-cli -p aipo-c-abi --locked

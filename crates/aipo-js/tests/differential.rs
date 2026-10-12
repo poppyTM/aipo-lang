@@ -1155,7 +1155,7 @@ each i in 0..3 {
     let vm_out = run_vm(&compiled);
     let js_out = run_js_code("each_dict.aipo", code, &compiled);
     assert_eq!(vm_out, js_out);
-    assert_eq!(vm_out, "a1b2\n1\n2\n0\n1\n2\n");
+    assert_eq!(vm_out, "a1b2\na\nb\n0\n1\n2\n");
 }
 
 #[test]

@@ -65,11 +65,11 @@ pub fn normalize_path(path: &str) -> String {
     let mut stack: Vec<&str> = Vec::new();
     for seg in segments {
         if seg == ".." {
-            if let Some(top) = stack.last() {
-                if *top != ".." {
-                    stack.pop();
-                    continue;
-                }
+            if let Some(top) = stack.last()
+                && *top != ".."
+            {
+                stack.pop();
+                continue;
             }
             if !is_abs {
                 stack.push("..");
@@ -259,10 +259,10 @@ pub fn path_ext(args: &[Value]) -> Result<Value, VmFault> {
     };
 
     // Hidden files like ".gitignore" without further dots have no extension
-    if let Some(idx) = base.rfind('.') {
-        if idx > 0 {
-            return Ok(Value::String(Rc::new(base[idx..].to_string())));
-        }
+    if let Some(idx) = base.rfind('.')
+        && idx > 0
+    {
+        return Ok(Value::String(Rc::new(base[idx..].to_string())));
     }
 
     Ok(Value::String(Rc::new(String::new())))

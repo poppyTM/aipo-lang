@@ -29,21 +29,21 @@ pub fn set_output_sink(sink: Option<Box<dyn Write + Send>>) {
 /// # Errors
 /// Returns `VmFault::CorruptedBytecode` if an I/O error occurs during write.
 pub fn write_output(text: &str, newline: bool) -> Result<(), VmFault> {
-    if let Ok(mut guard) = OUTPUT_SINK.lock() {
-        if let Some(sink) = guard.as_mut() {
-            if newline {
-                writeln!(sink, "{text}").map_err(|e| VmFault::CorruptedBytecode {
-                    offset: 0,
-                    reason: format!("I/O write error: {e}"),
-                })?;
-            } else {
-                write!(sink, "{text}").map_err(|e| VmFault::CorruptedBytecode {
-                    offset: 0,
-                    reason: format!("I/O write error: {e}"),
-                })?;
-            }
-            return Ok(());
+    if let Ok(mut guard) = OUTPUT_SINK.lock()
+        && let Some(sink) = guard.as_mut()
+    {
+        if newline {
+            writeln!(sink, "{text}").map_err(|e| VmFault::CorruptedBytecode {
+                offset: 0,
+                reason: format!("I/O write error: {e}"),
+            })?;
+        } else {
+            write!(sink, "{text}").map_err(|e| VmFault::CorruptedBytecode {
+                offset: 0,
+                reason: format!("I/O write error: {e}"),
+            })?;
         }
+        return Ok(());
     }
 
     if newline {

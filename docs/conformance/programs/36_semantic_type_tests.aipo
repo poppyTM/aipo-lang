@@ -1,0 +1,8 @@
+io.println(true is Bool)
+io.println(true is Int)
+io.println(1 is Int)
+io.println(1.5 is Float)
+io.println("Aipo" is String)
+io.println([] is List)
+io.println({} is Dict)
+io.println(none is Int?)

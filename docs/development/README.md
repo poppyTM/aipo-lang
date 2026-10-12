@@ -9,3 +9,6 @@ Assegura consistência estilística, disciplina de implementação orientada a t
 ## Inventário
 - `coding-standards.md`: Padrões e boas práticas de código.
 - `testing-strategy.md`: O ciclo exaustivo de testes (unitários, integração, segurança, performance, stress e UI).
+
+- [runtime-and-tooling-guide.md](runtime-and-tooling-guide.md): guia completo P07-G02, uso, migração, reimplementação, motivos e trabalho futuro.
+- [runtime-hardening-guide.md](runtime-hardening-guide.md): revisão anterior P07-G01.

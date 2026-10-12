@@ -80,6 +80,7 @@ fn test_type_deduplication_and_multiple_functions() {
     assert!(bytes.windows(7).any(|w| w == b"f64_mul"));
 }
 
+#[cfg(feature = "wasmtime")]
 #[test]
 fn test_wasmtime_execution_of_emitted_module() {
     let mut emitter = WasmEmitter::new();
@@ -112,6 +113,7 @@ fn test_wasmtime_execution_of_emitted_module() {
     assert_eq!(result, 42);
 }
 
+#[cfg(feature = "wasmtime")]
 #[test]
 fn test_wasmtime_execution_of_call_indirect() {
     let mut emitter = WasmEmitter::new();

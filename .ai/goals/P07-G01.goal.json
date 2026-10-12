@@ -1,0 +1,59 @@
+{
+  "id": "P07-G01",
+  "phase": "P07",
+  "title": "Runtime hardening, reference studies and reconstruction guide",
+  "state": "DRAFT",
+  "revision": 1,
+  "objective": "Reconstruct the reviewed runtime corrections and reference studies after loss of transient files, document usage and reimplementation, and publish a draft PR.",
+  "acceptance": [
+    "Register compilation returns errors for unsupported IR and invalid register, constant and jump operands instead of silently dropping operations.",
+    "Register execution shares arithmetic semantics, bounds-checks malformed bytecode, isolates failure handlers and supports explicit instruction budgets.",
+    "Dictionary primary iteration follows canonical insertion-ordered keys in VM and JavaScript; string indexing avoids a temporary character vector.",
+    "Wasm execution reports missing entrypoints and output errors and exposes optional fuel without changing the existing default API.",
+    "Reference studies use explicit pinned upstream commits and distinguish source inspection from measurements.",
+    "A Portuguese guide records what changed, why, how to use and reimplement it, compatibility changes and remaining improvements.",
+    "Publish a branch and draft PR; record that tests were explicitly skipped at the user's request in this reconstruction."
+  ],
+  "constraints": [
+    "No invented language syntax or semantic decisions outside canon.",
+    "Do not execute tests: explicit user instruction on 2026-10-09.",
+    "Commit, push and draft PR explicitly authorized by the user.",
+    "Do not reuse lost validation logs or claim the prior 1,054-test result validates reconstructed bytes.",
+    "Do not fabricate Prumo approvals or mark the goal DONE without its gates."
+  ],
+  "non_goals": [
+    "Promoting RegVM to a fully conformant backend",
+    "Completing the entire study roadmap or self-hosting",
+    "Claiming new benchmark results without execution",
+    "Merging the PR or deploying documentation"
+  ],
+  "dependencies": [],
+  "context": {
+    "budget_profile": "medium",
+    "max_delegation_depth": 0
+  },
+  "gates": {
+    "build": "required",
+    "documentation_impact": "required",
+    "project_intelligence": "required",
+    "review": "required",
+    "tests": "required"
+  },
+  "evidence": [
+    {
+      "kind": "gate",
+      "description": "Compile-only checks passed for default runner, wasm emitter without runner and minimal CLI; fmt and JS syntax checks passed. Exact commands and scope in docs/evidence/P07-G01-checks.json."
+    },
+    {
+      "kind": "test",
+      "description": "Tests explicitly not executed at user request; no passed/failed counts or lost historical results certify this reconstruction."
+    },
+    {
+      "kind": "doc",
+      "description": "Portuguese usage/reimplementation guide, pinned source study notes and evidence record document changes, rationale, compatibility and remaining work."
+    }
+  ],
+  "history": [],
+  "amendments": [],
+  "lock": null
+}

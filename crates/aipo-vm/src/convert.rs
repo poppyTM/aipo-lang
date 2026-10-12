@@ -163,10 +163,9 @@ pub fn convert_bytes(value: &Value) -> Result<Value, VmFault> {
             "Bytes({count}) is outside the constructible range 0..={BYTES_MAX_ALLOCATION}"
         )));
     }
-    Ok(Value::Bytes(Rc::new(RefCell::new(vec![
-        0u8;
-        *count as usize
-    ]))))
+    Ok(Value::Bytes(Rc::new(RefCell::new(
+        (vec![0u8; *count as usize]).into(),
+    ))))
 }
 
 /// Explicit conversion to `Set`: deduplicates a `List`, keeping first-occurrence
@@ -183,7 +182,7 @@ pub fn convert_set(value: &Value) -> Result<Value, VmFault> {
                     unique.push(item.clone());
                 }
             }
-            Ok(Value::Set(Rc::new(RefCell::new(unique))))
+            Ok(Value::Set(Rc::new(RefCell::new((unique).into()))))
         }
         Value::Set(items) => Ok(Value::Set(Rc::new(RefCell::new(items.borrow().clone())))),
         Value::Failure(f) => Ok(Value::Failure(Rc::clone(f))),
@@ -356,7 +355,7 @@ pub fn convert_string(value: &Value) -> Result<Value, VmFault> {
 /// Returns [`VmFault::TypeMismatch`] when the type is not callable or the arity is wrong.
 pub fn convert_via_type(tag: TypeTag, args: &[Value]) -> Result<Value, VmFault> {
     if tag == TypeTag::Set && args.is_empty() {
-        return Ok(Value::Set(Rc::new(RefCell::new(Vec::new()))));
+        return Ok(Value::Set(Rc::new(RefCell::new(Vec::new().into()))));
     }
     if args.len() != 1 {
         return Err(VmFault::TypeMismatch {

@@ -478,11 +478,11 @@ pub fn roots(vm: &mut Vm, args: &[Value]) -> Result<Value, VmError> {
                     .map_err(|error| provider_contract_fault(&error, "fs.roots"))?;
                 normalized.insert(root);
             }
-            let roots = normalized
+            let roots: Vec<_> = normalized
                 .into_iter()
                 .map(|root| Value::String(Rc::new(root)))
                 .collect();
-            Ok(Value::List(Rc::new(RefCell::new(roots))))
+            Ok(Value::List(Rc::new(RefCell::new((roots).into()))))
         }
         Err(error @ FilesystemError::Provider { .. })
         | Err(error @ FilesystemError::NotFound { .. }) => Ok(provider_failure(&error)),

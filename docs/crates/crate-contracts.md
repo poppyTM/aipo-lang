@@ -18,6 +18,16 @@ Public API / Allowed dependencies / Forbidden dependencies / Invariants / Error 
 Threading assumptions / Unsafe policy / Performance constraints / Testing strategy /
 Related ADPs.**
 
+## Delta de runtime — P07-G01, reconstrução de 2026-10-09
+
+- `aipo-bytecode`: RegEmitter retorna Result, analisa alturas de stack pelo CFG e rejeita IR/operandos não representáveis. RegVM não é um backend certificado de paridade geral.
+- `aipo-vm`: Reg usa helpers Value, checagens locais de bytecode, handlers por ativação, guardas e contratos fundamentais/nominais; possui orçamento opt-in. Janelas de registradores e verificador integral continuam pendentes.
+- `aipo-js`: iteração primária de Dict retorna chave, conforme canon. Teste diferencial e self-test foram atualizados, mas não executados nesta reconstrução.
+- `aipo-wasm`: opções de fuel, MissingExport e erros do writer; emissão continua separada da feature de JIT. Buffer de saída/memória não têm limites novos.
+- `aipo-cli`/`aipo-diagnostics`: diagnóstico AIPO_COMPILE_REG_UNSUPPORTED, títulos EN/PT-BR e sugestão --engine=vm; Failure de topo termina com saída 1.
+
+Este delta descreve source reconstruído, não certifica gates. Consulte [guia](../development/runtime-hardening-guide.md) e [evidência](../evidence/P07-G01-runtime-hardening.md).
+
 ## Global rules (apply to all crates)
 
 - Dependency graph is acyclic; frontend never depends on backend/runtime; `aipo-ir`

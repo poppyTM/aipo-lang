@@ -1,6 +1,10 @@
 //! Aipo Virtual Machine: stack-based bytecode interpreter, call frames, value model, and runtime fault handling.
 
 pub mod arena;
+pub mod collection;
+pub mod snapshot;
+pub use collection::Collection;
+pub use snapshot::HeapSnapshot;
 pub mod convert;
 pub mod engine;
 pub mod fault;

@@ -843,19 +843,19 @@ impl IrBuilder {
                 consumed += 1;
                 continue;
             }
-            if Some(index) == trailing_param_idx {
-                if let Some(tb) = trailing_arg {
-                    // Reject if a named argument also targeted this parameter.
-                    if named_args
-                        .iter()
-                        .any(|arg| arg.name.as_deref() == Some(param.name.as_str()))
-                    {
-                        return None;
-                    }
-                    resolved.push(ResolvedArgument::Provided(&tb.value));
-                    consumed += 1;
-                    continue;
+            if Some(index) == trailing_param_idx
+                && let Some(tb) = trailing_arg
+            {
+                // Reject if a named argument also targeted this parameter.
+                if named_args
+                    .iter()
+                    .any(|arg| arg.name.as_deref() == Some(param.name.as_str()))
+                {
+                    return None;
                 }
+                resolved.push(ResolvedArgument::Provided(&tb.value));
+                consumed += 1;
+                continue;
             }
             match named_args
                 .iter()
@@ -2071,20 +2071,20 @@ impl IrBuilder {
                     self.build_question_dot(base, member, *member_span, Some((args, *span)), out);
                     return;
                 }
-                if let HirExpr::Dot(base, member, dot_span) = &**callee {
-                    if let HirExpr::Identifier(namespace, _) = &**base {
-                        let qualified = format!("{namespace}.{member}");
-                        if self.functions.iter().any(|f| f.name == qualified) {
-                            out.push(CoreInst::Load(qualified, *dot_span));
-                            for arg in args {
-                                self.build_expr(&arg.value, out);
-                            }
-                            out.push(CoreInst::Call {
-                                arg_count: args.len(),
-                                span: *span,
-                            });
-                            return;
+                if let HirExpr::Dot(base, member, dot_span) = &**callee
+                    && let HirExpr::Identifier(namespace, _) = &**base
+                {
+                    let qualified = format!("{namespace}.{member}");
+                    if self.functions.iter().any(|f| f.name == qualified) {
+                        out.push(CoreInst::Load(qualified, *dot_span));
+                        for arg in args {
+                            self.build_expr(&arg.value, out);
                         }
+                        out.push(CoreInst::Call {
+                            arg_count: args.len(),
+                            span: *span,
+                        });
+                        return;
                     }
                 }
                 // Canonical evaluation order: callee first, then arguments left to right, once.
@@ -2116,23 +2116,22 @@ impl IrBuilder {
                 }
             }
             HirExpr::Dot(base, member, span) => {
-                if let HirExpr::Identifier(name, _) = &**base {
-                    if self
+                if let HirExpr::Identifier(name, _) = &**base
+                    && self
                         .enum_unit_variants
                         .get(name)
                         .is_some_and(|set| set.contains(member))
-                    {
-                        out.push(CoreInst::BuildStruct {
-                            type_name: format!("{name}.{member}"),
-                            field_count: 0,
-                            defer_fixed: false,
-                            span: *span,
-                        });
-                        if self.invariant_hooks.contains(name) {
-                            self.build_invariant_check(name, *span, out);
-                        }
-                        return;
+                {
+                    out.push(CoreInst::BuildStruct {
+                        type_name: format!("{name}.{member}"),
+                        field_count: 0,
+                        defer_fixed: false,
+                        span: *span,
+                    });
+                    if self.invariant_hooks.contains(name) {
+                        self.build_invariant_check(name, *span, out);
                     }
+                    return;
                 }
                 self.build_expr(base, out);
                 out.push(CoreInst::GetField(member.clone(), *span));

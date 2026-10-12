@@ -318,15 +318,15 @@ fn verify_expected_dependency(
             actual: input.manifest.name.clone(),
         });
     }
-    if let Some(version) = &expected.version {
-        if version != &input.manifest.version {
-            return Err(ResolveError::VersionConflict {
-                coordinate: expected.coordinate.clone(),
-                expected: version.clone(),
-                actual: input.manifest.version.clone(),
-                dependent: expected.dependent.clone(),
-            });
-        }
+    if let Some(version) = &expected.version
+        && version != &input.manifest.version
+    {
+        return Err(ResolveError::VersionConflict {
+            coordinate: expected.coordinate.clone(),
+            expected: version.clone(),
+            actual: input.manifest.version.clone(),
+            dependent: expected.dependent.clone(),
+        });
     }
     Ok(())
 }

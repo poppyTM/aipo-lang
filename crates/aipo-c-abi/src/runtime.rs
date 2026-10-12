@@ -96,6 +96,9 @@ pub struct AipoRuntime {
     pub modules: HashMap<String, Arc<BytecodeModule>>,
     /// Name of the last module loaded on this runtime.
     pub last_loaded_module: Option<String>,
+    linked: BytecodeModule,
+    module_offsets: HashMap<String, usize>,
+    active_execution: Option<Arc<BytecodeModule>>,
     /// Last error or fault message recorded.
     pub last_error: Option<String>,
     /// Owned snapshots for strings and bytes returned across the C boundary.
@@ -124,6 +127,9 @@ impl AipoRuntime {
             capabilities: CapabilitySet::none(),
             modules: HashMap::new(),
             last_loaded_module: None,
+            linked: BytecodeModule::new(),
+            module_offsets: HashMap::new(),
+            active_execution: None,
             last_error: None,
             snapshots: HashMap::new(),
             next_snapshot: 1,
@@ -205,11 +211,54 @@ impl AipoRuntime {
         name: &str,
         module: BytecodeModule,
     ) -> Result<(), (aipo_status_t, String)> {
+        let mut candidate = self.linked.clone();
+        let offset = aipo_bytecode::append_unit(&mut candidate, &module)
+            .map_err(|errors| (aipo_status_t::AIPO_ERR_DIAGNOSTIC, errors.join("; ")))?;
+        let mut catalog = BytecodeModule::new();
+        let mut previous: Vec<_> = self
+            .modules
+            .iter()
+            .filter(|(key, _)| key.as_str() != name)
+            .collect();
+        previous.sort_by_key(|(key, _)| *key);
+        for (key, loaded) in previous {
+            catalog.structs.extend(loaded.structs.iter().cloned());
+            catalog
+                .functions
+                .extend(loaded.functions.iter().cloned().map(|mut function| {
+                    function.entry_ip += self.module_offsets[key];
+                    function
+                }));
+        }
+        catalog.structs.extend(module.structs.iter().cloned());
+        catalog.functions.extend(module.functions.iter().cloned());
+        candidate.structs = catalog.structs.clone();
         // Capture definition snapshot before any module mutations for atomic commit/rollback
         let snapshot = self.vm.snapshot_definitions();
+        self.vm.replace_user_methods(&catalog);
+        if let Some(old) = self.modules.get(name) {
+            for declaration in &old.structs {
+                if !catalog
+                    .structs
+                    .iter()
+                    .any(|current| current.name == declaration.name)
+                {
+                    self.vm.remove_definition(&declaration.name);
+                }
+            }
+            for function in &old.functions {
+                if !catalog
+                    .functions
+                    .iter()
+                    .any(|current| current.name == function.name)
+                {
+                    self.vm.remove_definition(&function.name);
+                }
+            }
+        }
 
         // Register structs and methods on VM
-        for decl in &module.structs {
+        for decl in &catalog.structs {
             let fields: Vec<(&str, bool)> = decl
                 .fields
                 .iter()
@@ -222,7 +271,7 @@ impl AipoRuntime {
                 self.vm.register_struct_method(
                     type_name,
                     method,
-                    function.entry_ip,
+                    function.entry_ip + offset,
                     function.params,
                     function.is_async,
                 );
@@ -231,7 +280,7 @@ impl AipoRuntime {
 
         // Execute top-level module code
         let _guard = CurrentRuntimeGuard::new(self as *mut AipoRuntime);
-        if let Err(err) = self.vm.run(&module) {
+        if let Err(err) = self.vm.run_persistent_at(&candidate, offset) {
             // Atomic rollback: restore VM definitions and globals completely on failure
             self.vm.restore_definitions(snapshot);
             let msg = format!("runtime error initializing module '{name}': {err}");
@@ -242,8 +291,16 @@ impl AipoRuntime {
             };
             return Err((status, msg));
         }
+        if let Err(message) = self.vm.validate_guest_layouts() {
+            self.vm.restore_definitions(snapshot);
+            self.last_error = Some(message.clone());
+            return Err((aipo_status_t::AIPO_ERR_USAGE, message));
+        }
 
+        self.linked = candidate;
+        self.module_offsets.insert(name.to_string(), offset);
         self.last_loaded_module = Some(name.to_string());
+        self.last_error = None;
         self.modules.insert(name.to_string(), Arc::new(module));
         Ok(())
     }
@@ -254,6 +311,12 @@ impl AipoRuntime {
         name: &str,
         source_text: &str,
     ) -> Result<(), (aipo_status_t, String)> {
+        if self.active_execution.is_some() {
+            return Err((
+                aipo_status_t::AIPO_ERR_USAGE,
+                "runtime is executing; finish pumping before loading".into(),
+            ));
+        }
         let source = Source::new(SourceId::next(), name, source_text);
         let (program, diagnostics) = aipo_syntax::parse(&source);
         if diagnostics.iter().any(|d| d.severity == Severity::Error) {
@@ -301,6 +364,7 @@ impl AipoRuntime {
 
         self.load_module_internal(name, module)
     }
+
 
     /// Loads and initializes an Aipo module from precompiled bytecode (.aibc).
     pub fn load_bytecode(
@@ -494,13 +558,122 @@ impl AipoRuntime {
         }
     }
 
-    /// Invokes a global function in a loaded module.
+    /// Starts a function as the cooperative main computation; never executes guest code here.
+    pub fn begin(
+        &mut self,
+        module_name: &str,
+        function_name: &str,
+        args: &[aipo_value_t],
+    ) -> Result<(), (aipo_status_t, String)> {
+        if self.active_execution.is_some() {
+            return Err((aipo_status_t::AIPO_ERR_USAGE, "runtime is busy".into()));
+        }
+        let module = self
+            .modules
+            .get(module_name)
+            .ok_or_else(|| (aipo_status_t::AIPO_ERR_USAGE, "unknown module".into()))?;
+        let function = module
+            .function_by_name(function_name)
+            .ok_or_else(|| (aipo_status_t::AIPO_ERR_USAGE, "unknown function".into()))?;
+        if function.upvalues != 0 || args.len() != function.params {
+            return Err((
+                aipo_status_t::AIPO_ERR_USAGE,
+                "function requires matching arguments and no captures".into(),
+            ));
+        }
+        let values = args
+            .iter()
+            .map(aipo_value_t::to_vm_value)
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|error| (aipo_status_t::AIPO_ERR_USAGE, error.to_string()))?;
+        let linked = Arc::new(self.linked.clone());
+        self.vm
+            .start_at(
+                &linked,
+                function.entry_ip + self.module_offsets[module_name],
+            )
+            .map_err(|error| (aipo_status_t::AIPO_ERR_FAULT, error.to_string()))?;
+        for value in values {
+            self.vm
+                .push(value)
+                .map_err(|error| (aipo_status_t::AIPO_ERR_FAULT, error.to_string()))?;
+        }
+        self.active_execution = Some(linked);
+        self.last_error = None;
+        Ok(())
+    }
+
+    /// Runs at most `steps` scheduler quanta. Host callbacks can still block.
+    pub fn pump(&mut self, steps: usize) -> Result<Option<aipo_value_t>, (aipo_status_t, String)> {
+        if steps == 0 {
+            return Err((
+                aipo_status_t::AIPO_ERR_USAGE,
+                "pump steps must be positive".into(),
+            ));
+        }
+        let module = self.active_execution.clone().ok_or_else(|| {
+            (
+                aipo_status_t::AIPO_ERR_USAGE,
+                "no active computation".into(),
+            )
+        })?;
+        let _guard = CurrentRuntimeGuard::new(self as *mut AipoRuntime);
+        for _ in 0..steps {
+            match self.vm.debug_step(&module) {
+                Ok(true) => {
+                    self.active_execution = None;
+                    let result = self
+                        .vm
+                        .take_completion()
+                        .unwrap_or(Ok(Value::None))
+                        .map_err(|error| {
+                            let message = error.to_string();
+                            self.last_error = Some(message.clone());
+                            (
+                                if matches!(error, VmError::UncaughtFailure(_)) {
+                                    aipo_status_t::AIPO_ERR_UNCAUGHT_FAILURE
+                                } else {
+                                    aipo_status_t::AIPO_ERR_FAULT
+                                },
+                                message,
+                            )
+                        })?;
+                    let value = aipo_value_t::from_vm_value(&result, self.snapshotter());
+                    return Ok(Some(value));
+                }
+                Ok(false) => {}
+                Err(error) => {
+                    self.active_execution = None;
+                    let message = error.to_string();
+                    self.last_error = Some(message.clone());
+                    return Err((aipo_status_t::AIPO_ERR_FAULT, message));
+                }
+            }
+        }
+        Ok(None)
+    }
+
+    /// Stops a cooperative computation while retaining its current globals.
+    /// This is cancellation, not rollback of I/O or completed guest mutations.
+    pub fn abort(&mut self) {
+        if let Some(module) = self.active_execution.take() {
+            let _ = self.vm.start_at(&module, module.code.len());
+        }
+    }
+
+    /// Calls a function from the requested module on the shared linked code image.
     pub fn call(
         &mut self,
         module_name: &str,
         func_name: &str,
         args: &[aipo_value_t],
     ) -> Result<aipo_value_t, (aipo_status_t, String)> {
+        if self.active_execution.is_some() {
+            return Err((
+                aipo_status_t::AIPO_ERR_USAGE,
+                "runtime is executing; use pump".into(),
+            ));
+        }
         let module = self.modules.get(module_name).cloned().ok_or_else(|| {
             let msg = format!("module '{module_name}' is not loaded");
             self.last_error = Some(msg.clone());
@@ -513,7 +686,7 @@ impl AipoRuntime {
             .iter()
             .find(|f| f.name == func_name)
             .map(|f| Value::Function {
-                entry_ip: f.entry_ip as u32,
+                entry_ip: (f.entry_ip + self.module_offsets[module_name]) as u32,
                 arity: f.params as u16,
                 is_async: f.is_async,
             })
@@ -534,7 +707,8 @@ impl AipoRuntime {
         }
 
         let _guard = CurrentRuntimeGuard::new(self as *mut AipoRuntime);
-        let result = self.vm.invoke(&module, callee, &vm_args).map_err(|err| {
+        let linked = self.linked.clone();
+        let result = self.vm.invoke(&linked, callee, &vm_args).map_err(|err| {
             let msg = format!("runtime error calling '{func_name}': {err}");
             self.last_error = Some(msg.clone());
             let status = match err {

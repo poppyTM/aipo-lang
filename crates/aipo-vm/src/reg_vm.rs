@@ -275,6 +275,20 @@ impl RegVm {
         }
     }
 
+    fn corrupted(&self, reason: impl Into<String>) -> VmFault {
+        VmFault::CorruptedBytecode {
+            offset: self.pc.saturating_sub(1),
+            reason: reason.into(),
+        }
+    }
+
+    fn checked_jump(&self, offset: i32, length: usize) -> Result<usize, VmFault> {
+        self.pc
+            .checked_add_signed(offset as isize)
+            .filter(|target| *target < length)
+            .ok_or_else(|| self.corrupted("jump target outside instruction stream"))
+    }
+
     /// Resolves a struct method from the compiled function table.
     ///
     /// Methods are stored as `Type.method` functions whose arity counts the receiver, matching
@@ -456,6 +470,12 @@ impl RegVm {
         self.instructions_executed
     }
 
+    /// Configures the maximum instruction budget (`None` disables).
+    pub fn set_instruction_budget(&mut self, limit: Option<u64>) {
+        self.max_instructions = limit;
+        self.instructions_executed = 0;
+    }
+
     /// Resets the executed instruction counter to zero.
     pub fn reset_instruction_count(&mut self) {
         self.instructions_executed = 0;
@@ -511,6 +531,43 @@ impl RegVm {
             let b = inst.b() as usize;
             let c = inst.c() as usize;
 
+            if b >= self.registers.len()
+                && matches!(
+                    op,
+                    RegOpCode::Move
+                        | RegOpCode::Add
+                        | RegOpCode::Sub
+                        | RegOpCode::Mul
+                        | RegOpCode::Div
+                        | RegOpCode::IntDiv
+                        | RegOpCode::Mod
+                        | RegOpCode::Neg
+                        | RegOpCode::Not
+                        | RegOpCode::Equal
+                        | RegOpCode::NotEqual
+                        | RegOpCode::Less
+                        | RegOpCode::LessEqual
+                        | RegOpCode::Greater
+                        | RegOpCode::GreaterEqual
+                        | RegOpCode::CallPipe
+                        | RegOpCode::GetIndex
+                        | RegOpCode::SetIndex
+                        | RegOpCode::IterAt
+                        | RegOpCode::IterPrimary
+                        | RegOpCode::IterKey
+                        | RegOpCode::IterValue
+                        | RegOpCode::NewList
+                        | RegOpCode::NewDict
+                        | RegOpCode::Range
+                        | RegOpCode::Len
+                        | RegOpCode::CloneStruct
+                        | RegOpCode::TypeIs
+                        | RegOpCode::TypeIsNullable
+                )
+            {
+                return Err(self.corrupted(format!("register B={b} exceeds register file")));
+            }
+
             match op {
                 RegOpCode::Nop => {}
                 RegOpCode::Move => {
@@ -518,7 +575,11 @@ impl RegVm {
                 }
                 RegOpCode::LoadConst => {
                     let bx = inst.bx() as usize;
-                    let val = self.constants.get(bx).cloned().unwrap_or(Value::None);
+                    let val = self
+                        .constants
+                        .get(bx)
+                        .cloned()
+                        .ok_or_else(|| self.corrupted(format!("invalid constant index {bx}")))?;
                     self.registers[a] = val;
                 }
                 RegOpCode::LoadInt => {
@@ -580,53 +641,24 @@ impl RegVm {
                     self.registers[a] = self.registers[b].greater_equal(&self.registers[c])?;
                 }
                 RegOpCode::Jump => {
-                    let offset = inst.sbx();
-                    let target = (self.pc as i32) + offset;
-                    if target < 0 {
-                        return Err(VmFault::CorruptedBytecode {
-                            offset: self.pc - 1,
-                            reason: format!("jump target {target} out of range"),
-                        });
-                    }
-                    self.pc = target as usize;
+                    self.pc = self.checked_jump(inst.sbx(), code.len())?;
                 }
                 RegOpCode::JumpIfTrue => {
+                    let target = self.checked_jump(inst.sbx(), code.len())?;
                     if self.registers[a].as_bool()? {
-                        let offset = inst.sbx();
-                        let target = (self.pc as i32) + offset;
-                        if target < 0 {
-                            return Err(VmFault::CorruptedBytecode {
-                                offset: self.pc - 1,
-                                reason: format!("jump target {target} out of range"),
-                            });
-                        }
-                        self.pc = target as usize;
+                        self.pc = target;
                     }
                 }
                 RegOpCode::JumpIfFalse => {
+                    let target = self.checked_jump(inst.sbx(), code.len())?;
                     if !self.registers[a].as_bool()? {
-                        let offset = inst.sbx();
-                        let target = (self.pc as i32) + offset;
-                        if target < 0 {
-                            return Err(VmFault::CorruptedBytecode {
-                                offset: self.pc - 1,
-                                reason: format!("jump target {target} out of range"),
-                            });
-                        }
-                        self.pc = target as usize;
+                        self.pc = target;
                     }
                 }
                 RegOpCode::JumpIfSetLocal => {
+                    let target = self.checked_jump(inst.sbx(), code.len())?;
                     if !matches!(self.registers[a], Value::Unset) {
-                        let offset = inst.sbx();
-                        let target = (self.pc as i32) + offset;
-                        if target < 0 {
-                            return Err(VmFault::CorruptedBytecode {
-                                offset: self.pc - 1,
-                                reason: format!("jump target {target} out of range"),
-                            });
-                        }
-                        self.pc = target as usize;
+                        self.pc = target;
                     }
                 }
                 RegOpCode::GetGlobal => {
@@ -793,10 +825,10 @@ impl RegVm {
                     }
                     match (&target, &key) {
                         (Value::List(l), Value::Range(r)) => {
-                            let items = l.borrow().clone();
+                            let items = l.borrow().to_vec();
                             let (from, to) = normalize_range(r.start, r.end, items.len());
                             self.registers[a] =
-                                Value::List(Rc::new(RefCell::new(items[from..to].to_vec())));
+                                Value::List(Rc::new(RefCell::new(items[from..to].to_vec().into())));
                         }
                         (Value::String(s), Value::Range(r)) => {
                             let chars: Vec<char> = s.chars().collect();
@@ -805,10 +837,10 @@ impl RegVm {
                             self.registers[a] = Value::String(Rc::new(slice));
                         }
                         (Value::Bytes(b), Value::Range(r)) => {
-                            let bytes = b.borrow().clone();
+                            let bytes = b.borrow().to_vec();
                             let (from, to) = normalize_range(r.start, r.end, bytes.len());
                             self.registers[a] =
-                                Value::Bytes(Rc::new(RefCell::new(bytes[from..to].to_vec())));
+                                Value::Bytes(Rc::new(RefCell::new(bytes[from..to].to_vec().into())));
                         }
                         (Value::Range(r), Value::Int(i)) => {
                             // Positional access into a half-open range, which is what makes
@@ -924,7 +956,11 @@ impl RegVm {
                 RegOpCode::Call => {
                     let callee = self.registers[a].clone();
                     let arg_count = b;
-                    let args = self.registers[a + 1..a + 1 + arg_count].to_vec();
+                    let args = self
+                        .registers
+                        .get(a + 1..a + 1 + arg_count)
+                        .ok_or_else(|| self.corrupted("call arguments exceed register file"))?
+                        .to_vec();
                     match callee {
                         Value::Native(native) if is_task_native(&native.name) => {
                             match self.task_call(&native.name, &args, code)? {
@@ -1246,7 +1282,7 @@ impl RegVm {
                         return Err(VmFault::StackUnderflow);
                     }
                     let items = self.registers[start..start + count].to_vec();
-                    self.registers[a] = Value::List(Rc::new(RefCell::new(items)));
+                    self.registers[a] = Value::List(Rc::new(RefCell::new(items.into())));
                 }
                 RegOpCode::NewDict => {
                     let start = b;
@@ -1387,10 +1423,17 @@ impl RegVm {
                     };
                     self.registers[a] = Value::Int(len);
                 }
-                RegOpCode::IterAt => {
+                RegOpCode::IterAt
+                | RegOpCode::IterPrimary
+                | RegOpCode::IterKey
+                | RegOpCode::IterValue => {
                     let coll = &self.registers[b];
-                    let idx_reg = c >> 2;
-                    let mode = (c & 3) as u8;
+                    let (idx_reg, mode) = match op {
+                        RegOpCode::IterPrimary => (c, 0),
+                        RegOpCode::IterKey => (c, 1),
+                        RegOpCode::IterValue => (c, 2),
+                        _ => (c >> 2, (c & 3) as u8),
+                    };
                     let idx_val = &self.registers[idx_reg];
                     let ordinal = match idx_val {
                         Value::Int(n) => *n,
@@ -1439,7 +1482,7 @@ impl RegVm {
                                 },
                             )?;
                             let (k, v) = &dict.entries()[pos];
-                            if mode == 1 { k.clone() } else { v.clone() }
+                            if mode == 2 { v.clone() } else { k.clone() }
                         }
                         Value::Range(r) => {
                             let len = (r.end - r.start).max(0) as usize;
@@ -1633,40 +1676,60 @@ impl RegVm {
                         });
                     }
                 }
-                RegOpCode::AssertContract => {
+                RegOpCode::AssertContract | RegOpCode::AssertContractNullable => {
                     let bx = inst.bx() as usize;
-                    let Some(contract) = self.contracts.get(bx).cloned() else {
-                        return Err(VmFault::CorruptedBytecode {
-                            offset: self.pc - 1,
-                            reason: format!("contract index {bx} out of bounds"),
-                        });
+                    let (type_name, nullable, position, operations) = match (
+                        self.constants.get(bx),
+                        self.constants.get(bx + 1),
+                    ) {
+                        (Some(Value::String(t)), Some(Value::String(p))) => (
+                            (**t).clone(),
+                            op == RegOpCode::AssertContractNullable,
+                            (**p).clone(),
+                            Vec::new(),
+                        ),
+                        _ => {
+                            let contract = self.contracts.get(bx).cloned().ok_or_else(|| {
+                                VmFault::CorruptedBytecode {
+                                    offset: self.pc - 1,
+                                    reason: format!("contract index {bx} out of bounds"),
+                                }
+                            })?;
+                            (
+                                contract.type_name,
+                                contract.nullable,
+                                contract.position,
+                                contract.operations,
+                            )
+                        }
                     };
                     let value = self.registers[a].clone();
                     // An omitted argument keeps the sentinel and `fail(...)` ends the path, so
                     // neither is a contract violation (mirrors the stack VM).
                     let skippable = matches!(value, Value::Unset | Value::Failure(_));
-                    if !skippable
-                        && !self.contract_holds(&contract.type_name, contract.nullable, &value)
-                    {
+                    if !skippable && !self.contract_holds(&type_name, nullable, &value) {
+                        let actual = match &value {
+                            Value::Struct(instance) => instance.borrow().type_name.clone(),
+                            other => other.type_name().to_string(),
+                        };
                         return Err(VmFault::ContractViolation {
-                            position: contract.position.clone(),
-                            expected: if contract.nullable {
-                                format!("{}?", contract.type_name)
+                            position,
+                            expected: if nullable {
+                                format!("{type_name}?")
                             } else {
-                                contract.type_name.clone()
+                                type_name
                             },
-                            actual: value.type_name().to_string(),
+                            actual,
                         });
                     }
                     if !skippable && !matches!(value, Value::None) {
-                        for (operation, declared) in &contract.operations {
+                        for (operation, declared) in &operations {
                             if let Some(actual) = self.operation_arity(&value, operation) {
                                 if actual != *declared {
                                     return Err(VmFault::ContractViolation {
-                                        position: contract.position.clone(),
+                                        position: position.clone(),
                                         expected: format!(
-                                            "{}.{operation}/{declared}",
-                                            contract.type_name
+                                            "{type_name}.{operation}/{declared}"
                                         ),
                                         actual: format!(
                                             "{}.{operation}/{actual}",
@@ -1832,7 +1895,7 @@ mod tests {
             span,
         };
 
-        let compiled = RegEmitter::new().compile_function(&func);
+        let compiled = RegEmitter::new().compile_function(&func).unwrap();
         let mut vm = RegVm::new();
         // Set parameters R[0] and R[1]
         vm.registers[0] = Value::Int(6);
@@ -1867,7 +1930,7 @@ mod tests {
     fn test_register_vm_list_get_and_set_index() {
         use std::cell::RefCell;
         let mut vm = RegVm::new();
-        let list = Value::List(Rc::new(RefCell::new(vec![Value::Int(10), Value::Int(20)])));
+        let list = Value::List(Rc::new(RefCell::new(vec![Value::Int(10), Value::Int(20)].into())));
         vm.registers[0] = list;
         vm.registers[1] = Value::Int(1); // index 1
         vm.registers[2] = Value::Int(99); // new value

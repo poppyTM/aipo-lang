@@ -21,6 +21,16 @@ The stable command surface comprises (`run`/`check`/`fmt` stable since Wave 1,
 - `aipo package cache verify <cache-dir>`: Audits every existing GitHub cache entry without network access or filesystem mutation.
 - `aipo package cache prune <cache-dir> --lock <lockfile> [--apply]`: Removes only verified cache entries not referenced by the explicit lockfile; dry-run is the default.
 
+## Backend experimental de registradores
+
+`aipo run <file.aipo> --engine=reg` seleciona um plano explícito: Reg nativo quando todo o IR é suportado e verificado, ou VM canônica para as capacidades compartilhadas. `aipo plan <file.aipo>` compila sem executar e mostra JSON com engine real e motivo. `analyze_to_reg_module` permanece estrito e reporta `AIPO_COMPILE_REG_UNSUPPORTED`; a API de plano representa o fallback. O RegVM nativo continua experimental; closures, async e hooks não ganharam paridade nativa por esta seleção. Hosts que dependem do contexto VM usam o plano canônico.
+
+Falha recuperável não tratada no topo é reportada como `AIPO_RT_FAILURE_UNCAUGHT` e saída `1`. Aritmética usa os helpers compartilhados de Value; `each key in dict` projeta chaves em ordem de inserção.
+
+Orçamentos novos são APIs Rust: `RegVm::set_instruction_budget` e `execute_wasm_with_options`/`WasmExecutionOptions`. Não existe uma flag CLI nova para fuel nesta revisão. `wasm` habilita o compilador; `wasmtime-runner` habilita o JIT.
+
+Veja o [guia completo](../development/runtime-hardening-guide.md) para limites, integração, migração e validação pendente.
+
 ## Host surface descriptions
 
 `run` and `check` accept `--ahs=<file>` or `--ahs <file>` for Aipo source inputs.
@@ -264,3 +274,21 @@ aipo package cache verify .aipo-cache
 aipo package cache prune .aipo-cache --lock aipo.lock
 ```
 
+
+## Ferramentas adicionadas em P07-G02
+
+| Comando | Contrato |
+|---|---|
+| `aipo new <directory>` | Cria pacote local com manifest, entrada e README; não sobrescreve diretório existente |
+| `aipo plan <path>` | Mostra plano Reg/canônico em JSON sem executar o programa |
+| `aipo profile <path> [--budget N] [--json]` | Executa na VM e informa métricas; budget limita instruções guest |
+| `aipo debug <path>` | Depurador stdio com passos de scheduler, break por byte offset e globals |
+| `aipo watch <path>` | Acompanha árvore local, recompila e recarrega a última geração válida |
+| `aipo lsp` | LSP stdio com full sync, diagnósticos UTF-16, completion e formatting opcional |
+| `aipo package vendor <package-dir> --out <new-directory> [--cache <dir>]` | Produz árvore offline de lock existente, dependências locais e inventário SHA-256 |
+
+As ferramentas usam resolução de pacotes locais e mantêm os exit codes 0 (sucesso), 1 (falha de linguagem) e 2 (uso/I/O de ferramenta). Não aceitam automaticamente todas as opções de `run`; opções adicionais são rejeitadas. LSP usa exclusivamente stdout para frames do protocolo.
+
+`aipo-sh` preserva definições/globals, aceita entrada multilinha e oferece `:help`, `:history`, `:complete PREFIX`, `:load`, `:reload`, `:reset` e `:quit`. A sessão persistente usa os serviços canônicos mesmo no perfil Reg. Histórico é JSONL com até 1.000 unidades; `AIPO_HISTORY_FILE` vazio desliga persistência.
+
+Consulte o [guia completo de uso e reimplementação](../development/runtime-and-tooling-guide.md) para migração Rust/C, limites de rollback, perfis e distribuição. Testes desta entrega não foram executados a pedido do usuário; comandos documentados não constituem resultados certificados.

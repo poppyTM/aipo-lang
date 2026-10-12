@@ -311,12 +311,11 @@ fn needs_space(
     }
 
     // `Tipo::[fn1, fn2]` batch binding is tight around `::`.
-    if matches!(next_kind, TokenKind::ColonColon) {
-        if let Some(TokenKind::Identifier(name)) = previous_kind {
-            if name.chars().next().is_some_and(|c| c.is_uppercase()) {
-                return false;
-            }
-        }
+    if matches!(next_kind, TokenKind::ColonColon)
+        && let Some(TokenKind::Identifier(name)) = previous_kind
+        && name.chars().next().is_some_and(|c| c.is_uppercase())
+    {
+        return false;
     }
     if matches!(previous_kind, Some(TokenKind::ColonColon))
         && matches!(next_kind, TokenKind::LBracket)

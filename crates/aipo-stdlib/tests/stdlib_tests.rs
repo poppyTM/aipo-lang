@@ -46,11 +46,9 @@ fn test_prelude_len() {
     assert_eq!(len_res, Value::Int(5));
 
     // List
-    let list_val = Value::List(Rc::new(RefCell::new(vec![
-        Value::Int(1),
-        Value::Int(2),
-        Value::Int(3),
-    ])));
+    let list_val = Value::List(Rc::new(RefCell::new(
+        (vec![Value::Int(1), Value::Int(2), Value::Int(3)]).into(),
+    )));
     let len_res = prelude::native_len(&[list_val]).unwrap();
     assert_eq!(len_res, Value::Int(3));
 
@@ -79,7 +77,9 @@ fn test_prelude_len() {
 #[test]
 fn test_prelude_copy() {
     // List shallow copy: modification to clone does not mutate original
-    let orig_list = Value::List(Rc::new(RefCell::new(vec![Value::Int(1), Value::Int(2)])));
+    let orig_list = Value::List(Rc::new(RefCell::new(
+        (vec![Value::Int(1), Value::Int(2)]).into(),
+    )));
     let copy_val = prelude::native_copy(std::slice::from_ref(&orig_list)).unwrap();
 
     assert_eq!(orig_list, copy_val);
@@ -100,8 +100,8 @@ fn test_prelude_copy() {
 
 #[test]
 fn test_prelude_same() {
-    let list_a = Value::List(Rc::new(RefCell::new(vec![Value::Int(1)])));
-    let list_b = Value::List(Rc::new(RefCell::new(vec![Value::Int(1)])));
+    let list_a = Value::List(Rc::new(RefCell::new((vec![Value::Int(1)]).into())));
+    let list_b = Value::List(Rc::new(RefCell::new((vec![Value::Int(1)]).into())));
     let list_c = list_a.clone();
 
     // Two distinct lists with same contents have distinct identities
@@ -343,10 +343,9 @@ fn test_string_operations_preserve_nfc() {
     // `join` brings the mark next to a base character.
     let joined = string::string_join(&[
         Value::String(Rc::new(String::new())),
-        Value::List(Rc::new(RefCell::new(vec![
-            Value::String(Rc::new("e".to_string())),
-            mark.clone(),
-        ]))),
+        Value::List(Rc::new(RefCell::new(
+            (vec![Value::String(Rc::new("e".to_string())), mark.clone()]).into(),
+        ))),
     ])
     .unwrap();
     assert_eq!(joined, composed, "join must store the composed character");
@@ -568,12 +567,15 @@ fn test_string_canon_argument_rules() {
     .unwrap();
     assert_eq!(
         parts,
-        Value::List(Rc::new(RefCell::new(vec![
-            Value::String(Rc::new(String::new())),
-            Value::String(Rc::new("a".to_string())),
-            Value::String(Rc::new("b".to_string())),
-            Value::String(Rc::new(String::new())),
-        ])))
+        Value::List(Rc::new(RefCell::new(
+            (vec![
+                Value::String(Rc::new(String::new())),
+                Value::String(Rc::new("a".to_string())),
+                Value::String(Rc::new("b".to_string())),
+                Value::String(Rc::new(String::new())),
+            ])
+            .into()
+        )))
     );
 
     let empty_parts = string::string_split(&[
@@ -583,9 +585,9 @@ fn test_string_canon_argument_rules() {
     .unwrap();
     assert_eq!(
         empty_parts,
-        Value::List(Rc::new(RefCell::new(vec![Value::String(Rc::new(
-            String::new()
-        ))])))
+        Value::List(Rc::new(RefCell::new(
+            (vec![Value::String(Rc::new(String::new()))]).into()
+        )))
     );
 
     // replace with an empty pattern is invalid in V1.
@@ -605,7 +607,7 @@ fn test_string_join_canon_rules() {
     // join(separator, []) == ""
     let empty = string::string_join(&[
         comma.clone(),
-        Value::List(Rc::new(RefCell::new(Vec::new()))),
+        Value::List(Rc::new(RefCell::new((Vec::new()).into()))),
     ])
     .unwrap();
     assert_eq!(empty, Value::String(Rc::new(String::new())));
@@ -613,9 +615,9 @@ fn test_string_join_canon_rules() {
     // A single element returns that element.
     let single = string::string_join(&[
         comma.clone(),
-        Value::List(Rc::new(RefCell::new(vec![Value::String(Rc::new(
-            "only".to_string(),
-        ))]))),
+        Value::List(Rc::new(RefCell::new(
+            (vec![Value::String(Rc::new("only".to_string()))]).into(),
+        ))),
     ])
     .unwrap();
     assert_eq!(single, Value::String(Rc::new("only".to_string())));
@@ -623,7 +625,7 @@ fn test_string_join_canon_rules() {
     // Elements must already be String: no implicit coercion.
     let err = string::string_join(&[
         comma,
-        Value::List(Rc::new(RefCell::new(vec![Value::Int(1)]))),
+        Value::List(Rc::new(RefCell::new((vec![Value::Int(1)]).into()))),
     ])
     .unwrap_err();
     assert!(matches!(err, aipo_vm::VmFault::TypeMismatch { .. }));
@@ -798,7 +800,10 @@ fn test_convert_bytes() {
 
     // Zero is a valid (empty) block, and negative or oversized counts are recoverable.
     let empty = convert::convert_bytes(&[Value::Int(0)]).unwrap();
-    assert_eq!(empty, Value::Bytes(Rc::new(RefCell::new(Vec::new()))));
+    assert_eq!(
+        empty,
+        Value::Bytes(Rc::new(RefCell::new((Vec::new()).into())))
+    );
     assert!(
         convert::convert_bytes(&[Value::Int(-1)])
             .unwrap()
@@ -844,7 +849,7 @@ fn test_convert_string() {
     );
 
     // No magic stringification for collections.
-    let list = Value::List(Rc::new(RefCell::new(vec![Value::Int(1)])));
+    let list = Value::List(Rc::new(RefCell::new((vec![Value::Int(1)]).into())));
     let err = convert::convert_string(&[list]).unwrap_err();
     assert!(matches!(err, aipo_vm::VmFault::TypeMismatch { .. }));
 }
@@ -1175,11 +1180,9 @@ fn test_deterministic_random_prng() {
     let b2 = random::method_rng_bool(&rng2, &[]).unwrap();
     assert_eq!(b1, b2);
 
-    let list = Value::List(Rc::new(RefCell::new(vec![
-        Value::Int(10),
-        Value::Int(20),
-        Value::Int(30),
-    ])));
+    let list = Value::List(Rc::new(RefCell::new(
+        (vec![Value::Int(10), Value::Int(20), Value::Int(30)]).into(),
+    )));
     let c1 = random::method_rng_choice(&rng1, std::slice::from_ref(&list)).unwrap();
     let c2 = random::method_rng_choice(&rng2, std::slice::from_ref(&list)).unwrap();
     assert_eq!(c1, c2);
@@ -1189,7 +1192,7 @@ fn test_deterministic_random_prng() {
     assert_eq!(s1, s2);
 
     // Empty list choice fails
-    let empty_list = Value::List(Rc::new(RefCell::new(vec![])));
+    let empty_list = Value::List(Rc::new(RefCell::new((vec![]).into())));
     assert!(
         random::method_rng_choice(&rng1, &[empty_list])
             .unwrap()
@@ -1256,7 +1259,7 @@ fn test_json_module() {
     }
 
     // Cycle detection in stringify
-    let cyclic_list = Rc::new(RefCell::new(Vec::new()));
+    let cyclic_list = Rc::new(RefCell::new(aipo_vm::Collection::default()));
     cyclic_list
         .borrow_mut()
         .push(Value::List(Rc::clone(&cyclic_list)));
@@ -1266,12 +1269,10 @@ fn test_json_module() {
 
 #[test]
 fn test_list_first_or_last_or() {
-    let empty_list = Value::List(Rc::new(RefCell::new(Vec::new())));
-    let non_empty = Value::List(Rc::new(RefCell::new(vec![
-        Value::Int(10),
-        Value::Int(20),
-        Value::Int(30),
-    ])));
+    let empty_list = Value::List(Rc::new(RefCell::new((Vec::new()).into())));
+    let non_empty = Value::List(Rc::new(RefCell::new(
+        (vec![Value::Int(10), Value::Int(20), Value::Int(30)]).into(),
+    )));
     let default_val = Value::Int(-1);
 
     // Empty list
@@ -1373,7 +1374,7 @@ fn test_encoding_module() {
     assert_eq!(utf8_str, hello);
 
     // Invalid UTF-8 produces Failure
-    let invalid_utf8 = Value::Bytes(Rc::new(RefCell::new(vec![0xff, 0xfe])));
+    let invalid_utf8 = Value::Bytes(Rc::new(RefCell::new((vec![0xff, 0xfe]).into())));
     assert!(
         encoding::encoding_utf8_decode(std::slice::from_ref(&invalid_utf8))
             .unwrap()
@@ -1539,13 +1540,16 @@ fn test_url_module() {
 
 #[test]
 fn test_eager_list_methods() {
-    let list = Value::List(Rc::new(RefCell::new(vec![
-        Value::Int(1),
-        Value::Int(2),
-        Value::Int(2),
-        Value::Int(3),
-        Value::Int(4),
-    ])));
+    let list = Value::List(Rc::new(RefCell::new(
+        (vec![
+            Value::Int(1),
+            Value::Int(2),
+            Value::Int(2),
+            Value::Int(3),
+            Value::Int(4),
+        ])
+        .into(),
+    )));
 
     // take
     let taken = collections::list_take(&list, &[Value::Int(3)]).unwrap();
@@ -1578,10 +1582,13 @@ fn test_eager_list_methods() {
     }
 
     // zip
-    let other = Value::List(Rc::new(RefCell::new(vec![
-        Value::String(Rc::new("a".to_string())),
-        Value::String(Rc::new("b".to_string())),
-    ])));
+    let other = Value::List(Rc::new(RefCell::new(
+        (vec![
+            Value::String(Rc::new("a".to_string())),
+            Value::String(Rc::new("b".to_string())),
+        ])
+        .into(),
+    )));
     let zipped = collections::list_zip(&list, &[other]).unwrap();
     if let Value::List(items) = zipped {
         let b = items.borrow();
@@ -1593,7 +1600,9 @@ fn test_eager_list_methods() {
     // chain
     let chained = collections::list_chain(
         &list,
-        &[Value::List(Rc::new(RefCell::new(vec![Value::Int(5)])))],
+        &[Value::List(Rc::new(RefCell::new(
+            (vec![Value::Int(5)]).into(),
+        )))],
     )
     .unwrap();
     if let Value::List(items) = chained {
@@ -1703,7 +1712,7 @@ fn test_regex_module() {
 
 #[test]
 fn test_binary_module_operations() {
-    let buf = Value::Bytes(Rc::new(RefCell::new(vec![0u8; 32])));
+    let buf = Value::Bytes(Rc::new(RefCell::new((vec![0u8; 32]).into())));
 
     // i8 & u8
     binary::binary_write_i8(&[buf.clone(), Value::Int(0), Value::Int(-120)]).unwrap();
@@ -1766,7 +1775,7 @@ fn test_binary_module_operations() {
     );
 
     // f64 LE & BE
-    let fbuf = Value::Bytes(Rc::new(RefCell::new(vec![0u8; 16])));
+    let fbuf = Value::Bytes(Rc::new(RefCell::new((vec![0u8; 16]).into())));
     binary::binary_write_f64_le(&[fbuf.clone(), Value::Int(0), Value::Float(123.456)]).unwrap();
     assert_eq!(
         binary::binary_read_f64_le(&[fbuf.clone(), Value::Int(0)]).unwrap(),
@@ -1779,7 +1788,7 @@ fn test_binary_module_operations() {
     );
 
     // varint
-    let vbuf = Value::Bytes(Rc::new(RefCell::new(vec![0u8; 10])));
+    let vbuf = Value::Bytes(Rc::new(RefCell::new((vec![0u8; 10]).into())));
     let w =
         binary::binary_write_varint(&[vbuf.clone(), Value::Int(0), Value::Int(624485)]).unwrap();
     assert_eq!(w, Value::Int(3));
@@ -1925,11 +1934,9 @@ fn test_expect_assertions_operations() {
     ));
 
     // Contains
-    let list_val = Value::List(Rc::new(RefCell::new(vec![
-        Value::Int(1),
-        Value::Int(2),
-        Value::Int(3),
-    ])));
+    let list_val = Value::List(Rc::new(RefCell::new(
+        (vec![Value::Int(1), Value::Int(2), Value::Int(3)]).into(),
+    )));
     assert_eq!(
         testing::expect_contains(&[list_val.clone(), Value::Int(2)]).unwrap(),
         Value::None

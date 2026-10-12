@@ -1239,7 +1239,7 @@ impl RegVm {
                     Value::Failure(Rc::new(FailureValue::new("race of no tasks".to_string())))
                 }
                 RegJoinKind::All | RegJoinKind::GroupWait => {
-                    Value::List(Rc::new(RefCell::new(Vec::new())))
+                    Value::List(Rc::new(RefCell::new(Vec::new().into())))
                 }
                 RegJoinKind::Timeout => {
                     Value::Failure(Rc::new(FailureValue::new("timeout of no task".to_string())))
@@ -1546,7 +1546,7 @@ fn sleep_ticks(arg: &Value, operation: &str) -> Result<Ticks, VmFault> {
 /// Reads the `[args]` list of a `spawn` call.
 fn task_list_arg(arg: &Value, operation: &str) -> Result<Vec<Value>, VmFault> {
     match arg {
-        Value::List(items) => Ok(items.borrow().clone()),
+        Value::List(items) => Ok(items.borrow().to_vec()),
         other => Err(VmFault::TypeMismatch {
             expected: format!("argument list for {operation}"),
             actual: other.type_name().to_string(),

@@ -2,7 +2,7 @@
 
 > **TL;DR:** Aipo is a simple and fast programming language. It runs on a bytecode VM written
 > in Rust, compiles to WebAssembly (Wasm) with high-performance JIT execution, and emits JavaScript.
-> All execution backends produce identical, deterministic output.
+> Backend coverage is recorded in the shared conformance corpus. The register backend is experimental and supports a subset.
 
 ```aipo
 fn greet(name: String) -> String {
@@ -14,7 +14,7 @@ io.println(greet("world"))
 
 ## Start here (30 seconds)
 
-You need: Rust 1.85+ and Node 20+.
+You need a Rust toolchain compatible with the enabled features and Node 20+ for JavaScript tooling. Rust 1.85 is the declared MSRV; the full Wasmtime dependency graph needs separate verification.
 
 1. Build the CLI:
    ```bash
@@ -28,6 +28,10 @@ You need: Rust 1.85+ and Node 20+.
    ```bash
    cargo run -q -p aipo-cli -- test
    ```
+
+## Documentation: practical and accessible website
+
+The reorganized documentation portal lives at [`website/`](website/README.md): a reader-first manual of 20 topics, 26 complete examples copied from the repository, source-backed module API listings, a reference, and engineering documentation separated from usage guidance. Run `cd website && npm install && npm run dev` to preview it. The historical `docs/` tree and executable conformance corpus remain in place until consumer migration and syntax/authority reconciliation are complete. [Migration ledger](website/MIGRATION.md).
 
 ## Developer Tooling & Commands
 
@@ -44,6 +48,8 @@ You need: Rust 1.85+ and Node 20+.
 Exit codes: `0` = OK, `1` = Language or test failure, `2` = Command usage error.
 
 Full reference: [`docs/tools/index.md`](docs/tools/index.md) and [`docs/reference/cli.md`](docs/reference/cli.md).
+
+The [runtime usage and reimplementation guide (Portuguese)](docs/development/runtime-hardening-guide.md) explains the audit changes, their rationale, API migration, remaining work and verification limits. Continue the [reference studies](docs/studies/index.md) using pinned upstream sources.
 
 ## What is Aipo?
 

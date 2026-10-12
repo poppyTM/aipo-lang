@@ -215,52 +215,52 @@ pub fn egui_begin_frame(args: &[Value]) -> Result<Value, VmFault> {
     let handle = expect_handle(&args[0], "egui.begin_frame handle")?;
     let mut options = FrameInputOptions::default();
 
-    if args.len() == 2 {
-        if let Value::Dict(dict_rc) = &args[1] {
-            let dict = dict_rc.borrow();
-            let get_f = |key: &str| -> Option<f32> {
-                dict.get(&Value::String(Rc::new(key.to_string())))
-                    .and_then(|v| match v {
-                        Value::Float(f) => Some(*f as f32),
-                        Value::Int(i) => Some(*i as f32),
-                        _ => None,
-                    })
-            };
-            let get_b = |key: &str| -> Option<bool> {
-                dict.get(&Value::String(Rc::new(key.to_string())))
-                    .and_then(|v| match v {
-                        Value::Bool(b) => Some(*b),
-                        _ => None,
-                    })
-            };
+    if args.len() == 2
+        && let Value::Dict(dict_rc) = &args[1]
+    {
+        let dict = dict_rc.borrow();
+        let get_f = |key: &str| -> Option<f32> {
+            dict.get(&Value::String(Rc::new(key.to_string())))
+                .and_then(|v| match v {
+                    Value::Float(f) => Some(*f as f32),
+                    Value::Int(i) => Some(*i as f32),
+                    _ => None,
+                })
+        };
+        let get_b = |key: &str| -> Option<bool> {
+            dict.get(&Value::String(Rc::new(key.to_string())))
+                .and_then(|v| match v {
+                    Value::Bool(b) => Some(*b),
+                    _ => None,
+                })
+        };
 
-            if let Some(w) = get_f("width") {
-                options.width = w;
-            }
-            if let Some(h) = get_f("height") {
-                options.height = h;
-            }
-            if let Some(mx) = get_f("mouse_x") {
-                options.mouse_x = mx;
-            }
-            if let Some(my) = get_f("mouse_y") {
-                options.mouse_y = my;
-            }
-            if let Some(md) = get_b("mouse_down") {
-                options.mouse_down = md;
-            }
-            if let Some(mc) = get_b("mouse_clicked") {
-                options.mouse_clicked = mc;
-            }
-            if let Some(dt) = get_f("dt") {
-                options.dt = dt;
-            }
-            if let Some(sx) = get_f("scroll_x") {
-                options.scroll_x = sx;
-            }
-            if let Some(sy) = get_f("scroll_y") {
-                options.scroll_y = sy;
-            }
+        if let Some(w) = get_f("width") {
+            options.width = w;
+        }
+        if let Some(h) = get_f("height") {
+            options.height = h;
+        }
+        if let Some(mx) = get_f("mouse_x") {
+            options.mouse_x = mx;
+        }
+        if let Some(my) = get_f("mouse_y") {
+            options.mouse_y = my;
+        }
+        if let Some(md) = get_b("mouse_down") {
+            options.mouse_down = md;
+        }
+        if let Some(mc) = get_b("mouse_clicked") {
+            options.mouse_clicked = mc;
+        }
+        if let Some(dt) = get_f("dt") {
+            options.dt = dt;
+        }
+        if let Some(sx) = get_f("scroll_x") {
+            options.scroll_x = sx;
+        }
+        if let Some(sy) = get_f("scroll_y") {
+            options.scroll_y = sy;
         }
     }
 

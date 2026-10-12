@@ -231,7 +231,7 @@ pub fn method_rng_shuffle(receiver: &Value, args: &[Value]) -> Result<Value, VmF
         });
     }
     if let Value::List(l) = &args[0] {
-        let mut items = l.borrow().clone();
+        let mut items = l.borrow().to_vec();
         if items.len() > 1 {
             for i in (1..items.len()).rev() {
                 let word = next_word_from_rng(receiver)?;
@@ -239,7 +239,7 @@ pub fn method_rng_shuffle(receiver: &Value, args: &[Value]) -> Result<Value, VmF
                 items.swap(i, j);
             }
         }
-        Ok(Value::List(Rc::new(RefCell::new(items))))
+        Ok(Value::List(Rc::new(RefCell::new((items).into()))))
     } else {
         Err(VmFault::TypeMismatch {
             expected: "List".to_string(),
@@ -383,7 +383,7 @@ pub fn random_shuffle(args: &[Value]) -> Result<Value, VmFault> {
         });
     }
     if let Value::List(l) = &args[0] {
-        let mut items = l.borrow().clone();
+        let mut items = l.borrow().to_vec();
         if items.len() > 1 {
             for i in (1..items.len()).rev() {
                 let word = next_word_default();
@@ -391,7 +391,7 @@ pub fn random_shuffle(args: &[Value]) -> Result<Value, VmFault> {
                 items.swap(i, j);
             }
         }
-        Ok(Value::List(Rc::new(RefCell::new(items))))
+        Ok(Value::List(Rc::new(RefCell::new((items).into()))))
     } else {
         Err(VmFault::TypeMismatch {
             expected: "List".to_string(),

@@ -133,33 +133,7 @@ fn run_program_reg(path: &Path) -> (u8, String, String) {
 /// permission slip: the gate fails on any NEW divergence **and** on any entry that
 /// starts matching (it must then be removed here). Keep in sync with
 /// `docs/llm/project-structure.md` (engine parity section).
-const REG_KNOWN_DIVERGENCES: &[(&str, &str)] = &[
-    (
-        "04_collections",
-        "higher-order collection methods (filter/map/sort_by) are not dispatched \
-         on the register engine yet",
-    ),
-    (
-        "08_failures",
-        "recoverable-failure recovery (`attempt` regions) diverges on the register engine",
-    ),
-    (
-        "10_integrated",
-        "higher-order collection methods, same gap as 04_collections",
-    ),
-    (
-        "15_invariant_on_mutation",
-        "CheckMutations has no mutation journal on the register engine yet",
-    ),
-    (
-        "21_attempt_recovery_and_journal",
-        "attempt recovery plus the mutation journal, same gap as 15_invariant_on_mutation",
-    ),
-    (
-        "29_try_propagation_operator",
-        "the `try` propagation operator's lowering diverges on the register engine",
-    ),
-];
+const REG_KNOWN_DIVERGENCES: &[(&str, &str)] = &[];
 
 /// Engine parity gate: every conformance program must produce its committed stdout
 /// snapshot on the register engine exactly like on the stack VM. The corpus is the

@@ -962,7 +962,7 @@ export function valGetIndex(target, index, activeIterations) {
   return typeMismatch('indexable collection or string', typeName(target));
 }
 /**
- * One `each` binding: mode 0 is the natural element, 1 the key/index, 2 the value.
+ * One `each` binding: mode 0 is the dict key or natural element; 1 the key/index; 2 the value.
  *
  * A dict projects key/value at the ordinal position; every other iterable projects
  * its element for modes 0 and 2 and the positional Int for mode 1.
@@ -979,7 +979,7 @@ export function iterAt(m, coll, ordinal, mode) {
     const len = coll.entries.length;
     const i = resolveIndex(len, ordinal);
     if (i < 0 || i >= len) fault('AIPO_RT_INDEX_OUT_OF_RANGE', `index ${ordinal} out of range (len ${len})`);
-    return mode === 1 ? coll.entries[i][0] : coll.entries[i][1];
+    return mode === 2 ? coll.entries[i][1] : coll.entries[i][0];
   }
   if (mode === 1) {
     const lenV = valLen(coll);

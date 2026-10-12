@@ -201,7 +201,7 @@ pub fn host_value_to_value(host: &HostValue) -> Result<Value, VmFault> {
         HostValue::String(text) => Ok(Value::String(Rc::new(text.nfc().collect()))),
         #[cfg(not(feature = "unicode"))]
         HostValue::String(text) => Ok(Value::String(Rc::new(text.clone()))),
-        HostValue::Bytes(bytes) => Ok(Value::Bytes(Rc::new(RefCell::new(bytes.clone())))),
+        HostValue::Bytes(bytes) => Ok(Value::Bytes(Rc::new(RefCell::new((bytes.clone()).into())))),
         HostValue::Handle(handle) => Ok(Value::HostHandle(*handle)),
     }
 }
@@ -219,7 +219,7 @@ pub fn value_to_host_value(value: &Value) -> Option<HostValue> {
         Value::Int(inner) => Some(HostValue::Int(*inner)),
         Value::Float(inner) => Some(HostValue::Float(*inner)),
         Value::String(inner) => Some(HostValue::String(inner.to_string())),
-        Value::Bytes(inner) => Some(HostValue::Bytes(inner.borrow().clone())),
+        Value::Bytes(inner) => Some(HostValue::Bytes(inner.borrow().to_vec())),
         Value::HostHandle(handle) => Some(HostValue::Handle(*handle)),
         _ => None,
     }
@@ -808,7 +808,7 @@ mod tests {
     fn test_richer_values_do_not_cross_by_reference() {
         // A collection has no host-value form: the AHS describes it instead, so a host never
         // receives script memory by reference.
-        let list = Value::List(Rc::new(RefCell::new(vec![Value::Int(1)])));
+        let list = Value::List(Rc::new(RefCell::new((vec![Value::Int(1)]).into())));
         assert_eq!(value_to_host_value(&list), None);
     }
 
@@ -910,10 +910,9 @@ mod tests {
         let handle = context.hand_out(HostValue::string("entity"));
         context.close_scope(scope);
 
-        let list = Value::List(Rc::new(RefCell::new(vec![
-            Value::Int(1),
-            Value::HostHandle(handle),
-        ])));
+        let list = Value::List(Rc::new(RefCell::new(
+            (vec![Value::Int(1), Value::HostHandle(handle)]).into(),
+        )));
         let fault = context
             .ensure_publishable(&list, "list element")
             .expect_err("escaped through the list");
@@ -950,10 +949,9 @@ mod tests {
     #[test]
     fn test_a_container_without_handles_is_publishable() {
         let context = HostContext::denied();
-        let value = Value::List(Rc::new(RefCell::new(vec![
-            Value::Int(1),
-            Value::String(Rc::new("text".to_string())),
-        ])));
+        let value = Value::List(Rc::new(RefCell::new(
+            (vec![Value::Int(1), Value::String(Rc::new("text".to_string()))]).into(),
+        )));
         assert!(context.ensure_publishable(&value, "global 'items'").is_ok());
     }
 
@@ -962,7 +960,7 @@ mod tests {
         // `List.add(l, l)` is legal, so the escape walk must not depend on the value being a
         // tree. Visiting each container once is what bounds it.
         let context = HostContext::denied();
-        let inner: Rc<RefCell<Vec<Value>>> = Rc::new(RefCell::new(Vec::new()));
+        let inner: Rc<RefCell<crate::Collection<Value>>> = Rc::new(RefCell::new(Vec::new().into()));
         let snapshot = Value::List(Rc::clone(&inner));
         inner.borrow_mut().push(snapshot);
         assert!(

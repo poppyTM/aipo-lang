@@ -1,3 +1,5 @@
+#![cfg(feature = "wasmtime")]
+
 //! End-to-end tests for Dict literals, lookup, mutation and `len` in Wasm.
 
 use aipo_hir::lower;

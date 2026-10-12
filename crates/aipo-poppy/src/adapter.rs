@@ -186,7 +186,7 @@ pub fn poppy_query(args: &[Value]) -> Result<Value, VmFault> {
     with_poppy("poppy.ecs", "poppy.query", |service| {
         let handles = service.sim.world().query(&tag);
         let values: Vec<Value> = handles.into_iter().map(Value::HostHandle).collect();
-        Ok(Value::List(Rc::new(RefCell::new(values))))
+        Ok(Value::List(Rc::new(RefCell::new((values).into()))))
     })
 }
 

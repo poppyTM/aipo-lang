@@ -29,7 +29,7 @@ use crate::value::{
 };
 use aipo_bytecode::BytecodeModule;
 use std::cell::RefCell;
-use std::collections::{HashSet, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::rc::Rc;
 
 /// Identifier of the module entry script inside [`Vm::tasks`].
@@ -97,6 +97,7 @@ impl TaskOutcome {
 }
 
 /// Callback payload for a task owned by the host-native scheduler.
+#[derive(Debug, Clone)]
 pub(super) struct HostTask {
     /// Callback to execute when the task is loaded.
     pub(super) callback: HostNativeCallback,
@@ -105,6 +106,7 @@ pub(super) struct HostTask {
 }
 
 /// Saved machine state of a suspended task.
+#[derive(Debug, Clone)]
 pub(super) struct TaskState {
     /// Lifecycle state.
     pub(super) status: TaskStatus,
@@ -114,6 +116,7 @@ pub(super) struct TaskState {
     upvalues: Vec<UpvalueFrame>,
     journal: Vec<MutationEntry>,
     iterations: Vec<usize>,
+    iteration_revisions: Vec<(Value, Option<u64>, usize)>,
     ip: usize,
     /// Terminal payload for `Ready`/`Failed` tasks, observed by late awaiters.
     result: Option<Value>,
@@ -133,6 +136,7 @@ impl TaskState {
             upvalues: Vec::new(),
             journal: Vec::new(),
             iterations: Vec::new(),
+            iteration_revisions: Vec::new(),
             ip: 0,
             result: None,
             sleeping_until: None,
@@ -155,7 +159,7 @@ pub(super) enum JoinKind {
 }
 
 /// Pending or completed structured join.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(super) struct JoinState {
     kind: JoinKind,
     /// Member tasks (grows for group waits as the group spawns).
@@ -179,13 +183,93 @@ pub(super) struct JoinState {
 }
 
 /// Live structured-concurrency group.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(super) struct GroupState {
     /// Every task spawned into the group, in spawn order.
     members: Vec<TaskId>,
 }
 
+/// Retained scheduler state for linked sessions and definition rollback.
+#[derive(Debug, Clone)]
+pub(super) struct SchedulerSnapshot {
+    tasks: HashMap<TaskId, TaskState>,
+    run_queue: VecDeque<TaskId>,
+    waiters: HashMap<TaskId, Vec<TaskId>>,
+    joins: HashMap<JoinId, JoinState>,
+    groups: HashMap<GroupId, GroupState>,
+    next_task: TaskId,
+    next_join: JoinId,
+    next_group: GroupId,
+    tick: u64,
+}
+impl SchedulerSnapshot {
+    pub(super) fn roots(&self) -> Vec<Value> {
+        let mut values = Vec::new();
+        for task in self.tasks.values() {
+            values.extend(task.stack.iter().cloned());
+            values.extend(task.result.iter().cloned());
+            values.extend(
+                task.iteration_revisions
+                    .iter()
+                    .map(|(value, _, _)| value.clone()),
+            );
+            for change in &task.journal {
+                values.extend([
+                    Value::Struct(change.instance.clone()),
+                    change.previous.clone(),
+                ]);
+            }
+            if let Some(host) = &task.host_task {
+                values.extend(host.args.iter().cloned());
+            }
+        }
+        values.extend(
+            self.joins
+                .values()
+                .flat_map(|join| join.outcome.iter().cloned()),
+        );
+        values
+    }
+    pub(super) fn cells(&self) -> Vec<Rc<RefCell<Value>>> {
+        self.tasks
+            .values()
+            .flat_map(|task| {
+                task.upvalues
+                    .iter()
+                    .flatten()
+                    .flat_map(|cells| cells.iter().cloned())
+            })
+            .collect()
+    }
+}
+
 impl Vm {
+    pub(super) fn snapshot_scheduler(&self) -> SchedulerSnapshot {
+        SchedulerSnapshot {
+            tasks: self.tasks.clone(),
+            run_queue: self.run_queue.clone(),
+            waiters: self.waiters.clone(),
+            joins: self.joins.clone(),
+            groups: self.groups.clone(),
+            next_task: self.next_task,
+            next_join: self.next_join,
+            next_group: self.next_group,
+            tick: self.tick,
+        }
+    }
+    pub(super) fn restore_scheduler(&mut self, snapshot: SchedulerSnapshot) {
+        self.tasks = snapshot.tasks;
+        self.run_queue = snapshot.run_queue;
+        self.waiters = snapshot.waiters;
+        self.joins = snapshot.joins;
+        self.groups = snapshot.groups;
+        self.next_task = snapshot.next_task;
+        self.next_join = snapshot.next_join;
+        self.next_group = snapshot.next_group;
+        self.tick = snapshot.tick;
+        self.tasks.remove(&MAIN_TASK);
+        self.run_queue.retain(|id| *id != MAIN_TASK);
+    }
     /// Saves the loaded machine into its task slot and unwinds with
     /// [`VmError::Suspended`]. A cancellation that landed mid-run faults
     /// instead of saving, so the run loop completes the task as cancelled.
@@ -212,6 +296,7 @@ impl Vm {
             upvalues: std::mem::take(&mut self.upvalue_frames),
             journal: std::mem::take(&mut self.mutation_journal),
             iterations: std::mem::take(&mut self.active_iterations),
+            iteration_revisions: std::mem::take(&mut self.iteration_revisions),
             ip: self.ip,
             result: None,
             sleeping_until,
@@ -248,6 +333,10 @@ impl Vm {
         std::mem::swap(&mut self.upvalue_frames, &mut state.upvalues);
         std::mem::swap(&mut self.mutation_journal, &mut state.journal);
         std::mem::swap(&mut self.active_iterations, &mut state.iterations);
+        std::mem::swap(
+            &mut self.iteration_revisions,
+            &mut state.iteration_revisions,
+        );
         self.refresh_frame_base();
         self.host_task = state.host_task.take();
         self.ip = state.ip;
@@ -323,10 +412,10 @@ impl Vm {
             .map(|(join_id, _)| *join_id)
             .collect();
         for join_id in affected {
-            if let Some(join) = self.joins.get_mut(&join_id) {
-                if !join.completed.contains(&id) {
-                    join.completed.push(id);
-                }
+            if let Some(join) = self.joins.get_mut(&join_id)
+                && !join.completed.contains(&id)
+            {
+                join.completed.push(id);
             }
             self.poll_join(join_id);
         }
@@ -521,7 +610,7 @@ impl Vm {
                         if let Some(failure) = first_failure {
                             Resolution::Value(failure)
                         } else {
-                            let values = join
+                            let values: Vec<_> = join
                                 .order
                                 .iter()
                                 .map(|member| {
@@ -530,7 +619,7 @@ impl Vm {
                                         .unwrap_or(Value::None)
                                 })
                                 .collect();
-                            Resolution::Value(Value::List(Rc::new(RefCell::new(values))))
+                            Resolution::Value(Value::List(Rc::new(RefCell::new((values).into()))))
                         }
                     } else {
                         Resolution::Pending
@@ -581,7 +670,7 @@ impl Vm {
                             details: "a group member was cancelled".to_string(),
                         })
                     } else if all_terminal {
-                        let values = self
+                        let values: Vec<_> = self
                             .completion_order(join_id)
                             .into_iter()
                             .map(|member| {
@@ -590,7 +679,7 @@ impl Vm {
                                     .unwrap_or(Value::None)
                             })
                             .collect();
-                        Resolution::Value(Value::List(Rc::new(RefCell::new(values))))
+                        Resolution::Value(Value::List(Rc::new(RefCell::new((values).into()))))
                     } else {
                         Resolution::Pending
                     }
@@ -870,6 +959,7 @@ impl Vm {
                 upvalues,
                 journal: Vec::new(),
                 iterations: Vec::new(),
+                iteration_revisions: Vec::new(),
                 ip: entry_ip,
                 result: None,
                 sleeping_until: None,
@@ -891,11 +981,11 @@ impl Vm {
                 .map(|(join_id, _)| *join_id)
                 .collect();
             for join_id in open {
-                if let Some(join) = self.joins.get_mut(&join_id) {
-                    if !join.members.contains(&id) {
-                        join.members.push(id);
-                        join.order.push(id);
-                    }
+                if let Some(join) = self.joins.get_mut(&join_id)
+                    && !join.members.contains(&id)
+                {
+                    join.members.push(id);
+                    join.order.push(id);
                 }
             }
         }
@@ -919,6 +1009,7 @@ impl Vm {
                 upvalues: Vec::new(),
                 journal: Vec::new(),
                 iterations: Vec::new(),
+                iteration_revisions: Vec::new(),
                 ip: 0,
                 result: None,
                 sleeping_until: None,
@@ -1124,7 +1215,7 @@ impl Vm {
                     Value::Failure(Rc::new(FailureValue::new("race of no tasks".to_string())))
                 }
                 JoinKind::All | JoinKind::GroupWait => {
-                    Value::List(Rc::new(RefCell::new(Vec::new())))
+                    Value::List(Rc::new(RefCell::new((Vec::new()).into())))
                 }
                 JoinKind::Timeout => {
                     Value::Failure(Rc::new(FailureValue::new("timeout of no task".to_string())))
@@ -1293,7 +1384,7 @@ impl Vm {
                         }
                         .into());
                     }
-                    let values = members
+                    let values: Vec<_> = members
                         .iter()
                         .map(|member| {
                             self.task_result(member)
@@ -1301,8 +1392,10 @@ impl Vm {
                                 .unwrap_or(Value::None)
                         })
                         .collect();
-                    return self
-                        .resolve_call(callee_idx, Value::List(Rc::new(RefCell::new(values))));
+                    return self.resolve_call(
+                        callee_idx,
+                        Value::List(Rc::new(RefCell::new((values).into()))),
+                    );
                 }
                 let id = self.next_join;
                 self.next_join += 1;
@@ -1372,7 +1465,7 @@ fn sleep_ticks(arg: &Value, operation: &str) -> Result<Ticks, VmFault> {
 /// Reads the `[args]` list of a `spawn` call.
 fn task_list_arg(arg: &Value, operation: &str) -> Result<Vec<Value>, VmFault> {
     match arg {
-        Value::List(items) => Ok(items.borrow().clone()),
+        Value::List(items) => Ok(items.borrow().to_vec()),
         other => Err(VmFault::TypeMismatch {
             expected: format!("argument list for {operation}"),
             actual: other.type_name().to_string(),
@@ -1392,7 +1485,7 @@ enum Members {
 /// boundary); non-task elements are a type mismatch.
 fn task_members(arg: &Value, operation: &str) -> Result<Members, VmError> {
     let items = match arg {
-        Value::List(items) => items.borrow().clone(),
+        Value::List(items) => items.borrow().to_vec(),
         other => {
             return Err(VmFault::TypeMismatch {
                 expected: format!("task list for {operation}"),
@@ -1547,15 +1640,15 @@ impl Vm {
                 .into());
             }
         };
-        if let Terminal::Reduce { initial, .. } = &terminal {
-            if initial.is_failure() {
-                let failure = initial.clone();
-                return self.resolve_call(callee_idx, failure);
-            }
+        if let Terminal::Reduce { initial, .. } = &terminal
+            && initial.is_failure()
+        {
+            let failure = initial.clone();
+            return self.resolve_call(callee_idx, failure);
         }
         let items = self.sequence_items(module, pipeline)?;
         let value = match terminal {
-            Terminal::Collect => Value::List(Rc::new(RefCell::new(items))),
+            Terminal::Collect => Value::List(Rc::new(RefCell::new((items).into()))),
             Terminal::Find(predicate) => {
                 let mut found = Value::None;
                 for item in items {
@@ -1629,7 +1722,7 @@ impl Vm {
                 }
                 let entries = buckets
                     .into_iter()
-                    .map(|(key, bucket)| (key, Value::List(Rc::new(RefCell::new(bucket)))))
+                    .map(|(key, bucket)| (key, Value::List(Rc::new(RefCell::new((bucket).into())))))
                     .collect();
                 Value::Dict(Rc::new(RefCell::new(DictMap::from_entries(entries))))
             }
@@ -1762,7 +1855,7 @@ impl Vm {
                 for item in items {
                     let mapped = self.invoke(module, func.clone(), &[item])?;
                     match mapped {
-                        Value::List(list) => out.extend(list.borrow().clone()),
+                        Value::List(list) => out.extend(list.borrow().to_vec()),
                         other => {
                             return Err(VmFault::TypeMismatch {
                                 expected: "List flat_map result".to_string(),
@@ -1795,7 +1888,9 @@ impl Vm {
                 let paired = items
                     .into_iter()
                     .zip(other.iter().cloned())
-                    .map(|(first, second)| Value::List(Rc::new(RefCell::new(vec![first, second]))))
+                    .map(|(first, second)| {
+                        Value::List(Rc::new(RefCell::new((vec![first, second]).into())))
+                    })
                     .collect();
                 Ok(paired)
             }
@@ -1808,7 +1903,7 @@ impl Vm {
                 let size = (*n).max(1) as usize;
                 Ok(items
                     .chunks(size)
-                    .map(|chunk| Value::List(Rc::new(RefCell::new(chunk.to_vec()))))
+                    .map(|chunk| Value::List(Rc::new(RefCell::new((chunk.to_vec()).into()))))
                     .collect())
             }
             SeqOp::Window(n) => {
@@ -1818,7 +1913,7 @@ impl Vm {
                 }
                 Ok(items
                     .windows(size)
-                    .map(|window| Value::List(Rc::new(RefCell::new(window.to_vec()))))
+                    .map(|window| Value::List(Rc::new(RefCell::new((window.to_vec()).into()))))
                     .collect())
             }
             SeqOp::Enumerate => {
@@ -1826,7 +1921,9 @@ impl Vm {
                 for (index, item) in items.into_iter().enumerate() {
                     #[allow(clippy::cast_possible_wrap)]
                     let position = Value::Int(check_safe_int(index as i64)?);
-                    indexed.push(Value::List(Rc::new(RefCell::new(vec![position, item]))));
+                    indexed.push(Value::List(Rc::new(RefCell::new(
+                        (vec![position, item]).into(),
+                    ))));
                 }
                 Ok(indexed)
             }
@@ -1866,9 +1963,9 @@ impl Vm {
         operation: &str,
     ) -> Result<Vec<Value>, VmError> {
         match value {
-            Value::List(items) => Ok(items.borrow().clone()),
+            Value::List(items) => Ok(items.borrow().to_vec()),
             Value::Dict(dict) => Ok(dict.borrow().values()),
-            Value::Set(items) => Ok(items.borrow().clone()),
+            Value::Set(items) => Ok(items.borrow().to_vec()),
             Value::String(text) => Ok(text
                 .chars()
                 .map(|ch| Value::String(Rc::new(ch.to_string())))

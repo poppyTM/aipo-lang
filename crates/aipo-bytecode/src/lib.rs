@@ -6,10 +6,15 @@
 
 pub mod disasm;
 pub mod emitter;
+pub mod execution_plan;
+pub use execution_plan::{ExecutionPlan, compile_execution_plan};
 pub mod instruction;
+pub mod linker;
 pub mod module;
+pub use linker::append_unit;
 pub mod opcode;
 pub mod reg_emitter;
+pub mod reg_verifier;
 pub mod verifier;
 
 pub use disasm::{disassemble, disassemble_with_source};
@@ -18,6 +23,7 @@ pub use instruction::{RegInstruction, RegOpCode};
 pub use module::{AIBC_MAGIC, AIBC_VERSION, BytecodeModule, FunctionInfo, StructInfo};
 pub use opcode::{Constant, OpCode};
 pub use reg_emitter::{RegCompiledFunction, RegCompiledModule, RegContract, RegEmitter};
+pub use reg_verifier::RegVerifier;
 pub use verifier::BytecodeVerifier;
 
 use aipo_ir::CoreModule;

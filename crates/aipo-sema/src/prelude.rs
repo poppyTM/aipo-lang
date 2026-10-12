@@ -1,7 +1,7 @@
 //! Description of the globally visible language surface.
 
 use crate::symbol::SymbolKind;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 /// The set of names that are visible at the root scope before any user declaration.
 ///
@@ -14,6 +14,7 @@ use std::collections::HashMap;
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct PreludeSurface {
     globals: HashMap<String, SymbolKind>,
+    mutable_globals: HashSet<String>,
     host_modules: HashMap<String, HashMap<String, HostFunction>>,
 }
 
@@ -68,7 +69,18 @@ impl PreludeSurface {
 
     /// Adds a variable-like or type-value global.
     pub fn add_variable(&mut self, name: &str) {
+        self.mutable_globals.remove(name);
         self.globals.insert(name.to_string(), SymbolKind::Variable);
+    }
+
+    /// Adds an existing mutable guest binding, for persistent compilation sessions.
+    pub fn add_mutable_variable(&mut self, name: &str) {
+        self.add_variable(name);
+        self.mutable_globals.insert(name.into());
+    }
+    /// Whether a supplied binding can be reassigned.
+    pub fn is_mutable(&self, name: &str) -> bool {
+        self.mutable_globals.contains(name)
     }
 
     /// Adds a global function with its accepted argument counts.

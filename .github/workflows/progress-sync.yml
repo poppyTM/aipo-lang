@@ -1,0 +1,34 @@
+name: Aipo progress sync
+
+on:
+  pull_request:
+    paths:
+      - 'crates/**'
+      - 'packages/**'
+      - 'examples/**'
+      - 'fuzz/**'
+      - 'docs/conformance/**'
+      - 'Cargo.toml'
+      - 'website/public/progress/tasks.json'
+      - 'website/scripts/progress_delta.py'
+      - 'website/tests/test_progress_delta.py'
+      - '.github/workflows/progress-sync.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  require-progress-sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate progress policy tests
+        run: python3 -m unittest discover -s website/tests -p 'test_progress_delta.py' -v
+      - name: Require synchronized progress changes for implementation PRs
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: python3 website/scripts/progress_delta.py "$PR_BASE_SHA" "$PR_HEAD_SHA"

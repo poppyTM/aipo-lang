@@ -5,6 +5,14 @@
 **Scope:** corpus layout, snapshot matrix, regeneration, gate rubric
 **Update Triggers:** new fixture kind, snapshot format change, gate criteria change
 
+## Delta de reconstrução — P07-G01
+
+As fixtures `programs/33_dict_primary_iteration` e `programs/34_conditional_values` registram, respectivamente, chaves de Dict em iteração primária e resultados condicionais em ramos que convergem. Seus `.stdout` são expectativas baseadas no canon e revisão manual; não foram regenerados nem executados nesta reconstrução.
+
+`crates/aipo-cli/tests/reg_conformance.rs` compara essas fixtures nos engines vm/reg. `crates/aipo-vm/tests/reg_vm_robustness.rs` cobre aritmética compartilhada, operandos inválidos, budget, Unicode/extremos e índice de iteração em registrador alto. `disabled_features.rs` cobre ausência de compiler/runner. As suites JIT Wasm agora respeitam features. Execução dispensada explicitamente pelo usuário nesta rodada; paridade ainda precisa ser validada.
+
+Consulte [guia e limites](../development/runtime-hardening-guide.md) e [evidência](../evidence/P07-G01-runtime-hardening.md). Este delta não reclassifica como certificados os cenários pendentes.
+
 ## Purpose
 
 The corpus is the shared, executable definition of the delivered language surface — Wave 1
@@ -248,3 +256,7 @@ recorded below.
 `programs/` 27 `.aipo` + 27 `.stdout`, `diagnostics/` 29 `.aipo` + 29 `.code`,
 `formatting/` 8 `.input.aipo` + 8 `.expected.aipo`, `modules/` 3 entry points
 (`basic`, `cycle`, `missing`).
+
+## Delta P07-G02 — implementação sem execução de testes
+
+Fixtures `35_register_profile_shared_services` e `36_semantic_type_tests` acrescentam captures/scheduler no perfil Reg e testes fundamentais/nullable de tipo. Os stdout são expectativas do canon revisadas, não resultados regenerados. `reg_conformance.rs` inclui ambos os engines; `persistent_session.rs`, `guest_transactions.rs`, `reg_verifier.rs` e `type_proofs.rs` registram regressões para futura execução. Nenhuma suite foi executada nesta rodada por pedido do usuário. Consulte [guia](../development/runtime-and-tooling-guide.md) e [evidência](../evidence/P07-G02/README.md).

@@ -76,7 +76,7 @@ pub fn convert_bytes(args: &[Value]) -> Result<Value, VmFault> {
 pub fn convert_set(args: &[Value]) -> Result<Value, VmFault> {
     match args.len() {
         0 => Ok(Value::Set(std::rc::Rc::new(std::cell::RefCell::new(
-            Vec::new(),
+            Vec::new().into(),
         )))),
         1 => vm_convert::convert_set(&args[0]),
         n => Err(VmFault::TypeMismatch {

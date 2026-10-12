@@ -1,0 +1,77 @@
+/* Aipo · leitura como interface principal */
+:root {
+  --vp-c-brand-1: #0f766e;
+  --vp-c-brand-2: #0d9488;
+  --vp-c-brand-3: #115e59;
+  --vp-c-brand-soft: rgba(13, 148, 136, .10);
+  --vp-font-family-base: system-ui, -apple-system, "Segoe UI", "Noto Sans", sans-serif;
+  --vp-font-family-mono: "SFMono-Regular", "DejaVu Sans Mono", ui-monospace, Consolas, monospace;
+  --vp-layout-max-width: 1330px;
+}
+.dark {
+  --vp-c-brand-1: #5eead4;
+  --vp-c-brand-2: #2dd4bf;
+  --vp-c-brand-3: #99f6e4;
+  --vp-c-brand-soft: rgba(45, 212, 191, .12);
+}
+:focus-visible { outline: 3px solid var(--vp-c-brand-1); outline-offset: 3px; border-radius: 3px; }
+.VPDoc .content-container { max-width: 760px !important; }
+.vp-doc { font-size: 16.5px; line-height: 1.8; overflow-wrap: break-word; }
+.vp-doc p, .vp-doc li { max-width: 74ch; }
+.vp-doc h1 { letter-spacing: -.03em; line-height: 1.23; font-weight: 725; margin-bottom: 20px; }
+.vp-doc h2 { font-weight: 680; margin-top: 2.1em; padding-top: .2em; letter-spacing: -.015em; border-bottom: 1px solid var(--vp-c-divider); }
+.vp-doc h3 { margin-top: 1.55em; }
+.vp-doc a { text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.vp-doc p { margin: 16px 0; }
+.vp-doc blockquote { background: transparent; border-color: var(--vp-c-divider); font-size: .94em; }
+.vp-doc div[class*="language-"] { border: 1px solid var(--vp-c-divider); border-radius: 8px; }
+.vp-doc table { display: block; width: 100%; max-width: 100%; overflow-x: auto; }
+.vp-doc th, .vp-doc td { vertical-align: top; }
+.vp-doc ul { padding-left: 1.35em; }
+.VPDocAside, .VPDocAsideOutline { display: none !important; }
+.VPLastUpdated { display: none !important; }
+.aipo-focus .VPSidebar, .aipo-focus .VPDocAside { display: none !important; }
+.aipo-focus .VPDoc { padding-inline: 20px !important; }
+.aipo-focus .VPDoc .content-container { max-width: 690px !important; margin-inline: auto !important; }
+.aipo-comfortable .vp-doc { font-size: 19px; line-height: 1.95; }
+.aipo-comfortable .VPDoc .content-container { max-width: 825px !important; }
+.aipo-reading-panel { margin-left: 10px; position: relative; font-size: 13px; z-index: 100; }
+.aipo-reading-panel > summary {
+  list-style: none; cursor: pointer; min-height: 36px;
+  display: flex; align-items: center; padding: 0 10px; border-radius: 6px;
+  border: 1px solid var(--vp-c-divider); color: var(--vp-c-text-2);
+  background: var(--vp-c-bg);
+}
+.aipo-reading-panel > summary::-webkit-details-marker { display: none; }
+.aipo-reading-panel[open] > summary { color: var(--vp-c-text-1); border-color: var(--vp-c-brand-1); }
+.aipo-reading-menu {
+  position: absolute; right: 0; top: calc(100% + 8px); width: 190px;
+  display: grid; gap: 6px; padding: 10px;
+  border: 1px solid var(--vp-c-divider); border-radius: 10px;
+  background: var(--vp-c-bg); box-shadow: 0 8px 22px rgba(0,0,0,.11);
+}
+.aipo-reading-menu button {
+  min-height: 40px; text-align: left; cursor: pointer; font: inherit;
+  padding: 8px 10px; border-radius: 6px; color: var(--vp-c-text-1);
+  border: 1px solid transparent; background: var(--vp-c-bg-soft);
+}
+.aipo-reading-menu button[aria-pressed="true"] { border-color: var(--vp-c-brand-1); color: var(--vp-c-brand-1); }
+.aipo-reading-menu button:hover { border-color: var(--vp-c-divider); }
+@media(max-width: 960px) {
+  .aipo-reading-panel {
+    position: fixed; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    top: auto; margin: 0;
+  }
+  .aipo-reading-panel > summary { min-height: 44px; background: var(--vp-c-bg); box-shadow: 0 4px 14px rgba(0,0,0,.1); }
+  .aipo-reading-menu { top: auto; bottom: calc(100% + 9px); }
+  .VPDoc { padding-bottom: 76px !important; }
+}
+@media(max-width: 420px) { .vp-doc { font-size: 16px; } .VPDoc { padding-left: 16px !important; padding-right: 16px !important; } }
+@media(prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}
+@media print {
+  .aipo-reading-panel { display: none !important; }
+  .VPDoc .content-container { max-width: 100% !important; }
+  .vp-doc { font-size: 12pt; }
+}

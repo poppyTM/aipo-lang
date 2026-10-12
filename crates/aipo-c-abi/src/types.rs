@@ -388,7 +388,7 @@ impl aipo_value_t {
                 if self.bytes_ptr.is_null() {
                     return if self.bytes_len == 0 {
                         Ok(Value::Bytes(std::rc::Rc::new(std::cell::RefCell::new(
-                            Vec::new(),
+                            Vec::new().into(),
                         ))))
                     } else {
                         Err(BoundaryError::NullPointer)
@@ -396,7 +396,7 @@ impl aipo_value_t {
                 }
                 let slice = unsafe { std::slice::from_raw_parts(self.bytes_ptr, self.bytes_len) };
                 Ok(Value::Bytes(std::rc::Rc::new(std::cell::RefCell::new(
-                    slice.to_vec(),
+                    slice.to_vec().into(),
                 ))))
             }
             aipo_val_tag_t::AIPO_VAL_HANDLE => Ok(Value::HostHandle(self.handle_val.into())),

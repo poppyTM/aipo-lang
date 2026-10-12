@@ -379,32 +379,30 @@ impl<'a> Lexer<'a> {
         raw.push(first_ch);
 
         // Check for base prefix (0x, 0b, 0o)
-        if first_ch == '0' {
-            if let Some(base_ch) = self.peek() {
-                if base_ch == 'x'
-                    || base_ch == 'X'
-                    || base_ch == 'b'
-                    || base_ch == 'B'
-                    || base_ch == 'o'
-                    || base_ch == 'O'
-                {
-                    raw.push(base_ch);
+        if first_ch == '0'
+            && let Some(base_ch) = self.peek()
+            && (base_ch == 'x'
+                || base_ch == 'X'
+                || base_ch == 'b'
+                || base_ch == 'B'
+                || base_ch == 'o'
+                || base_ch == 'O')
+        {
+            raw.push(base_ch);
+            self.advance();
+            while let Some(ch) = self.peek() {
+                if ch.is_ascii_hexdigit() || ch == '_' {
+                    raw.push(ch);
                     self.advance();
-                    while let Some(ch) = self.peek() {
-                        if ch.is_ascii_hexdigit() || ch == '_' {
-                            raw.push(ch);
-                            self.advance();
-                        } else {
-                            break;
-                        }
-                    }
-                    let end = self.current_offset();
-                    if !number_is_well_formed(&raw) {
-                        self.record_invalid_number(start, &raw);
-                    }
-                    return Token::new(TokenKind::IntLiteral(raw), SourceSpan::new(start, end));
+                } else {
+                    break;
                 }
             }
+            let end = self.current_offset();
+            if !number_is_well_formed(&raw) {
+                self.record_invalid_number(start, &raw);
+            }
+            return Token::new(TokenKind::IntLiteral(raw), SourceSpan::new(start, end));
         }
 
         // Decimal digits
@@ -443,10 +441,10 @@ impl<'a> Lexer<'a> {
         let is_float_exp = if self.peek() == Some('e') || self.peek() == Some('E') {
             raw.push('e');
             self.advance();
-            if self.peek() == Some('+') || self.peek() == Some('-') {
-                if let Some(sign) = self.advance() {
-                    raw.push(sign);
-                }
+            if (self.peek() == Some('+') || self.peek() == Some('-'))
+                && let Some(sign) = self.advance()
+            {
+                raw.push(sign);
             }
             while let Some(ch) = self.peek() {
                 if ch.is_ascii_digit() || ch == '_' {

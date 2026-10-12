@@ -168,15 +168,14 @@ impl Diagnostic {
                 span.file, span.line, span.column, severity_str, code_str, self.message
             ));
 
-            if let Some(map) = source_map {
-                if let Some(source) = map.get_by_name(&span.file) {
-                    if let Some(line_str) = source.line_content(span.line) {
-                        out.push_str(&format!(" {:>4} | {}\n", span.line, line_str));
-                        let pad = " ".repeat(span.column.saturating_sub(1));
-                        let carets = "^".repeat((span.end.saturating_sub(span.start)).max(1));
-                        out.push_str(&format!("      | {pad}{carets}\n"));
-                    }
-                }
+            if let Some(map) = source_map
+                && let Some(source) = map.get_by_name(&span.file)
+                && let Some(line_str) = source.line_content(span.line)
+            {
+                out.push_str(&format!(" {:>4} | {}\n", span.line, line_str));
+                let pad = " ".repeat(span.column.saturating_sub(1));
+                let carets = "^".repeat((span.end.saturating_sub(span.start)).max(1));
+                out.push_str(&format!("      | {pad}{carets}\n"));
             }
         } else {
             out.push_str(&format!("{severity_str}: [{code_str}] {}\n", self.message));

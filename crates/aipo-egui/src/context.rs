@@ -179,7 +179,7 @@ impl EguiSession {
             ),
             (
                 Value::String(Rc::new("shapes".to_string())),
-                Value::List(Rc::new(RefCell::new(shapes_list))),
+                Value::List(Rc::new(RefCell::new((shapes_list).into()))),
             ),
         ];
 

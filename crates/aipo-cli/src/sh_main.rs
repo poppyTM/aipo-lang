@@ -1,7 +1,7 @@
 //! Entry point for `aipo-sh`, the standalone lightweight Aipo shell and script runner (Marco 4 / ADP-014).
 //!
 //! Features:
-//! - Sub-millisecond cold start
+//! - Persistent globals, multiline input, history and explicit completion
 //! - Direct in-memory string evaluation (`aipo-sh -c "code"`)
 //! - Script execution (`aipo-sh script.aipo`)
 //! - Interactive REPL (`aipo-sh`)
@@ -102,47 +102,123 @@ fn split_engine_flag(args: Vec<String>) -> (Vec<String>, bool) {
 }
 
 fn run_repl(reg: bool) -> ExitCode {
-    if reg {
+    use std::io::IsTerminal;
+    let interactive = io::stdin().is_terminal();
+    if interactive {
         println!(
-            "Aipo Shell (aipo-sh) v{} [engine=reg]",
-            env!("CARGO_PKG_VERSION")
+            "Aipo Shell v{} — persistent canonical session{}",
+            env!("CARGO_PKG_VERSION"),
+            if reg { " (reg profile)" } else { "" }
         );
-    } else {
-        println!("Aipo Shell (aipo-sh) v{}", env!("CARGO_PKG_VERSION"));
+        println!(":help for commands; exit to quit.");
     }
-    println!("Type 'exit' to quit.");
-
+    let mut session = aipo_cli::Session::new();
+    let mut history = aipo_cli::repl::History::load();
     let stdin = io::stdin();
+    let mut input = stdin.lock();
     let mut stdout = io::stdout();
     let mut stderr = io::stderr();
-
+    let mut code = String::new();
+    let mut failed = false;
     loop {
-        print!("aipo> ");
-        let _ = stdout.flush();
-
-        let mut line = String::new();
-        match stdin.lock().read_line(&mut line) {
-            Ok(0) => break, // EOF
-            Ok(_) => {
-                let trimmed = line.trim();
-                if trimmed.is_empty() {
-                    continue;
-                }
-                if trimmed == "exit" || trimmed == "quit" {
-                    break;
-                }
-                if reg {
-                    aipo_cli::eval_source_reg(trimmed, &mut stdout, &mut stderr);
-                } else {
-                    aipo_cli::eval_source(trimmed, &mut stdout, &mut stderr);
-                }
-            }
-            Err(e) => {
-                eprintln!("error reading input: {e}");
+        if interactive {
+            let _ = write!(
+                stdout,
+                "{}",
+                if code.is_empty() { "aipo> " } else { "....> " }
+            );
+            if stdout.flush().is_err() {
                 return ExitCode::FAILURE;
             }
         }
+        let mut line = String::new();
+        match input.read_line(&mut line) {
+            Ok(0) => {
+                if !code.trim().is_empty() {
+                    failed |= session.eval(
+                        &code,
+                        std::path::Path::new("<repl>"),
+                        &mut stdout,
+                        &mut stderr,
+                    ) != 0;
+                }
+                break;
+            }
+            Ok(_) => {}
+            Err(error) => {
+                let _ = writeln!(stderr, "input error: {error}");
+                return ExitCode::FAILURE;
+            }
+        }
+        let trimmed = line.trim();
+        if code.is_empty() {
+            if matches!(trimmed, "exit" | "quit" | ":quit") {
+                break;
+            }
+            if trimmed.is_empty() {
+                continue;
+            }
+            if trimmed.starts_with(':') {
+                let (command, arg) = trimmed.split_once(' ').unwrap_or((trimmed, ""));
+                match command {
+                    ":help" => {
+                        let _ = writeln!(
+                            stdout,
+                            ":history, :complete PREFIX, :load PATH, :reload PATH, :reset, :quit"
+                        );
+                    }
+                    ":history" => {
+                        for (index, entry) in history.entries().iter().enumerate() {
+                            let _ = writeln!(stdout, "{}: {}", index + 1, entry);
+                        }
+                    }
+                    ":complete" => {
+                        let _ = writeln!(stdout, "{}", session.complete(arg.trim()).join(" "));
+                    }
+                    ":reset" => session.reset(),
+                    ":load" | ":reload" => match std::fs::read_to_string(arg.trim()) {
+                        Ok(source) => {
+                            let path = std::path::Path::new(arg.trim());
+                            failed |= if command == ":reload" {
+                                session.reload_with(&source, path, &mut stdout, &mut stderr, |_| {
+                                    Ok(())
+                                })
+                            } else {
+                                session.eval(&source, path, &mut stdout, &mut stderr)
+                            } != 0;
+                        }
+                        Err(error) => {
+                            failed = true;
+                            let _ = writeln!(stderr, "{error}");
+                        }
+                    },
+                    _ => {
+                        failed = true;
+                        let _ = writeln!(stderr, "unknown REPL command: {command}");
+                    }
+                }
+                continue;
+            }
+        }
+        code.push_str(&line);
+        if !aipo_cli::repl::is_complete(&code) {
+            continue;
+        }
+        history.push(code.trim_end().to_string());
+        failed |= session.eval(
+            &code,
+            std::path::Path::new("<repl>"),
+            &mut stdout,
+            &mut stderr,
+        ) != 0;
+        code.clear();
     }
-
-    ExitCode::SUCCESS
+    if let Err(error) = history.save() {
+        let _ = writeln!(stderr, "history: {error}");
+    }
+    if failed && !interactive {
+        ExitCode::FAILURE
+    } else {
+        ExitCode::SUCCESS
+    }
 }

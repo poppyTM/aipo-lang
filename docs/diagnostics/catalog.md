@@ -19,6 +19,14 @@
 
 ## Codes (initial)
 
+### Compilation backend (AIPO_COMPILE_*)
+
+| Code | Severity | Trigger |
+| --- | --- | --- |
+| AIPO_COMPILE_REG_UNSUPPORTED | error | Experimental register lowering cannot safely represent an IR operation, function or encoding operand |
+
+O título está disponível em EN/PT-BR. A CLI inclui a razão técnica em uma nota e sugere `--engine=vm`. Não é uma nova regra de sintaxe; descreve uma limitação do backend. Veja o [guia de reimplementação](../development/runtime-hardening-guide.md).
+
 ### Source (AIPO_SRC_*)
 | Code | Severity | Trigger |
 |---|---|---|

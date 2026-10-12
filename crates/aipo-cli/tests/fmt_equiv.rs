@@ -6,6 +6,7 @@
 //! suites, which run the same pipeline rainbow.)
 
 #![forbid(unsafe_code)]
+#![cfg(feature = "formatter")]
 
 use aipo_testkit::{corpus, pipeline, smith};
 use std::sync::{Mutex, MutexGuard, OnceLock};

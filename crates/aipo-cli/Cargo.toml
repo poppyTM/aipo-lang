@@ -19,6 +19,9 @@ name = "aipo-sh"
 path = "src/sh_main.rs"
 
 [dependencies]
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+aipo-lexer = { path = "../aipo-lexer" }
 aipo-ast = { path = "../aipo-ast" }
 aipo-bytecode = { path = "../aipo-bytecode" }
 aipo-diagnostics = { path = "../aipo-diagnostics" }
@@ -38,9 +41,11 @@ aipo-wasm = { path = "../aipo-wasm", default-features = false, optional = true }
 
 [dev-dependencies]
 aipo-testkit = { path = "../aipo-testkit" }
-aipo-lexer = { path = "../aipo-lexer" }
 
 [features]
+profile-shell = ["formatter", "regex", "unicode"]
+profile-web = ["js", "wasm"]
+profile-embedded = []
 default = ["formatter", "js", "wasm", "wasmtime-runner", "regex", "unicode"]
 formatter = ["dep:aipo-formatter"]
 js = ["dep:aipo-js"]

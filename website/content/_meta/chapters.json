@@ -1,0 +1,262 @@
+[
+  {
+    "id": "01-primeiro-programa",
+    "title": "Seu primeiro programa",
+    "part": "I · Começar",
+    "route": "/learn/01-primeiro-programa",
+    "previous": null,
+    "next": "02-variaveis",
+    "source": "examples/01_fizzbuzz.aipo",
+    "verification": "not-run"
+  },
+  {
+    "id": "02-variaveis",
+    "title": "Valores e variáveis",
+    "part": "I · Começar",
+    "route": "/learn/02-variaveis",
+    "previous": "01-primeiro-programa",
+    "next": "03-numeros",
+    "source": "examples/06_variables_and_values.aipo",
+    "verification": "not-run"
+  },
+  {
+    "id": "03-numeros",
+    "title": "Números e booleanos",
+    "part": "I · Começar",
+    "route": "/learn/03-numeros",
+    "previous": "02-variaveis",
+    "next": "04-strings",
+    "source": "examples/20_safe_numeric_boundaries.aipo",
+    "verification": "not-run"
+  },
+  {
+    "id": "04-strings",
+    "title": "Texto e interpolação",
+    "part": "I · Começar",
+    "route": "/learn/04-strings",
+    "previous": "03-numeros",
+    "next": "05-condicoes",
+    "source": "examples/09_strings_unicode_and_formatting.aipo",
+    "verification": "not-run"
+  },
+  {
+    "id": "05-condicoes",
+    "title": "Condições",
+    "part": "II · Fundamentos",
+    "route": "/learn/05-condicoes",
+    "previous": "04-strings",
+    "next": "06-repeticoes",
+    "source": "docs/conformance/programs/03_control_flow.aipo",
+    "verification": "not-run"
+  },
+  {
+    "id": "06-repeticoes",
+    "title": "Repetições",
+    "part": "II · Fundamentos",
+    "route": "/learn/06-repeticoes",
+    "previous": "05-condicoes",
+    "next": "07-listas",
+    "source": "examples/16_ranges_repeat_each.aipo",
+    "verification": "not-run"
+  },
+  {
+    "id": "07-listas",
+    "title": "Listas",
+    "part": "II · Fundamentos",
+    "route": "/learn/07-listas",
+    "previous": "06-repeticoes",
+    "next": "08-dicionarios",
+    "source": "examples/08_lists_dicts_and_slices.aipo",
+    "verification": "not-run"
+  },
+  {
+    "id": "08-dicionarios",
+    "title": "Dicionários",
+    "part": "II · Fundamentos",
+    "route": "/learn/08-dicionarios",
+    "previous": "07-listas",
+    "next": "09-funcoes",
+    "source": "examples/08_lists_dicts_and_slices.aipo",
+    "verification": "not-run"
+  },
+  {
+    "id": "09-funcoes",
+    "title": "Primeiras funções",
+    "part": "II · Fundamentos",
+    "route": "/learn/09-funcoes",
+    "previous": "08-dicionarios",
+    "next": "10-retornos",
+    "source": "examples/02_local_functions.aipo",
+    "verification": "not-run"
+  },
+  {
+    "id": "10-retornos",
+    "title": "Parâmetros e retornos",
+    "part": "II · Fundamentos",
+    "route": "/learn/10-retornos",
+    "previous": "09-funcoes",
+    "next": "11-escopo",
+    "source": "examples/07_functions_defaults_named_args.aipo",
+    "verification": "not-run"
+  },
+  {
+    "id": "11-escopo",
+    "title": "Escopo e mutabilidade",
+    "part": "II · Fundamentos",
+    "route": "/learn/11-escopo",
+    "previous": "10-retornos",
+    "next": "12-modulos",
+    "source": "examples/21_closure_state.aipo",
+    "verification": "not-run"
+  },
+  {
+    "id": "12-modulos",
+    "title": "Módulos e arquivos",
+    "part": "II · Fundamentos",
+    "route": "/learn/12-modulos",
+    "previous": "11-escopo",
+    "next": "13-estruturas",
+    "source": "examples/05_modules/main.aipo",
+    "verification": "not-run"
+  },
+  {
+    "id": "13-estruturas",
+    "title": "Estruturas",
+    "part": "III · Construir",
+    "route": "/learn/13-estruturas",
+    "previous": "12-modulos",
+    "next": "14-metodos",
+    "source": "examples/24_idiomatic_aipo_showcase.aipo",
+    "verification": "not-run"
+  },
+  {
+    "id": "14-metodos",
+    "title": "Métodos e comportamento",
+    "part": "III · Construir",
+    "route": "/learn/14-metodos",
+    "previous": "13-estruturas",
+    "next": "15-closures",
+    "source": "examples/24_idiomatic_aipo_showcase.aipo",
+    "verification": "not-run"
+  },
+  {
+    "id": "15-closures",
+    "title": "Closures",
+    "part": "III · Construir",
+    "route": "/learn/15-closures",
+    "previous": "14-metodos",
+    "next": "16-transformacoes",
+    "source": "examples/21_closure_state.aipo",
+    "verification": "not-run"
+  },
+  {
+    "id": "16-transformacoes",
+    "title": "Transformando coleções",
+    "part": "III · Construir",
+    "route": "/learn/16-transformacoes",
+    "previous": "15-closures",
+    "next": "17-falhas",
+    "source": "examples/24_idiomatic_aipo_showcase.aipo",
+    "verification": "not-run"
+  },
+  {
+    "id": "17-falhas",
+    "title": "Falhas recuperáveis",
+    "part": "III · Construir",
+    "route": "/learn/17-falhas",
+    "previous": "16-transformacoes",
+    "next": "18-testes",
+    "source": "examples/11_failures_or_else_attempt.aipo",
+    "verification": "not-run"
+  },
+  {
+    "id": "18-testes",
+    "title": "Testes e diagnósticos",
+    "part": "III · Construir",
+    "route": "/learn/18-testes",
+    "previous": "17-falhas",
+    "next": "19-projeto",
+    "source": "examples/18_small_statistics.aipo",
+    "verification": "not-run"
+  },
+  {
+    "id": "19-projeto",
+    "title": "Miniaplicação organizada",
+    "part": "III · Construir",
+    "route": "/learn/19-projeto",
+    "previous": "18-testes",
+    "next": "20-contratos",
+    "source": "examples/24_idiomatic_aipo_showcase.aipo",
+    "verification": "not-run"
+  },
+  {
+    "id": "20-contratos",
+    "title": "Contratos de assinatura",
+    "part": "IV · Avançado",
+    "route": "/learn/20-contratos",
+    "previous": "19-projeto",
+    "next": "21-interfaces",
+    "source": "examples/03_contracts_and_interfaces.aipo",
+    "verification": "not-run"
+  },
+  {
+    "id": "21-interfaces",
+    "title": "Interfaces estruturais",
+    "part": "IV · Avançado",
+    "route": "/learn/21-interfaces",
+    "previous": "20-contratos",
+    "next": "22-invariantes",
+    "source": "examples/14_interfaces_and_satisfy.aipo",
+    "verification": "not-run"
+  },
+  {
+    "id": "22-invariantes",
+    "title": "Invariantes e transações",
+    "part": "IV · Avançado",
+    "route": "/learn/22-invariantes",
+    "previous": "21-interfaces",
+    "next": "23-concorrencia",
+    "source": "examples/13_mutation_and_rollback.aipo",
+    "verification": "not-run"
+  },
+  {
+    "id": "23-concorrencia",
+    "title": "Tarefas e async",
+    "part": "IV · Avançado",
+    "route": "/learn/23-concorrencia",
+    "previous": "22-invariantes",
+    "next": "24-pacotes",
+    "source": "docs/conformance/README.md",
+    "verification": "not-run"
+  },
+  {
+    "id": "24-pacotes",
+    "title": "Pacotes e lockfiles",
+    "part": "IV · Avançado",
+    "route": "/learn/24-pacotes",
+    "previous": "23-concorrencia",
+    "next": "25-backends",
+    "source": "docs/manual/packages-and-modules.md",
+    "verification": "not-run"
+  },
+  {
+    "id": "25-backends",
+    "title": "VM, JavaScript e Wasm",
+    "part": "IV · Avançado",
+    "route": "/learn/25-backends",
+    "previous": "24-pacotes",
+    "next": "26-embedding",
+    "source": "docs/reference/cli.md",
+    "verification": "not-run"
+  },
+  {
+    "id": "26-embedding",
+    "title": "Embedding e host APIs",
+    "part": "V · Integrações",
+    "route": "/learn/26-embedding",
+    "previous": "25-backends",
+    "next": null,
+    "source": "crates/aipo-host/README.md",
+    "verification": "not-run"
+  }
+]

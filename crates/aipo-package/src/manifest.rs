@@ -658,15 +658,15 @@ pub(crate) fn is_valid_semver(value: &str) -> bool {
     if core_parts.len() != 3 || !core_parts.iter().all(|part| is_numeric_identifier(part)) {
         return false;
     }
-    if let Some(prerelease) = prerelease {
-        if !is_valid_prerelease(prerelease) {
-            return false;
-        }
+    if let Some(prerelease) = prerelease
+        && !is_valid_prerelease(prerelease)
+    {
+        return false;
     }
-    if let Some(build) = build {
-        if !is_valid_build(build) {
-            return false;
-        }
+    if let Some(build) = build
+        && !is_valid_build(build)
+    {
+        return false;
     }
     true
 }

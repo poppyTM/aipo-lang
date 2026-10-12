@@ -1,0 +1,34 @@
+name: Package native artifacts
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: Artifact profile
+        required: true
+        default: shell
+        type: choice
+        options: [full, shell, web, embedded, nano]
+permissions:
+  contents: read
+jobs:
+  package:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - run: rustup toolchain install 1.96.0 --profile minimal
+      - name: Build and package
+        shell: bash
+        env:
+          RUSTUP_TOOLCHAIN: 1.96.0
+          CARGO_BUILD_JOBS: 2
+          CARGO_INCREMENTAL: 0
+        run: python3 scripts/release/package.py --profile '${{ inputs.profile }}'
+      - uses: actions/upload-artifact@v6
+        with:
+          name: aipo-${{ runner.os }}-${{ inputs.profile }}
+          path: target/dist/*
+          if-no-files-found: error

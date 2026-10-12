@@ -1,3 +1,5 @@
+#![cfg(feature = "wasmtime")]
+
 //! End-to-end tests for the hybrid `Failure` model in the Wasm backend.
 //!
 //! `fail`, `or_else`, `attempt`/`failed` use module-level status globals plus

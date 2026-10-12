@@ -11,6 +11,14 @@ This is the intent router for humans and agents. Add links as stable documentati
 
 Add user tutorials, how-to guides, reference and explanations under `docs/user/` as needed.
 
+## Revisão adicional de runtime e estudos
+
+- [Uso, alterações e reimplementação](development/runtime-hardening-guide.md)
+- [Estudos e fontes pinadas](studies/index.md)
+- [Evidência e gates não executados da reconstrução](evidence/P07-G01-runtime-hardening.md)
+
+P07-G01 permanece DRAFT; testes dispensados nesta rodada por pedido explícito do usuário. Publicação em PR não equivale à aprovação dos gates ou transição formal de fase.
+
 ## I want to develop/contribute
 
 Add onboarding, codebase tour, build/test/debug and task-oriented development guides under `docs/developer/`.

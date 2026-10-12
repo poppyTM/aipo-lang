@@ -264,16 +264,15 @@ impl BytecodeEmitter {
         for inst in &function.instructions {
             let offset = self.code.len();
             self.inst_offsets.push(offset);
-            if let Some(previous_inst) = previous {
-                if matches!(inst, CoreInst::PropagateFailure(_))
-                    && matches!(
-                        previous_inst,
-                        CoreInst::Constant(_, _) | CoreInst::MakeFunction(_, _)
-                    )
-                {
-                    previous = Some(inst);
-                    continue;
-                }
+            if let Some(previous_inst) = previous
+                && matches!(inst, CoreInst::PropagateFailure(_))
+                && matches!(
+                    previous_inst,
+                    CoreInst::Constant(_, _) | CoreInst::MakeFunction(_, _)
+                )
+            {
+                previous = Some(inst);
+                continue;
             }
             self.emit_inst(inst, layout);
             previous = Some(inst);

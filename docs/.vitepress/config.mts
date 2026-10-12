@@ -280,7 +280,8 @@ export default defineConfig({
                 { text: 'VMs de Referência (Tier A)', link: '/studies/reference-vms' },
                 { text: 'Runtimes de Referência (Tier B + C)', link: '/studies/reference-runtimes' },
                 { text: 'Lições para a Aipo', link: '/studies/lessons-for-aipo' },
-                { text: 'Guia Master p/ LLMs', link: '/studies/llm-study-guide' }
+                { text: 'Guia Master p/ LLMs', link: '/studies/llm-study-guide' },
+                { text: 'Uso e Reimplementação do Runtime', link: '/studies/runtime-hardening-guide' }
               ]
             }
           ],

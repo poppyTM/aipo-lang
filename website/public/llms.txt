@@ -1,0 +1,46 @@
+# Aipo Documentation — Agent and LLM Index
+
+> Language: Aipo. Repository: https://github.com/poppy-team/aipo-lang
+> This portal is in website/; existing docs/ and tests remain.
+> Approved syntax targets are not proof of implementation. Never claim tests passed without evidence.
+
+## Documentation entry points
+- Overview: / 
+- Learning book: /learn/
+- Practical guides: /guides/
+- Language and CLI reference: /reference/
+- Implementation status: /reference/status
+- Concepts and rationale: /concepts/
+- Compiler engineering: /engineering/
+- Documentation archive and migration: /archive/
+
+## Agent protocol
+- Start: /engineering/agents/
+- Read progressively: /engineering/agents/reading
+- Implementation and evidence: /engineering/agents/workflows
+- Relevant Prumo skills: /engineering/agents/prumo
+- Scoped prompt patterns: /engineering/agents/prompts
+- Semantic conflicts: /engineering/decisions/conflicts
+- Test & quality gates: /engineering/quality
+
+## Authority
+- Existing language decision: https://github.com/poppy-team/aipo-lang/blob/main/docs/decisions/adr-001-canonical-syntax.md
+- Current target syntax and known drift: https://github.com/poppy-team/aipo-lang/blob/main/SYNTAX.md
+- Conformance fixtures: https://github.com/poppy-team/aipo-lang/tree/main/docs/conformance
+- Actual behavior comes from code, fixtures and verified execution at a specific SHA.
+- Prumo workforce is an external reference, not automatic permission to execute code.
+
+## Guidelines
+Select one task domain, read only its boundary and applicable decision, inspect relevant code and tests, then establish a measurable delta. Preserve legacy documentation until its references and authority conflicts are reconciled.
+
+# Progresso auditável
+- /progress/ — tabela de processos, checkpoints e evidências.
+- /engineering/progress-protocol — regras obrigatórias de atualização.
+- /engineering/legacy-audit — auditoria e critérios de exclusão de docs antigas.
+
+# Practical documentation (primary reader path)
+- /start/ — build the CLI and run your first Aipo program.
+- /manual/ — 20 topics grouped by learning goals.
+- /examples/ — 26 complete examples with original source and commands.
+- /reference/stdlib — index of Rust-registered modules.
+- /reference/status — backend coverage, historical limits and verification guidance.

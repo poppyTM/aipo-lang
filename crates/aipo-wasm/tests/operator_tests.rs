@@ -1,3 +1,5 @@
+#![cfg(feature = "wasmtime")]
+
 //! Tests for logical and range operators in the Wasm backend.
 //!
 //! Covers `and`, `or` (with short-circuit evaluation) and `..` range construction.

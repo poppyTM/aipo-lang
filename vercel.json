@@ -1,8 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "vitepress",
-  "buildCommand": "pnpm run docs:build",
-  "outputDirectory": "docs/.vitepress/dist",
-  "installCommand": "pnpm install",
+  "buildCommand": "pnpm --dir website run build",
+  "outputDirectory": "website/dist",
+  "installCommand": "pnpm --dir website install --no-frozen-lockfile",
   "cleanUrls": true
 }

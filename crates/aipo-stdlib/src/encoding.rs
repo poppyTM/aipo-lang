@@ -24,7 +24,7 @@ fn recoverable(msg: impl Into<String>) -> Value {
 
 fn extract_input_bytes(arg: &Value, op: &str) -> Result<Vec<u8>, VmFault> {
     match arg {
-        Value::Bytes(b) => Ok(b.borrow().clone()),
+        Value::Bytes(b) => Ok(b.borrow().to_vec()),
         Value::String(s) => Ok(s.as_bytes().to_vec()),
         other => Err(VmFault::TypeMismatch {
             expected: format!("Bytes or String for {op}"),
@@ -157,7 +157,7 @@ pub fn encoding_base64_decode(args: &[Value]) -> Result<Value, VmFault> {
     require_arity(args, 1, "encoding.base64_decode")?;
     let text = expect_string(&args[0], "encoding.base64_decode")?;
     match b64_decode(text) {
-        Ok(decoded) => Ok(Value::Bytes(Rc::new(RefCell::new(decoded)))),
+        Ok(decoded) => Ok(Value::Bytes(Rc::new(RefCell::new((decoded).into())))),
         Err(reason) => Ok(recoverable(reason)),
     }
 }
@@ -181,7 +181,7 @@ pub fn encoding_base64url_decode(args: &[Value]) -> Result<Value, VmFault> {
     require_arity(args, 1, "encoding.base64url_decode")?;
     let text = expect_string(&args[0], "encoding.base64url_decode")?;
     match b64_decode(text) {
-        Ok(decoded) => Ok(Value::Bytes(Rc::new(RefCell::new(decoded)))),
+        Ok(decoded) => Ok(Value::Bytes(Rc::new(RefCell::new((decoded).into())))),
         Err(reason) => Ok(recoverable(reason)),
     }
 }
@@ -239,7 +239,7 @@ pub fn encoding_hex_decode(args: &[Value]) -> Result<Value, VmFault> {
         i += 2;
     }
 
-    Ok(Value::Bytes(Rc::new(RefCell::new(out))))
+    Ok(Value::Bytes(Rc::new(RefCell::new((out).into()))))
 }
 
 /// `encoding.utf8_encode(str)` — encodes String to UTF-8 Bytes.
@@ -250,7 +250,7 @@ pub fn encoding_utf8_encode(args: &[Value]) -> Result<Value, VmFault> {
     require_arity(args, 1, "encoding.utf8_encode")?;
     let text = expect_string(&args[0], "encoding.utf8_encode")?;
     Ok(Value::Bytes(Rc::new(RefCell::new(
-        text.as_bytes().to_vec(),
+        (text.as_bytes().to_vec()).into(),
     ))))
 }
 

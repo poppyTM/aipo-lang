@@ -108,10 +108,10 @@ fn try_fold(window: &[CoreInst]) -> Option<(CoreConstant, aipo_source::SourceSpa
         return None;
     }
 
-    if let [CoreInst::Constant(inner, _), CoreInst::Unary(op, span), ..] = window {
-        if let Some(folded) = fold_unary(*op, inner) {
-            return Some((folded, *span, 2));
-        }
+    if let [CoreInst::Constant(inner, _), CoreInst::Unary(op, span), ..] = window
+        && let Some(folded) = fold_unary(*op, inner)
+    {
+        return Some((folded, *span, 2));
     }
     None
 }

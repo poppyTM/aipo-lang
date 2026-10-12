@@ -48,10 +48,9 @@ fn test_nfc_is_idempotent_and_composed() {
     );
     let joined = string::string_join(&[
         text("-"),
-        Value::List(Rc::new(std::cell::RefCell::new(vec![
-            decomposed.clone(),
-            text("x"),
-        ]))),
+        Value::List(Rc::new(std::cell::RefCell::new(
+            vec![decomposed.clone(), text("x")].into(),
+        ))),
     ]);
     assert_eq!(rendered(joined.unwrap()), "\u{e9}-x");
 }
@@ -175,7 +174,7 @@ fn test_empty_needle_rules() {
 
 #[test]
 fn test_join_rejects_coercion() {
-    let list = Value::List(Rc::new(std::cell::RefCell::new(vec![Value::Int(1)])));
+    let list = Value::List(Rc::new(std::cell::RefCell::new(vec![Value::Int(1)].into())));
     assert!(string::string_join(&[text(","), list]).is_err());
 }
 

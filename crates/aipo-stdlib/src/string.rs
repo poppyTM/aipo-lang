@@ -271,7 +271,7 @@ pub fn string_split(args: &[Value]) -> Result<Value, VmFault> {
         .map(|part| Value::String(Rc::new(part.to_string())))
         .collect();
 
-    Ok(Value::List(Rc::new(RefCell::new(parts))))
+    Ok(Value::List(Rc::new(RefCell::new((parts).into()))))
 }
 
 /// Joins a List of `String` values with a separator.
@@ -562,7 +562,7 @@ pub fn string_graphemes(args: &[Value]) -> Result<Value, VmFault> {
         .map(|c| Value::String(Rc::new(c.to_string())))
         .collect();
 
-    Ok(Value::List(Rc::new(RefCell::new(clusters))))
+    Ok(Value::List(Rc::new(RefCell::new((clusters).into()))))
 }
 
 /// Returns words of a string as a List of Strings using Unicode word segmentation.
@@ -590,7 +590,7 @@ pub fn string_words(args: &[Value]) -> Result<Value, VmFault> {
         .map(|w| Value::String(Rc::new(w.to_string())))
         .collect();
 
-    Ok(Value::List(Rc::new(RefCell::new(words))))
+    Ok(Value::List(Rc::new(RefCell::new((words).into()))))
 }
 
 /// Splits a string by line breaks (`\r\n`, `\n`, `\r`) into a List of Strings.
@@ -612,7 +612,7 @@ pub fn string_lines(args: &[Value]) -> Result<Value, VmFault> {
         .map(|l| Value::String(Rc::new(l.to_string())))
         .collect();
 
-    Ok(Value::List(Rc::new(RefCell::new(lines))))
+    Ok(Value::List(Rc::new(RefCell::new((lines).into()))))
 }
 
 /// Converts string using locale-neutral Unicode case folding.

@@ -1,0 +1,23 @@
+{
+  "name": "aipo-documentation-website",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vitepress dev",
+    "build": "vitepress build",
+    "preview": "vitepress preview",
+    "check": "node scripts/check-docs.mjs && npm run check:usage && npm run check:progress && npm run test:progress",
+    "check:examples": "node scripts/check-examples.mjs",
+    "docs:build": "vitepress build",
+    "docs:dev": "vitepress dev",
+    "docs:preview": "vitepress preview",
+    "check:progress": "node scripts/verify-progress.mjs",
+    "test:progress": "node --test tests/progress.test.mjs",
+    "check:usage": "node scripts/check-usage-docs.mjs"
+  },
+  "devDependencies": {
+    "vitepress": "1.6.4",
+    "vue": "3.5.13"
+  }
+}

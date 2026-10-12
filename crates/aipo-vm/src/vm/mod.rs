@@ -87,6 +87,7 @@ pub type InvariantValidator = Box<dyn Fn(&StructInstance) -> Result<(), String>>
 /// Canon makes a guarded update follow `candidate -> provisional apply -> verify -> commit`,
 /// so the value the field held when the frame started mutating it is kept until a stable
 /// mutable boundary verifies the instance.
+#[derive(Debug, Clone)]
 struct MutationEntry {
     /// Instance whose direct field was assigned.
     instance: Rc<RefCell<StructInstance>>,
@@ -169,6 +170,8 @@ pub struct Vm {
     pub(crate) struct_methods_by_type: HashMap<String, HashMap<String, (usize, usize, bool)>>,
     /// Identities of collections currently under an active `each` iteration (stack order).
     active_iterations: Vec<usize>,
+    iteration_revisions: Vec<(Value, Option<u64>, usize)>,
+    active_user_functions: Option<std::collections::HashSet<String>>,
     /// Failure that ended the program because nothing was left to handle it.
     ///
     /// Canon makes recoverable `Failure` values propagate automatically; once propagation
@@ -227,6 +230,9 @@ pub const DEFAULT_METER_INTERVAL: u64 = 64;
 /// Snapshot of VM global environment and type definitions, enabling atomic rollback on load failure.
 #[derive(Clone, Debug)]
 pub struct VmDefinitionSnapshot {
+    scheduler: task::SchedulerSnapshot,
+    active_user_functions: Option<std::collections::HashSet<String>>,
+    heap: crate::HeapSnapshot,
     globals: HashMap<String, Value>,
     global_slots: Vec<Option<Value>>,
     global_name_slots: HashMap<String, usize>,
@@ -280,6 +286,8 @@ impl Vm {
             struct_methods: HashMap::new(),
             struct_methods_by_type: HashMap::new(),
             active_iterations: Vec::new(),
+            iteration_revisions: Vec::new(),
+            active_user_functions: None,
             halted_with: None,
             max_stack_depth: 1024,
             constant_values: Vec::new(),
@@ -340,7 +348,11 @@ impl Vm {
     #[allow(missing_docs)]
     pub fn enable_metrics(&mut self) {
         self.metrics_enabled = true;
+        let consumed = self.metrics.instructions;
         self.metrics = VmMetrics::default();
+        if self.max_instructions.is_some() {
+            self.metrics.instructions = consumed;
+        }
     }
 
     #[allow(missing_docs)]
@@ -365,7 +377,7 @@ impl Vm {
         self.meter_interval
     }
 
-    /// Returns the number of instructions executed since the last reset or run.
+    /// Returns the number of instructions executed since the last reset or run; budgeted runs retain consumption until explicitly reset.
     #[must_use]
     pub fn instruction_count(&self) -> u64 {
         self.metrics.instructions
@@ -379,7 +391,14 @@ impl Vm {
     /// Creates a snapshot of definition tables and global variables.
     #[must_use]
     pub fn snapshot_definitions(&self) -> VmDefinitionSnapshot {
+        let scheduler = self.snapshot_scheduler();
+        let mut heap =
+            crate::HeapSnapshot::capture(self.globals.values().cloned().chain(scheduler.roots()));
+        heap.capture_cells(scheduler.cells());
         VmDefinitionSnapshot {
+            scheduler,
+            active_user_functions: self.active_user_functions.clone(),
+            heap,
             globals: self.globals.clone(),
             global_slots: self.global_slots.clone(),
             global_name_slots: self.global_name_slots.clone(),
@@ -394,6 +413,8 @@ impl Vm {
 
     /// Restores definitions and globals to a prior snapshot, cleaning execution residue.
     pub fn restore_definitions(&mut self, snapshot: VmDefinitionSnapshot) {
+        snapshot.heap.restore();
+        self.active_user_functions = snapshot.active_user_functions;
         self.globals = snapshot.globals;
         self.global_slots = snapshot.global_slots;
         self.global_name_slots = snapshot.global_name_slots;
@@ -410,6 +431,51 @@ impl Vm {
         self.handlers.clear();
         self.ip = 0;
         self.halted_with = None;
+        self.active_iterations.clear();
+        self.iteration_revisions.clear();
+        self.mutation_journal.clear();
+        self.upvalue_frames.clear();
+        self.current = None;
+        self.host_task = None;
+        self.main_outcome = None;
+        self.restore_scheduler(snapshot.scheduler);
+    }
+
+    /// Replaces compiled user method tables for a complete session declaration catalog.
+    /// Native host methods use separate tables and remain registered.
+    pub fn replace_user_methods(&mut self, module: &BytecodeModule) {
+        self.active_user_functions = Some(
+            module
+                .functions
+                .iter()
+                .map(|function| function.name.clone())
+                .collect(),
+        );
+        self.struct_methods.clear();
+        self.struct_methods_by_type.clear();
+        self.struct_invariant_entries.clear();
+        self.field_cache.clear();
+    }
+
+    /// Removes an obsolete public definition during a staged reload.
+    pub fn remove_definition(&mut self, name: &str) {
+        self.globals.remove(name);
+        self.global_name_slots.remove(name);
+        self.struct_defs.remove(name);
+        self.struct_field_indices.remove(name);
+        self.struct_invariant_entries.remove(name);
+        self.struct_methods
+            .retain(|(ty, method), _| ty != name && format!("{ty}.{method}") != name);
+        self.struct_methods_by_type.remove(name);
+        self.field_cache.clear();
+    }
+    /// Requires explicit migration when retained instances have incompatible field layouts.
+    pub fn validate_guest_layouts(&self) -> Result<(), String> {
+        let scheduler = self.snapshot_scheduler();
+        let mut heap =
+            crate::HeapSnapshot::capture(self.globals.values().cloned().chain(scheduler.roots()));
+        heap.capture_cells(scheduler.cells());
+        heap.validate_layouts(&self.struct_defs)
     }
 
     /// Prepares module-scoped caches (constants, global slots, field cache, struct invariants)
@@ -457,11 +523,18 @@ impl Vm {
 
         self.struct_invariant_entries.clear();
         for function in &module.functions {
-            if let Some((type_name, method)) = function.name.split_once('.') {
-                if method == "invariant" {
-                    self.struct_invariant_entries
-                        .insert(type_name.to_string(), function.entry_ip);
-                }
+            if self
+                .active_user_functions
+                .as_ref()
+                .is_some_and(|names| !names.contains(&function.name))
+            {
+                continue;
+            }
+            if let Some((type_name, method)) = function.name.split_once('.')
+                && method == "invariant"
+            {
+                self.struct_invariant_entries
+                    .insert(type_name.to_string(), function.entry_ip);
             }
         }
         Ok(())
@@ -509,13 +582,13 @@ impl Vm {
         type_name: &str,
         field_name: &str,
     ) -> FieldLookup {
-        if let Some(Some((cached_type, result))) = self.field_cache.get(name_idx) {
-            if cached_type == type_name {
-                if self.metrics_enabled {
-                    self.metrics.field_cache_hits = self.metrics.field_cache_hits.saturating_add(1);
-                }
-                return *result;
+        if let Some(Some((cached_type, result))) = self.field_cache.get(name_idx)
+            && cached_type == type_name
+        {
+            if self.metrics_enabled {
+                self.metrics.field_cache_hits = self.metrics.field_cache_hits.saturating_add(1);
             }
+            return *result;
         }
         if self.metrics_enabled {
             self.metrics.field_cache_misses = self.metrics.field_cache_misses.saturating_add(1);
@@ -763,13 +836,47 @@ impl Vm {
     /// # Errors
     /// Returns `VmError` if a runtime fault occurs or an uncaught failure reaches top level.
     pub fn run(&mut self, module: &BytecodeModule) -> Result<Value, VmError> {
-        self.ip = 0;
+        self.run_at(module, 0)
+    }
+
+    /// Runs a verified linked compilation unit from its relocated entry offset.
+    /// Previous global values and function bodies remain accessible.
+    /// # Errors
+    /// Returns a bytecode fault for an invalid offset or a normal execution error.
+    pub fn start_at(&mut self, module: &BytecodeModule, entry: usize) -> Result<(), VmError> {
+        if entry > module.code.len() {
+            return Err(VmFault::CorruptedBytecode {
+                offset: entry,
+                reason: "entry outside linked module".into(),
+            }
+            .into());
+        }
+        let mut cursor = 0;
+        while cursor < entry {
+            let opcode = aipo_bytecode::OpCode::try_from(module.code[cursor]).map_err(|byte| {
+                VmFault::CorruptedBytecode {
+                    offset: cursor,
+                    reason: format!("unknown opcode {byte}"),
+                }
+            })?;
+            cursor +=
+                aipo_bytecode::BytecodeVerifier::instruction_size(opcode, &module.code[cursor..]);
+            if cursor > entry {
+                return Err(VmFault::CorruptedBytecode {
+                    offset: entry,
+                    reason: "entry is not an instruction boundary".into(),
+                }
+                .into());
+            }
+        }
+        self.ip = entry;
         self.stack.clear();
         self.frames.clear();
         self.frame_base = 0;
         self.handlers.clear();
         self.upvalue_frames.clear();
         self.active_iterations.clear();
+        self.iteration_revisions.clear();
         self.halted_with = None;
         self.mutation_journal.clear();
         self.tasks.clear();
@@ -785,67 +892,110 @@ impl Vm {
         self.tick = 0;
         self.main_outcome = None;
         self.invoke_depth = 0;
+        let consumed = self.metrics.instructions;
         self.metrics = VmMetrics::default();
+        if self.max_instructions.is_some() {
+            self.metrics.instructions = consumed;
+        }
         self.prepare_module_execution(module)?;
 
         for function in &module.functions {
-            if let Some((type_name, method)) = function.name.split_once('.') {
-                if method != "invariant" {
-                    self.register_struct_method(
-                        type_name,
-                        method,
-                        function.entry_ip,
-                        function.params,
-                        function.is_async,
-                    );
-                }
+            if self
+                .active_user_functions
+                .as_ref()
+                .is_some_and(|names| !names.contains(&function.name))
+            {
+                continue;
+            }
+            if let Some((type_name, method)) = function.name.split_once('.')
+                && method != "invariant"
+            {
+                self.register_struct_method(
+                    type_name,
+                    method,
+                    function.entry_ip,
+                    function.params,
+                    function.is_async,
+                );
             }
         }
 
-        loop {
+        Ok(())
+    }
+
+    /// Drives one scheduler quantum for debugger and cooperative host integrations.
+    /// # Errors
+    /// Returns normal runtime faults; suspended guest tasks remain scheduled.
+    pub fn debug_step(&mut self, module: &BytecodeModule) -> Result<bool, VmError> {
+        if self.main_outcome.is_some() {
+            return Ok(true);
+        }
+        if self.current.is_none() && self.frames.is_empty() {
+            self.select_next(module)?;
             if self.main_outcome.is_some() {
-                break;
-            }
-            // An idle machine (nothing loaded, no live frames) pumps the
-            // scheduler: a queued task is loaded, the bare main script keeps
-            // stepping, or virtual time advances past the next sleeper.
-            if self.current.is_none() && self.frames.is_empty() {
-                self.select_next(module)?;
-                if self.main_outcome.is_some() {
-                    break;
-                }
-            }
-            match self.step(module) {
-                Ok(_) => {}
-                Err(VmError::Suspended) => {
-                    // A blocking primitive saved its task and unwound with the
-                    // triggering instruction intact; the loop head pumps next.
-                }
-                Err(other) => {
-                    if self.current.is_some() && self.current != Some(task::MAIN_TASK) {
-                        let id = self.current.unwrap_or(task::MAIN_TASK);
-                        let cancelled = matches!(
-                            self.tasks.get(&id).map(|state| state.status),
-                            Some(task::TaskStatus::Cancelled)
-                        );
-                        if cancelled {
-                            // Cancellation is a task *state*, not a recoverable failure: the
-                            // task ends cancelled, and whoever awaits it faults with
-                            // `AIPO_RT_CANCELLED` (canon keeps cancellation and `Failure`
-                            // apart, so it is never capturable by `attempt`).
-                            self.complete_current(task::TaskOutcome::Cancelled);
-                        } else {
-                            // Every other fault is non-recoverable by canon (ADP-006 F): it
-                            // keeps its own code and aborts the program, wherever it was
-                            // raised, instead of being downgraded to a captured `Failure`.
-                            return Err(other);
-                        }
-                    } else {
-                        return Err(other);
-                    }
-                }
+                return Ok(true);
             }
         }
+        match self.step(module) {
+            Err(VmError::Suspended) => Ok(false),
+            Err(error) => {
+                if self.current.is_some_and(|id| id != task::MAIN_TASK)
+                    && self
+                        .current
+                        .and_then(|id| self.tasks.get(&id))
+                        .is_some_and(|state| state.status == task::TaskStatus::Cancelled)
+                {
+                    self.complete_current(task::TaskOutcome::Cancelled);
+                    Ok(self.main_outcome.is_some())
+                } else {
+                    Err(error)
+                }
+            }
+            Ok(_) => Ok(self.main_outcome.is_some()),
+        }
+    }
+
+    /// Takes a completed main outcome after cooperative stepping.
+    pub fn take_completion(&mut self) -> Option<Result<Value, VmError>> {
+        self.main_outcome.take().map(|outcome| match outcome {
+            task::TaskOutcome::Ready(value) => Ok(value),
+            task::TaskOutcome::Failed(Value::Failure(failure)) => {
+                Err(VmError::UncaughtFailure(failure.message.clone()))
+            }
+            task::TaskOutcome::Failed(value) => Err(VmError::UncaughtFailure(value.to_string())),
+            task::TaskOutcome::Cancelled => Err(VmFault::Cancelled {
+                details: "main task cancelled".into(),
+            }
+            .into()),
+        })
+    }
+
+    /// Runs a linked unit to completion from an explicit byte offset.
+    /// # Errors
+    /// Returns normal runtime faults or an invalid entry offset.
+    pub fn run_at(&mut self, module: &BytecodeModule, entry: usize) -> Result<Value, VmError> {
+        self.start_at(module, entry)?;
+        self.run_started(module)
+    }
+
+    /// Executes a new linked unit while retaining task handles and queued guest work.
+    /// Only use with an append-only code image whose previous offsets remain valid.
+    /// # Errors
+    /// Returns normal runtime faults or an invalid entry offset.
+    pub fn run_persistent_at(
+        &mut self,
+        module: &BytecodeModule,
+        entry: usize,
+    ) -> Result<Value, VmError> {
+        let scheduler = self.snapshot_scheduler();
+        self.start_at(module, entry)?;
+        self.restore_scheduler(scheduler);
+        self.current = Some(task::MAIN_TASK);
+        self.run_started(module)
+    }
+
+    fn run_started(&mut self, module: &BytecodeModule) -> Result<Value, VmError> {
+        while !self.debug_step(module)? {}
 
         let result = match self.main_outcome.take() {
             Some(task::TaskOutcome::Ready(value)) => value,

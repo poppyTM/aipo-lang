@@ -214,10 +214,10 @@ fn test_struct_invariant_validation_fault() {
     let mut vm = Vm::new();
     vm.register_struct("Inventory", vec![("count", false)]);
     vm.register_struct_invariant("Inventory", |inst| {
-        if let Some(Value::Int(c)) = inst.get_field("count") {
-            if *c < 0 {
-                return Err("inventory count must be non-negative".to_string());
-            }
+        if let Some(Value::Int(c)) = inst.get_field("count")
+            && *c < 0
+        {
+            return Err("inventory count must be non-negative".to_string());
         }
         Ok(())
     });

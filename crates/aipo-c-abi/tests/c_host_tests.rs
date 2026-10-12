@@ -9,10 +9,10 @@ use std::process::Command;
 
 fn find_c_compiler() -> Option<&'static str> {
     for compiler in ["clang", "gcc", "cc"] {
-        if let Ok(output) = Command::new(compiler).arg("--version").output() {
-            if output.status.success() {
-                return Some(compiler);
-            }
+        if let Ok(output) = Command::new(compiler).arg("--version").output()
+            && output.status.success()
+        {
+            return Some(compiler);
         }
     }
     None
@@ -116,17 +116,17 @@ fn test_native_c_host_harness() {
             .arg(&asan_bin)
             .status();
 
-        if let Ok(status) = asan_compile {
-            if status.success() {
-                let asan_run = Command::new(&asan_bin).status();
-                if let Ok(run_res) = asan_run {
-                    assert!(
-                        run_res.success(),
-                        "AddressSanitizer reported violations in native C harness"
-                    );
-                }
-                let _ = std::fs::remove_file(&asan_bin);
+        if let Ok(status) = asan_compile
+            && status.success()
+        {
+            let asan_run = Command::new(&asan_bin).status();
+            if let Ok(run_res) = asan_run {
+                assert!(
+                    run_res.success(),
+                    "AddressSanitizer reported violations in native C harness"
+                );
             }
+            let _ = std::fs::remove_file(&asan_bin);
         }
     }
 

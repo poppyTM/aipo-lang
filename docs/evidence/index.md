@@ -6,6 +6,8 @@ O desenvolvimento do Aipo é regido pelo princípio de **Engenharia Baseada em E
 
 ## Seções de Evidências
 
+- **[P07-G01: reconstrução do runtime](P07-G01-runtime-hardening.md)**: correções, estudos pinados e guia de reimplementação; testes não executados por pedido do usuário, com limites de validação explícitos.
+
 - **[Benchmarks Cross-Language](/evidence/cross-language)**: Comparativo de execução entre Aipo CLI/VM, Aipo in-process, Aipo transpilado para JavaScript (Node.js), Lua, LuaJIT, Wren, Luau, CPython, PyPy, Ruby e Rust nativo.
 - **[A Saga de Otimização & Lições](/evidence/performance-lessons)**: A análise honesta e detalhada dos 7 experimentos de micro-otimização revertidos por ausência de ganho comprovado, os limites do laço de despacho e a metodologia de medição sob contenção de CPU.
 - **[Matriz de Conformance](/evidence/conformance)**: Catálogo com mais de 40 suítes de conformance, abrangendo programas canônicos, diagnósticos semânticos e paridade diferencial VM ↔ JS.

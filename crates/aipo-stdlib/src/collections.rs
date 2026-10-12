@@ -25,7 +25,7 @@ use std::rc::Rc;
 /// Extracts a shared list receiver, or a type fault.
 fn expect_list(receiver: &Value) -> Result<Vec<Value>, VmFault> {
     match receiver {
-        Value::List(list) => Ok(list.borrow().clone()),
+        Value::List(list) => Ok(list.borrow().to_vec()),
         other => Err(VmFault::TypeMismatch {
             expected: "List receiver".to_string(),
             actual: other.type_name().to_string(),
@@ -338,7 +338,7 @@ pub fn list_reverse(receiver: &Value, args: &[Value]) -> Result<Value, VmFault> 
     require_arity(args, 0, "list.reverse")?;
     let mut items = expect_list(receiver)?;
     items.reverse();
-    Ok(Value::List(Rc::new(RefCell::new(items))))
+    Ok(Value::List(Rc::new(RefCell::new((items).into()))))
 }
 
 /// `list.sort()` — returns a new List in natural order; stable.
@@ -361,7 +361,7 @@ pub fn list_sort(receiver: &Value, args: &[Value]) -> Result<Value, VmFault> {
     });
     match failure {
         Some(fault) => Err(fault),
-        None => Ok(Value::List(Rc::new(RefCell::new(items)))),
+        None => Ok(Value::List(Rc::new(RefCell::new((items).into())))),
     }
 }
 
@@ -396,7 +396,7 @@ pub fn list_take(receiver: &Value, args: &[Value]) -> Result<Value, VmFault> {
     };
     let count = n.max(0) as usize;
     let taken: Vec<Value> = items.into_iter().take(count).collect();
-    Ok(Value::List(Rc::new(RefCell::new(taken))))
+    Ok(Value::List(Rc::new(RefCell::new((taken).into()))))
 }
 
 /// `list.skip(n)` — returns a new List skipping the first `n` elements.
@@ -420,7 +420,7 @@ pub fn list_skip(receiver: &Value, args: &[Value]) -> Result<Value, VmFault> {
     };
     let count = n.max(0) as usize;
     let skipped: Vec<Value> = items.into_iter().skip(count).collect();
-    Ok(Value::List(Rc::new(RefCell::new(skipped))))
+    Ok(Value::List(Rc::new(RefCell::new((skipped).into()))))
 }
 
 /// `list.distinct()` — returns a new List with duplicate elements removed, preserving first-occurrence order.
@@ -436,7 +436,7 @@ pub fn list_distinct(receiver: &Value, args: &[Value]) -> Result<Value, VmFault>
             unique.push(item);
         }
     }
-    Ok(Value::List(Rc::new(RefCell::new(unique))))
+    Ok(Value::List(Rc::new(RefCell::new((unique).into()))))
 }
 
 /// `list.zip(other)` — pairs elements of `list` and `other` into 2-element lists until the shorter ends.
@@ -453,9 +453,9 @@ pub fn list_zip(receiver: &Value, args: &[Value]) -> Result<Value, VmFault> {
     let paired: Vec<Value> = items
         .into_iter()
         .zip(other)
-        .map(|(a, b)| Value::List(Rc::new(RefCell::new(vec![a, b]))))
+        .map(|(a, b)| Value::List(Rc::new(RefCell::new((vec![a, b]).into()))))
         .collect();
-    Ok(Value::List(Rc::new(RefCell::new(paired))))
+    Ok(Value::List(Rc::new(RefCell::new((paired).into()))))
 }
 
 /// `list.chain(other)` — concatenates elements of `other` after `list`.
@@ -470,7 +470,7 @@ pub fn list_chain(receiver: &Value, args: &[Value]) -> Result<Value, VmFault> {
     let mut items = expect_list(receiver)?;
     let other = expect_list(&args[0])?;
     items.extend(other);
-    Ok(Value::List(Rc::new(RefCell::new(items))))
+    Ok(Value::List(Rc::new(RefCell::new((items).into()))))
 }
 
 /// `list.chunk(size)` — divides list into non-overlapping lists of length `size`.
@@ -501,9 +501,9 @@ pub fn list_chunk(receiver: &Value, args: &[Value]) -> Result<Value, VmFault> {
     let size = n as usize;
     let chunks: Vec<Value> = items
         .chunks(size)
-        .map(|c| Value::List(Rc::new(RefCell::new(c.to_vec()))))
+        .map(|c| Value::List(Rc::new(RefCell::new((c.to_vec()).into()))))
         .collect();
-    Ok(Value::List(Rc::new(RefCell::new(chunks))))
+    Ok(Value::List(Rc::new(RefCell::new((chunks).into()))))
 }
 
 /// `list.window(size)` — sliding windows of length `size` as lists.
@@ -533,13 +533,13 @@ pub fn list_window(receiver: &Value, args: &[Value]) -> Result<Value, VmFault> {
     }
     let size = n as usize;
     if size > items.len() {
-        return Ok(Value::List(Rc::new(RefCell::new(Vec::new()))));
+        return Ok(Value::List(Rc::new(RefCell::new((Vec::new()).into()))));
     }
     let windows: Vec<Value> = items
         .windows(size)
-        .map(|w| Value::List(Rc::new(RefCell::new(w.to_vec()))))
+        .map(|w| Value::List(Rc::new(RefCell::new((w.to_vec()).into()))))
         .collect();
-    Ok(Value::List(Rc::new(RefCell::new(windows))))
+    Ok(Value::List(Rc::new(RefCell::new((windows).into()))))
 }
 
 /// `list.enumerate()` — returns a List of `[index, value]` pairs as 2-element lists.
@@ -553,9 +553,9 @@ pub fn list_enumerate(receiver: &Value, args: &[Value]) -> Result<Value, VmFault
     for (i, item) in items.into_iter().enumerate() {
         #[allow(clippy::cast_possible_wrap)]
         let pos = aipo_vm::check_safe_int(i as i64).map(Value::Int)?;
-        indexed.push(Value::List(Rc::new(RefCell::new(vec![pos, item]))));
+        indexed.push(Value::List(Rc::new(RefCell::new((vec![pos, item]).into()))));
     }
-    Ok(Value::List(Rc::new(RefCell::new(indexed))))
+    Ok(Value::List(Rc::new(RefCell::new((indexed).into()))))
 }
 
 /// `dict.has(key)` — presence check that cannot be confused with a stored `none`.
@@ -587,7 +587,7 @@ pub fn dict_get(receiver: &Value, args: &[Value]) -> Result<Value, VmFault> {
 pub fn dict_keys(receiver: &Value, args: &[Value]) -> Result<Value, VmFault> {
     require_arity(args, 0, "dict.keys")?;
     let entries = expect_dict(receiver)?;
-    Ok(Value::List(Rc::new(RefCell::new(entries.keys()))))
+    Ok(Value::List(Rc::new(RefCell::new((entries.keys()).into()))))
 }
 
 /// `dict.values()` — new List with the values in insertion order.
@@ -597,7 +597,9 @@ pub fn dict_keys(receiver: &Value, args: &[Value]) -> Result<Value, VmFault> {
 pub fn dict_values(receiver: &Value, args: &[Value]) -> Result<Value, VmFault> {
     require_arity(args, 0, "dict.values")?;
     let entries = expect_dict(receiver)?;
-    Ok(Value::List(Rc::new(RefCell::new(entries.values()))))
+    Ok(Value::List(Rc::new(RefCell::new(
+        (entries.values()).into(),
+    ))))
 }
 
 /// `dict.entries()` — new List with `[key, value]` pairs in insertion order.
@@ -607,12 +609,12 @@ pub fn dict_values(receiver: &Value, args: &[Value]) -> Result<Value, VmFault> {
 pub fn dict_entries(receiver: &Value, args: &[Value]) -> Result<Value, VmFault> {
     require_arity(args, 0, "dict.entries")?;
     let entries = expect_dict(receiver)?;
-    let pairs = entries
+    let pairs: Vec<_> = entries
         .entries()
         .iter()
-        .map(|(k, v)| Value::List(Rc::new(RefCell::new(vec![k.clone(), v.clone()]))))
+        .map(|(k, v)| Value::List(Rc::new(RefCell::new((vec![k.clone(), v.clone()]).into()))))
         .collect();
-    Ok(Value::List(Rc::new(RefCell::new(pairs))))
+    Ok(Value::List(Rc::new(RefCell::new((pairs).into()))))
 }
 
 /// `dict.remove(key)` — removes a key, reporting whether it existed.
@@ -666,7 +668,7 @@ pub fn dict_len(receiver: &Value, args: &[Value]) -> Result<Value, VmFault> {
 }
 
 /// Extracts a shared set receiver, or a type fault.
-fn expect_set(receiver: &Value) -> Result<Rc<RefCell<Vec<Value>>>, VmFault> {
+fn expect_set(receiver: &Value) -> Result<Rc<RefCell<aipo_vm::Collection<Value>>>, VmFault> {
     match receiver {
         Value::Set(items) => Ok(Rc::clone(items)),
         other => Err(VmFault::TypeMismatch {
@@ -756,8 +758,8 @@ pub fn set_len(receiver: &Value, args: &[Value]) -> Result<Value, VmFault> {
 pub fn set_to_list(receiver: &Value, args: &[Value]) -> Result<Value, VmFault> {
     require_arity(args, 0, "set.to_list")?;
     let items = expect_set(receiver)?;
-    let list = items.borrow().clone();
-    Ok(Value::List(Rc::new(RefCell::new(list))))
+    let list = items.borrow().to_vec();
+    Ok(Value::List(Rc::new(RefCell::new((list).into()))))
 }
 
 /// `list.lazy()` — snapshots list into a lazy Sequence.
@@ -773,7 +775,7 @@ pub fn list_lazy(receiver: &Value, args: &[Value]) -> Result<Value, VmFault> {
         });
     };
     let pipeline = aipo_vm::SequencePipeline::new(
-        aipo_vm::SequenceSource::List(list.borrow().clone()),
+        aipo_vm::SequenceSource::List(list.borrow().to_vec()),
         Vec::new(),
     );
     Ok(Value::Sequence(Rc::new(pipeline)))
@@ -806,7 +808,7 @@ pub fn set_lazy(receiver: &Value, args: &[Value]) -> Result<Value, VmFault> {
     require_arity(args, 0, "set.lazy")?;
     let items = expect_set(receiver)?;
     let pipeline = aipo_vm::SequencePipeline::new(
-        aipo_vm::SequenceSource::Set(items.borrow().clone()),
+        aipo_vm::SequenceSource::Set(items.borrow().to_vec()),
         Vec::new(),
     );
     Ok(Value::Sequence(Rc::new(pipeline)))

@@ -75,6 +75,10 @@ impl CallFrame {
 /// Recovery handler frame registered by an `attempt ... failed` block.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct HandlerFrame {
+    /// Iteration scopes to retain when this handler recovers.
+    pub iteration_depth: usize,
+    /// Collection identities to retain when this handler recovers.
+    pub active_iteration_depth: usize,
     /// Bytecode offset of the `failed` handler block.
     pub handler_ip: usize,
     /// Stack depth to unwind to before executing the handler.
@@ -88,6 +92,8 @@ impl HandlerFrame {
     #[must_use]
     pub const fn new(handler_ip: usize, stack_depth: usize, frame_depth: usize) -> Self {
         Self {
+            iteration_depth: 0,
+            active_iteration_depth: 0,
             handler_ip,
             stack_depth,
             frame_depth,

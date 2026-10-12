@@ -497,13 +497,13 @@ impl LocalPackageResolver {
                 error,
             })?;
         let coordinate = manifest.name.clone();
-        if let Some(expected) = expected {
-            if expected != &coordinate {
-                return Err(ResolveError::CoordinateMismatch {
-                    expected: expected.clone(),
-                    actual: coordinate,
-                });
-            }
+        if let Some(expected) = expected
+            && expected != &coordinate
+        {
+            return Err(ResolveError::CoordinateMismatch {
+                expected: expected.clone(),
+                actual: coordinate,
+            });
         }
 
         if let Some(position) = active
@@ -574,15 +574,15 @@ impl LocalPackageResolver {
                 active,
                 discovered,
             )?;
-            if let Some(required_version) = &dependency.version {
-                if required_version != &dependency_input.manifest.version {
-                    return Err(ResolveError::VersionConflict {
-                        coordinate: dependency.name.clone(),
-                        expected: required_version.clone(),
-                        actual: dependency_input.manifest.version.clone(),
-                        dependent: coordinate.clone(),
-                    });
-                }
+            if let Some(required_version) = &dependency.version
+                && required_version != &dependency_input.manifest.version
+            {
+                return Err(ResolveError::VersionConflict {
+                    coordinate: dependency.name.clone(),
+                    expected: required_version.clone(),
+                    actual: dependency_input.manifest.version.clone(),
+                    dependent: coordinate.clone(),
+                });
             }
         }
         active.pop();
@@ -776,15 +776,15 @@ fn visit_package(
                 actual: dependency_input.manifest.name.clone(),
             });
         }
-        if let Some(required_version) = &dependency.version {
-            if required_version != &dependency_input.manifest.version {
-                return Err(ResolveError::VersionConflict {
-                    coordinate: dependency.name.clone(),
-                    expected: required_version.clone(),
-                    actual: dependency_input.manifest.version.clone(),
-                    dependent: coordinate.clone(),
-                });
-            }
+        if let Some(required_version) = &dependency.version
+            && required_version != &dependency_input.manifest.version
+        {
+            return Err(ResolveError::VersionConflict {
+                coordinate: dependency.name.clone(),
+                expected: required_version.clone(),
+                actual: dependency_input.manifest.version.clone(),
+                dependent: coordinate.clone(),
+            });
         }
         visit_package(&dependency.name, inputs, states, stack, packages)?;
     }

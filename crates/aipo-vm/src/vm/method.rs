@@ -116,6 +116,11 @@ impl Vm {
         let guard = collection_identity(receiver);
         if let Some(id) = guard {
             self.active_iterations.push(id);
+            self.iteration_revisions.push((
+                receiver.clone(),
+                receiver.structural_revision(),
+                self.frames.len(),
+            ));
         }
 
         let outcome = match method {
@@ -145,7 +150,7 @@ impl Vm {
                 }
                 match error {
                     Some(err) => Err(err),
-                    None => Ok(Value::List(Rc::new(RefCell::new(kept)))),
+                    None => Ok(Value::List(Rc::new(RefCell::new((kept).into())))),
                 }
             }
             "transform" | "map" => {
@@ -163,7 +168,7 @@ impl Vm {
                 }
                 match error {
                     Some(err) => Err(err),
-                    None => Ok(Value::List(Rc::new(RefCell::new(mapped)))),
+                    None => Ok(Value::List(Rc::new(RefCell::new((mapped).into())))),
                 }
             }
             "any" => {
@@ -259,7 +264,7 @@ impl Vm {
                 }
                 match error {
                     Some(err) => Err(err),
-                    None => Ok(Value::List(Rc::new(RefCell::new(flat)))),
+                    None => Ok(Value::List(Rc::new(RefCell::new((flat).into())))),
                 }
             }
             "reduce" => {
@@ -327,8 +332,8 @@ impl Vm {
                             actual: "mixed non-comparable keys".to_string(),
                         }))
                     } else {
-                        let sorted = keyed.into_iter().map(|(_, item)| item).collect();
-                        Ok(Value::List(Rc::new(RefCell::new(sorted))))
+                        let sorted: Vec<_> = keyed.into_iter().map(|(_, item)| item).collect();
+                        Ok(Value::List(Rc::new(RefCell::new((sorted).into()))))
                     }
                 }
             }
@@ -338,8 +343,17 @@ impl Vm {
             })),
         };
 
+        let changed = guard.is_some()
+            && self
+                .iteration_revisions
+                .last()
+                .is_some_and(|(value, revision, _)| value.structural_revision() != *revision);
         if guard.is_some() {
             self.active_iterations.pop();
+            self.iteration_revisions.pop();
+        }
+        if changed {
+            return Err(VmFault::MutationDuringIteration.into());
         }
         // `filter`/`transform`/`sort_by` over a `Set` return a `Set`
         // (deduplicated, insertion order); over anything else a `List`.
@@ -351,7 +365,7 @@ impl Vm {
                         unique.push(item.clone());
                     }
                 }
-                Ok(Value::Set(Rc::new(RefCell::new(unique))))
+                Ok(Value::Set(Rc::new(RefCell::new((unique).into()))))
             }
             (_, outcome) => outcome,
         }

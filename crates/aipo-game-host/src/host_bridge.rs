@@ -123,10 +123,10 @@ impl IconCache {
 
     /// Inserts `key`/`tex`, evicting the least-recently used entry if full.
     fn insert(&mut self, key: IconKey, tex: Texture2D) {
-        if self.entries.len() >= ICON_CACHE_CAPACITY {
-            if let Some(victim) = self.entries.pop_back() {
-                debug_assert!(std::mem::size_of_val(&victim) > 0);
-            }
+        if self.entries.len() >= ICON_CACHE_CAPACITY
+            && let Some(victim) = self.entries.pop_back()
+        {
+            debug_assert!(std::mem::size_of_val(&victim) > 0);
         }
         self.entries.push_front((key, tex));
     }
@@ -846,14 +846,13 @@ fn safe_draw_line(x1: f32, y1: f32, x2: f32, y2: f32, th: f32, color: Color) {
 }
 
 fn safe_draw_circle(cx: f32, cy: f32, radius: f32, color: Color) {
-    if let Some(clip) = current_clip() {
-        if cx + radius < clip.x
+    if let Some(clip) = current_clip()
+        && (cx + radius < clip.x
             || cx - radius > (clip.x + clip.w)
             || cy + radius < clip.y
-            || cy - radius > (clip.y + clip.h)
-        {
-            return;
-        }
+            || cy - radius > (clip.y + clip.h))
+    {
+        return;
     }
     let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         draw_circle(cx, cy, radius, color)
@@ -1120,87 +1119,87 @@ fn safe_draw_sdf_rect(quad: &SdfQuad) {
     }
 
     let drawn = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        if let Ok(lock) = ZOE_SDF_MATERIAL.lock() {
-            if let Some(ref mat) = *lock {
-                let max_r = w.min(h) * 0.5;
-                let clamped = [
-                    radii[0].min(max_r),
-                    radii[1].min(max_r),
-                    radii[2].min(max_r),
-                    radii[3].min(max_r),
-                ];
-                let focus_w = quad.focus_width;
-                let focus_c = quad.focus_color;
-                // Consecutive quads usually share most of their styling, so
-                // only upload what actually changed. Each `set_uniform` is a GL
-                // call, and a screen full of same-styled rows used to issue
-                // nine per row even when nothing differed.
-                let Ok(mut prev) = LAST_SDF_UNIFORMS.lock() else {
-                    return false;
-                };
-                if prev.quad_size != (quad_w, quad_h) {
-                    mat.set_uniform("u_quad_size", vec2(quad_w, quad_h));
-                    prev.quad_size = (quad_w, quad_h);
-                }
-                if prev.box_half != (w * 0.5, h * 0.5) {
-                    mat.set_uniform("u_box_half", vec2(w * 0.5, h * 0.5));
-                    prev.box_half = (w * 0.5, h * 0.5);
-                }
-                if prev.radii != clamped {
-                    mat.set_uniform(
-                        "u_radii",
-                        vec4(clamped[0], clamped[1], clamped[2], clamped[3]),
-                    );
-                    prev.radii = clamped;
-                }
-                let ps = pixel_scale();
-                if prev.pixel_scale != ps {
-                    mat.set_uniform("u_pixel_scale", ps);
-                    prev.pixel_scale = ps;
-                }
-                if prev.border_width != border_width {
-                    mat.set_uniform("u_border_width", border_width);
-                    prev.border_width = border_width;
-                }
-                let bc = (
-                    border_color.r,
-                    border_color.g,
-                    border_color.b,
-                    border_color.a,
-                );
-                if prev.border_color != bc {
-                    mat.set_uniform("u_border_color", vec4(bc.0, bc.1, bc.2, bc.3));
-                    prev.border_color = bc;
-                }
-                if prev.inner_highlight != inner_highlight {
-                    mat.set_uniform("u_inner_highlight", inner_highlight);
-                    prev.inner_highlight = inner_highlight;
-                }
-                let s1 = (shadow1[0], shadow1[1], shadow1[2], shadow1[3]);
-                if prev.shadow1 != s1 {
-                    mat.set_uniform("u_shadow1", vec4(s1.0, s1.1, s1.2, s1.3));
-                    prev.shadow1 = s1;
-                }
-                let s2 = (shadow2[0], shadow2[1], shadow2[2], shadow2[3]);
-                if prev.shadow2 != s2 {
-                    mat.set_uniform("u_shadow2", vec4(s2.0, s2.1, s2.2, s2.3));
-                    prev.shadow2 = s2;
-                }
-                if prev.focus_width != focus_w {
-                    mat.set_uniform("u_focus_width", focus_w);
-                    prev.focus_width = focus_w;
-                }
-                let fc = (focus_c.r, focus_c.g, focus_c.b, focus_c.a);
-                if prev.focus_color != fc {
-                    mat.set_uniform("u_focus_color", vec4(fc.0, fc.1, fc.2, fc.3));
-                    prev.focus_color = fc;
-                }
-                drop(prev);
-                gl_use_material(mat);
-                draw_rectangle(quad_x, quad_y, quad_w, quad_h, bg_color);
-                gl_use_default_material();
-                return true;
+        if let Ok(lock) = ZOE_SDF_MATERIAL.lock()
+            && let Some(ref mat) = *lock
+        {
+            let max_r = w.min(h) * 0.5;
+            let clamped = [
+                radii[0].min(max_r),
+                radii[1].min(max_r),
+                radii[2].min(max_r),
+                radii[3].min(max_r),
+            ];
+            let focus_w = quad.focus_width;
+            let focus_c = quad.focus_color;
+            // Consecutive quads usually share most of their styling, so
+            // only upload what actually changed. Each `set_uniform` is a GL
+            // call, and a screen full of same-styled rows used to issue
+            // nine per row even when nothing differed.
+            let Ok(mut prev) = LAST_SDF_UNIFORMS.lock() else {
+                return false;
+            };
+            if prev.quad_size != (quad_w, quad_h) {
+                mat.set_uniform("u_quad_size", vec2(quad_w, quad_h));
+                prev.quad_size = (quad_w, quad_h);
             }
+            if prev.box_half != (w * 0.5, h * 0.5) {
+                mat.set_uniform("u_box_half", vec2(w * 0.5, h * 0.5));
+                prev.box_half = (w * 0.5, h * 0.5);
+            }
+            if prev.radii != clamped {
+                mat.set_uniform(
+                    "u_radii",
+                    vec4(clamped[0], clamped[1], clamped[2], clamped[3]),
+                );
+                prev.radii = clamped;
+            }
+            let ps = pixel_scale();
+            if prev.pixel_scale != ps {
+                mat.set_uniform("u_pixel_scale", ps);
+                prev.pixel_scale = ps;
+            }
+            if prev.border_width != border_width {
+                mat.set_uniform("u_border_width", border_width);
+                prev.border_width = border_width;
+            }
+            let bc = (
+                border_color.r,
+                border_color.g,
+                border_color.b,
+                border_color.a,
+            );
+            if prev.border_color != bc {
+                mat.set_uniform("u_border_color", vec4(bc.0, bc.1, bc.2, bc.3));
+                prev.border_color = bc;
+            }
+            if prev.inner_highlight != inner_highlight {
+                mat.set_uniform("u_inner_highlight", inner_highlight);
+                prev.inner_highlight = inner_highlight;
+            }
+            let s1 = (shadow1[0], shadow1[1], shadow1[2], shadow1[3]);
+            if prev.shadow1 != s1 {
+                mat.set_uniform("u_shadow1", vec4(s1.0, s1.1, s1.2, s1.3));
+                prev.shadow1 = s1;
+            }
+            let s2 = (shadow2[0], shadow2[1], shadow2[2], shadow2[3]);
+            if prev.shadow2 != s2 {
+                mat.set_uniform("u_shadow2", vec4(s2.0, s2.1, s2.2, s2.3));
+                prev.shadow2 = s2;
+            }
+            if prev.focus_width != focus_w {
+                mat.set_uniform("u_focus_width", focus_w);
+                prev.focus_width = focus_w;
+            }
+            let fc = (focus_c.r, focus_c.g, focus_c.b, focus_c.a);
+            if prev.focus_color != fc {
+                mat.set_uniform("u_focus_color", vec4(fc.0, fc.1, fc.2, fc.3));
+                prev.focus_color = fc;
+            }
+            drop(prev);
+            gl_use_material(mat);
+            draw_rectangle(quad_x, quad_y, quad_w, quad_h, bg_color);
+            gl_use_default_material();
+            return true;
         }
         false
     }))
@@ -1242,10 +1241,10 @@ fn safe_draw_sdf_rect(quad: &SdfQuad) {
 }
 
 fn safe_draw_text(text: &str, x: f32, y: f32, size: f32, color: Color) {
-    if let Some(clip) = current_clip() {
-        if y < clip.y || (y - size) > (clip.y + clip.h) || x > (clip.x + clip.w) {
-            return;
-        }
+    if let Some(clip) = current_clip()
+        && (y < clip.y || (y - size) > (clip.y + clip.h) || x > (clip.x + clip.w))
+    {
+        return;
     }
     let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         draw_text(text, x, y, size, color)
@@ -2064,10 +2063,10 @@ pub fn host_measure_text(args: &[Value]) -> Result<Value, VmFault> {
 
     for ch in text.chars() {
         // Add kerning between adjacent characters
-        if let Some(prev) = prev_char {
-            if let Some(kern) = font.horizontal_kern(prev, ch, font_size) {
-                width += kern;
-            }
+        if let Some(prev) = prev_char
+            && let Some(kern) = font.horizontal_kern(prev, ch, font_size)
+        {
+            width += kern;
         }
         let metrics = font.metrics(ch, font_size);
         width += metrics.advance_width;

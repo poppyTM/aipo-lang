@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "pinned_at": "2026-10-08",
+  "refs": [
+    {"name":"wren","url":"https://github.com/wren-lang/wren.git","sha":"99d2f0b8fc2686134b32b18166e037639f7e9f2c","branch":"main","tier":"A"},
+    {"name":"quickjs","url":"https://github.com/quickjs-ng/quickjs.git","sha":"dad13e33cee39b910de2e45ea940c08baf42dbf9","branch":"master","tier":"A"},
+    {"name":"lua","url":"https://github.com/lua/lua.git","sha":"0b29f408433e92953cc72b1d3e06c7ac8139e439","branch":"master","tier":"A"},
+    {"name":"luajit","url":"https://github.com/LuaJIT/LuaJIT.git","sha":"c6ffc141a8762b41703f9287d63d93622a13dd8f","branch":"v2.1","tier":"A"},
+    {"name":"luau","url":"https://github.com/luau-lang/luau.git","sha":"74f768309c380d40601b28c4c4cdda27da415cef","branch":"master","tier":"B"},
+    {"name":"janet","url":"https://github.com/janet-lang/janet.git","sha":"246951c8090aa714342be246a7abdb7312cf7dae","branch":"master","tier":"B"},
+    {"name":"wasm3","url":"https://github.com/wasm3/wasm3.git","sha":"28ecb9af6d2040e474a70f7cb7f43666740141fb","branch":"main","tier":"C"},
+    {"name":"wamr","url":"https://github.com/wasm-micro-runtime/wasm-micro-runtime.git","sha":"38b044a676893e678ceb19babaa431ca5e460114","branch":"main","tier":"C"},
+    {"name":"wasmi","url":"https://github.com/wasmi-labs/wasmi.git","sha":"2970aa871cc1001b57b267ccecdcd1e42306199e","branch":"main","tier":"C"}
+  ]
+}

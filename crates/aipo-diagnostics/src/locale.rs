@@ -43,10 +43,10 @@ impl Locale {
     /// Respects `AIPO_LANG` when set, defaulting to canonical `Locale::En`.
     #[must_use]
     pub fn detect() -> Self {
-        if let Ok(val) = std::env::var("AIPO_LANG") {
-            if !val.trim().is_empty() {
-                return Self::from_str(&val);
-            }
+        if let Ok(val) = std::env::var("AIPO_LANG")
+            && !val.trim().is_empty()
+        {
+            return Self::from_str(&val);
         }
         Self::En
     }
@@ -90,6 +90,12 @@ impl DiagnosticCode {
     #[must_use]
     pub fn title(self, locale: Locale) -> &'static str {
         match (locale, self) {
+            (Locale::En, Self::AIPO_COMPILE_REG_UNSUPPORTED) => {
+                "program is unsupported by the experimental register backend"
+            }
+            (Locale::PtBr, Self::AIPO_COMPILE_REG_UNSUPPORTED) => {
+                "programa não suportado pelo backend experimental de registradores"
+            }
             // Source
             (Locale::En, Self::AIPO_SRC_INVALID_UTF8) => "invalid UTF-8 sequence in source file",
             (Locale::PtBr, Self::AIPO_SRC_INVALID_UTF8) => {

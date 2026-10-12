@@ -11,7 +11,7 @@ use aipo_vm::{DictMap, FailureValue, Value, VmFault, check_finite_float, check_s
 use std::cell::RefCell;
 use std::rc::Rc;
 
-fn expect_bytes(val: &Value, op: &str) -> Result<Rc<RefCell<Vec<u8>>>, VmFault> {
+fn expect_bytes(val: &Value, op: &str) -> Result<Rc<RefCell<aipo_vm::Collection<u8>>>, VmFault> {
     match val {
         Value::Bytes(b) => Ok(Rc::clone(b)),
         other => Err(VmFault::TypeMismatch {
@@ -819,7 +819,7 @@ pub fn binary_read_varint(args: &[Value]) -> Result<Value, VmFault> {
             #[allow(clippy::cast_possible_wrap)]
             let read_int = bytes_read as i64;
             let pair = vec![Value::Int(res_int), Value::Int(read_int)];
-            return Ok(Value::List(Rc::new(RefCell::new(pair))));
+            return Ok(Value::List(Rc::new(RefCell::new((pair).into()))));
         }
         shift += 7;
     }
@@ -903,10 +903,10 @@ pub fn binary_slice(args: &[Value]) -> Result<Value, VmFault> {
         (end_idx as usize).min(len)
     };
     if actual_start >= actual_end {
-        Ok(Value::Bytes(Rc::new(RefCell::new(Vec::new()))))
+        Ok(Value::Bytes(Rc::new(RefCell::new((Vec::new()).into()))))
     } else {
         let sub = b[actual_start..actual_end].to_vec();
-        Ok(Value::Bytes(Rc::new(RefCell::new(sub))))
+        Ok(Value::Bytes(Rc::new(RefCell::new((sub).into()))))
     }
 }
 

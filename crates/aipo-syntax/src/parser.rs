@@ -975,10 +975,7 @@ impl<'a> Parser<'a> {
         // `init` builds the instance, so its implicit receiver is mutable; every other
         // method keeps an immutable implicit receiver and must write `var self` to mutate.
         let implicit_mutable = is_init;
-        if !params
-            .first()
-            .is_some_and(|param| param.name.name == "self")
-        {
+        if params.first().is_none_or(|param| param.name.name != "self") {
             params.insert(
                 0,
                 Param {
@@ -1528,14 +1525,12 @@ impl<'a> Parser<'a> {
     }
 
     fn is_variant_pattern_start(&self) -> bool {
-        if let TokenKind::Identifier(first) = self.peek() {
-            if first.chars().next().is_some_and(|c| c.is_uppercase())
-                && self.peek_ahead(1) == &TokenKind::Dot
-            {
-                if let TokenKind::Identifier(second) = self.peek_ahead(2) {
-                    return second.chars().next().is_some_and(|c| c.is_uppercase());
-                }
-            }
+        if let TokenKind::Identifier(first) = self.peek()
+            && first.chars().next().is_some_and(|c| c.is_uppercase())
+            && self.peek_ahead(1) == &TokenKind::Dot
+            && let TokenKind::Identifier(second) = self.peek_ahead(2)
+        {
+            return second.chars().next().is_some_and(|c| c.is_uppercase());
         }
         false
     }
@@ -2379,16 +2374,16 @@ impl<'a> Parser<'a> {
                     // a `{` separated by whitespace is the body opener, not
                     // construction. `Board{` (no gap) stays construction so an
                     // inner `Point{x = 1}` in the header still parses.
-                    if self.in_block_header {
-                        if let Some(brace_tok) = self.peek_token() {
-                            let gap = self
-                                .source
-                                .text()
-                                .get(span.end..brace_tok.span.start)
-                                .unwrap_or("");
-                            if !gap.is_empty() {
-                                return Some(Expr::Identifier(ident));
-                            }
+                    if self.in_block_header
+                        && let Some(brace_tok) = self.peek_token()
+                    {
+                        let gap = self
+                            .source
+                            .text()
+                            .get(span.end..brace_tok.span.start)
+                            .unwrap_or("");
+                        if !gap.is_empty() {
+                            return Some(Expr::Identifier(ident));
                         }
                     }
                     if ident.name.chars().next().is_some_and(|c| c.is_uppercase()) {
@@ -2679,63 +2674,39 @@ impl<'a> Parser<'a> {
                 Some(Expr::Binary(op, Box::new(left), Box::new(right), full_span))
             }
             TokenKind::And => {
-                if is_comparison_token(self.peek()) {
-                    if let Some(subject) = extract_comparison_subject(&left) {
-                        let op_tok = self.advance();
-                        if op_tok.kind == TokenKind::Is {
-                            if self.check(&TokenKind::Not) {
-                                let not_span = self.advance().span;
-                                self.diagnostics.push(
+                if is_comparison_token(self.peek())
+                    && let Some(subject) = extract_comparison_subject(&left)
+                {
+                    let op_tok = self.advance();
+                    if op_tok.kind == TokenKind::Is {
+                        if self.check(&TokenKind::Not) {
+                            let not_span = self.advance().span;
+                            self.diagnostics.push(
                                     Diagnostic::error(
                                         DiagnosticCode::AIPO_PARSE_UNEXPECTED_TOKEN,
                                         "'is not' is not supported; use canonical negation 'not value is Type' instead",
                                     )
                                     .with_primary_span(self.source, op_tok.span.merge(not_span)),
                                 );
-                                return None;
-                            }
-                            let was_in_is_type = self.in_is_type;
-                            self.in_is_type = true;
-                            let right = self.parse_pratt_expr(Precedence::Comparison);
-                            self.in_is_type = was_in_is_type;
-                            let right = right?;
-                            let is_nullable = self.match_token(&TokenKind::Question);
-                            let comp_op = if is_nullable {
-                                BinaryOp::IsNullable
-                            } else {
-                                BinaryOp::Is
-                            };
-                            let end_span = if is_nullable {
-                                self.tokens[self.cursor - 1].span
-                            } else {
-                                right.span()
-                            };
-                            let comp_span = subject.span().merge(end_span);
-                            let continuation = Expr::Binary(
-                                comp_op,
-                                Box::new(subject),
-                                Box::new(right),
-                                comp_span,
-                            );
-                            let full_span = left.span().merge(continuation.span());
-                            return Some(Expr::Binary(
-                                BinaryOp::And,
-                                Box::new(left),
-                                Box::new(continuation),
-                                full_span,
-                            ));
+                            return None;
                         }
-                        let comp_op = match op_tok.kind {
-                            TokenKind::EqualEqual => BinaryOp::Equal,
-                            TokenKind::BangEqual => BinaryOp::NotEqual,
-                            TokenKind::Less => BinaryOp::Less,
-                            TokenKind::LessEqual => BinaryOp::LessEqual,
-                            TokenKind::Greater => BinaryOp::Greater,
-                            TokenKind::GreaterEqual => BinaryOp::GreaterEqual,
-                            _ => unreachable!(),
+                        let was_in_is_type = self.in_is_type;
+                        self.in_is_type = true;
+                        let right = self.parse_pratt_expr(Precedence::Comparison);
+                        self.in_is_type = was_in_is_type;
+                        let right = right?;
+                        let is_nullable = self.match_token(&TokenKind::Question);
+                        let comp_op = if is_nullable {
+                            BinaryOp::IsNullable
+                        } else {
+                            BinaryOp::Is
                         };
-                        let right = self.parse_pratt_expr(Precedence::Comparison)?;
-                        let comp_span = subject.span().merge(right.span());
+                        let end_span = if is_nullable {
+                            self.tokens[self.cursor - 1].span
+                        } else {
+                            right.span()
+                        };
+                        let comp_span = subject.span().merge(end_span);
                         let continuation =
                             Expr::Binary(comp_op, Box::new(subject), Box::new(right), comp_span);
                         let full_span = left.span().merge(continuation.span());
@@ -2746,6 +2717,26 @@ impl<'a> Parser<'a> {
                             full_span,
                         ));
                     }
+                    let comp_op = match op_tok.kind {
+                        TokenKind::EqualEqual => BinaryOp::Equal,
+                        TokenKind::BangEqual => BinaryOp::NotEqual,
+                        TokenKind::Less => BinaryOp::Less,
+                        TokenKind::LessEqual => BinaryOp::LessEqual,
+                        TokenKind::Greater => BinaryOp::Greater,
+                        TokenKind::GreaterEqual => BinaryOp::GreaterEqual,
+                        _ => unreachable!(),
+                    };
+                    let right = self.parse_pratt_expr(Precedence::Comparison)?;
+                    let comp_span = subject.span().merge(right.span());
+                    let continuation =
+                        Expr::Binary(comp_op, Box::new(subject), Box::new(right), comp_span);
+                    let full_span = left.span().merge(continuation.span());
+                    return Some(Expr::Binary(
+                        BinaryOp::And,
+                        Box::new(left),
+                        Box::new(continuation),
+                        full_span,
+                    ));
                 }
                 self.binary_expr(left, BinaryOp::And, Precedence::And, op_span)
             }
@@ -2832,16 +2823,16 @@ impl<'a> Parser<'a> {
                 if self.check(&TokenKind::LBrace) {
                     // Same body-brace rule as bare identifiers: `match task.done {`
                     // leaves the gap-separated `{` for the caller.
-                    if self.in_block_header {
-                        if let Some(brace_tok) = self.peek_token() {
-                            let gap = self
-                                .source
-                                .text()
-                                .get(field.span.end..brace_tok.span.start)
-                                .unwrap_or("");
-                            if !gap.is_empty() {
-                                return Some(Expr::Dot(Box::new(left), field, span));
-                            }
+                    if self.in_block_header
+                        && let Some(brace_tok) = self.peek_token()
+                    {
+                        let gap = self
+                            .source
+                            .text()
+                            .get(field.span.end..brace_tok.span.start)
+                            .unwrap_or("");
+                        if !gap.is_empty() {
+                            return Some(Expr::Dot(Box::new(left), field, span));
                         }
                     }
                     if field.name.chars().next().is_some_and(|c| c.is_uppercase()) {
@@ -3236,16 +3227,14 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_member_name(&mut self) -> Option<Ident> {
-        if let Some(tok) = self.peek_token().cloned() {
-            if let Some(text) = self.source.slice(tok.span) {
-                if !text.is_empty()
-                    && (text.starts_with(|c: char| c.is_alphabetic() || c == '_')
-                        && text.chars().all(|c| c.is_alphanumeric() || c == '_'))
-                {
-                    self.advance();
-                    return Some(Ident::new(text.to_string(), tok.span));
-                }
-            }
+        if let Some(tok) = self.peek_token().cloned()
+            && let Some(text) = self.source.slice(tok.span)
+            && !text.is_empty()
+            && (text.starts_with(|c: char| c.is_alphabetic() || c == '_')
+                && text.chars().all(|c| c.is_alphanumeric() || c == '_'))
+        {
+            self.advance();
+            return Some(Ident::new(text.to_string(), tok.span));
         }
         self.parse_ident()
     }

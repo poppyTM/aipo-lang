@@ -12,6 +12,9 @@ use crate::severity::Severity;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[allow(non_camel_case_types)]
 pub enum DiagnosticCode {
+    /// Experimental register backend cannot represent this program safely.
+    AIPO_COMPILE_REG_UNSUPPORTED,
+
     // --- Source (AIPO_SRC_*) ---
     /// File bytes are not valid UTF-8.
     AIPO_SRC_INVALID_UTF8,
@@ -145,6 +148,7 @@ impl DiagnosticCode {
     #[must_use]
     pub const fn as_str(self) -> &'static str {
         match self {
+            Self::AIPO_COMPILE_REG_UNSUPPORTED => "AIPO_COMPILE_REG_UNSUPPORTED",
             Self::AIPO_SRC_INVALID_UTF8 => "AIPO_SRC_INVALID_UTF8",
             Self::AIPO_LEX_UNTERMINATED_STRING => "AIPO_LEX_UNTERMINATED_STRING",
             Self::AIPO_LEX_UNKNOWN_ESCAPE => "AIPO_LEX_UNKNOWN_ESCAPE",
@@ -208,7 +212,8 @@ impl DiagnosticCode {
     #[must_use]
     pub const fn default_severity(self) -> Severity {
         match self {
-            Self::AIPO_SRC_INVALID_UTF8
+            Self::AIPO_COMPILE_REG_UNSUPPORTED
+            | Self::AIPO_SRC_INVALID_UTF8
             | Self::AIPO_LEX_UNTERMINATED_STRING
             | Self::AIPO_LEX_UNKNOWN_ESCAPE
             | Self::AIPO_LEX_INVALID_UNICODE_ESCAPE

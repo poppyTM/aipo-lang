@@ -1,0 +1,10 @@
+var flag = true
+io.println(if flag then 10 else 20)
+flag = false
+io.println(if flag then 10 else 20)
+fn choose(flag) {
+    return if flag then 10 else 20
+}
+io.println(choose(true))
+io.println(choose(false))
+io.println(if true then (if false then 1 else 2) else 3)

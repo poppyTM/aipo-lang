@@ -54,7 +54,9 @@ fn test_byte_identity_and_promotion() {
 
 #[test]
 fn test_list_order_and_copy_independence() {
-    let original = Value::List(Rc::new(RefCell::new(vec![Value::Int(3), Value::Int(1)])));
+    let original = Value::List(Rc::new(RefCell::new(
+        (vec![Value::Int(3), Value::Int(1)]).into(),
+    )));
     let rendered = format!("{original}");
     assert_eq!(rendered, "[3, 1]");
     if let Value::List(items) = &original {

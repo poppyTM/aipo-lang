@@ -63,7 +63,7 @@ edition = "2024"
 authors = ["Aipo Contributors"]
 license = "MIT"
 repository = "https://github.com/poppy-team/aipo-lang"
-rust-version = "1.85"
+rust-version = "1.96"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

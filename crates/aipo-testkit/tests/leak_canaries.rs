@@ -144,7 +144,7 @@ p.x += 5
         let hir = aipo_hir::lower(program);
         let ir = aipo_ir::lower_to_ir(&hir);
         let reg_emitter = aipo_bytecode::RegEmitter::new();
-        let reg_module = reg_emitter.compile_module(&ir);
+        let reg_module = reg_emitter.compile_module(&ir).expect("compile reg module");
 
         let mut reg_vm = aipo_vm::RegVm::new();
         reg_vm.run_module(&reg_module).expect("run reg module");

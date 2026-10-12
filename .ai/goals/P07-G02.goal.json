@@ -1,0 +1,64 @@
+{
+  "id": "P07-G02",
+  "phase": "P07",
+  "title": "Runtime, embedding, shell, performance and tooling completion",
+  "state": "DRAFT",
+  "revision": 2,
+  "objective": "Implement the five follow-up stages requested by the user, with explicit capabilities and reproducible documentation.",
+  "acceptance": [
+    "Verify all register operands and control flow, definite initialization, function references and handler/iteration scopes.",
+    "Track structural collection changes independently of length and remove permissive Wasm type checks.",
+    "Expose register budgets and diagnostic boundaries to embedding clients and support canonical execution for the language surface.",
+    "Persist shell definitions, support multiline input and history, and provide atomic module replacement.",
+    "Measure representative execution paths and record optimizations with raw measurements.",
+    "Provide developer commands, distribution automation and a complete Portuguese usage/reimplementation guide.",
+    "Publish commits and a draft PR, disclosing skipped tests and remaining limitations."
+  ],
+  "constraints": [
+    "Do not execute tests: explicit user instruction.",
+    "No invented syntax or language semantics outside canon.",
+    "No fabricated Prumo approvals, test results or performance measurements.",
+    "No merging or public release publication."
+  ],
+  "dependencies": [
+    "P07-G01"
+  ],
+  "context": {
+    "budget_profile": "medium",
+    "max_delegation_depth": 0
+  },
+  "gates": {
+    "build": "required",
+    "documentation_impact": "required",
+    "project_intelligence": "required",
+    "review": "required",
+    "tests": "required"
+  },
+  "evidence": [
+    {
+      "kind": "gate",
+      "path": "docs/evidence/P07-G02/checks.json",
+      "description": "Compile/static checks passed; no tests executed."
+    },
+    {
+      "kind": "benchmark",
+      "path": "docs/evidence/P07-G02/performance.json",
+      "description": "Paired Reg call microbenchmark at published source revision; raw CSV attached."
+    },
+    {
+      "kind": "doc",
+      "path": "docs/development/runtime-and-tooling-guide.md",
+      "description": "Portuguese usage/reimplementation guide and explicit remaining work."
+    }
+  ],
+  "history": [
+    {
+      "at": "2026-10-09T23:08:26.010904+00:00",
+      "event": "implementation_and_evidence_published",
+      "state": "DRAFT",
+      "description": "Source recovered and published; Wasm early bypass removed, aliases/shadowing rejected, final MSRV/profiles/docs checks and paired benchmark recorded. Test gate remains unexecuted by user instruction."
+    }
+  ],
+  "amendments": [],
+  "lock": null
+}

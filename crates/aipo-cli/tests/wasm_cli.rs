@@ -1,3 +1,7 @@
+// The disabled suite is an empty crate; do not require docs for that configuration.
+#![cfg_attr(not(feature = "wasm"), allow(missing_docs))]
+#![cfg(feature = "wasm")]
+
 //! Integration tests for the Aipo CLI WebAssembly execution, build, and disassembly surface (ADP-013 / Marco 6).
 
 use std::fs;
@@ -5,6 +9,7 @@ use std::path::PathBuf;
 
 const EXIT_SUCCESS: u8 = 0;
 const EXIT_LANGUAGE_FAILURE: u8 = 1;
+#[cfg(feature = "wasmtime-runner")]
 const EXIT_USAGE: u8 = 2;
 
 fn run_cli(args: &[&str]) -> (u8, String, String) {
@@ -32,6 +37,7 @@ fn temp_dir(name: &str) -> PathBuf {
     path
 }
 
+#[cfg(feature = "wasmtime-runner")]
 #[test]
 fn test_run_aipo_with_wasm_flag_and_host_io() {
     let script = temp_file(
@@ -52,6 +58,7 @@ fn main() {
     let _ = fs::remove_file(script);
 }
 
+#[cfg(feature = "wasmtime-runner")]
 #[test]
 fn test_run_aipo_with_target_wasm() {
     let script = temp_file(
@@ -79,6 +86,7 @@ fn main() {
     let _ = fs::remove_file(script);
 }
 
+#[cfg(feature = "wasmtime-runner")]
 #[test]
 fn test_build_and_run_wasm_binary() {
     let script = temp_file(
@@ -213,6 +221,7 @@ fn multiply(a: Int, b: Int) -> Int {
     let _ = fs::remove_file(script);
 }
 
+#[cfg(feature = "wasmtime-runner")]
 #[test]
 fn test_wasm_error_handling_and_flags() {
     // Missing .wasm file

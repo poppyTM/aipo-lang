@@ -1,3 +1,5 @@
+#![cfg(feature = "wasmtime")]
+
 //! End-to-end integration tests for Aipo WebAssembly pipeline (Marco 1 / ADP-013).
 //!
 //! Verifies: Source (.aipo) -> Syntax -> HIR -> Wasm (.wasm) -> Wasmtime JIT Execution.

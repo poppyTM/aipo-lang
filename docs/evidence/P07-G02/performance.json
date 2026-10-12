@@ -1,0 +1,76 @@
+{
+  "schema": 1,
+  "workload": "20000 native Reg calls; nine-instruction caller; one live callee register",
+  "baseline_commit": "f0a0d70d176be031cd4b600fde1df6179429fb9a",
+  "candidate_commit": "33d524b59caecd8b0d33f48f385a64010e14a3c1",
+  "candidate_tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "candidate_source_inventory_sha256": "e1a71e008db6a332b7612f75de4fa6cfb956bddced472114eb04d40bd08f79f3",
+  "workload_sha256": "b24e9e4037a682afa9fa09e6dfab8f38b5826711982a31fefb1283a290e5443f",
+  "binaries_sha256": {
+    "baseline": "d7aa8d786bc15d25f61e5d69fa8bb3fc53a3c3a86c983e4ad3e7d32feedb5cc7",
+    "candidate": "93e949ff047c243bf9ea6ea45b3d8127d7fc474380a79f32448e4c70895a75ab"
+  },
+  "compiler": "rustc 1.96.0 (ac68faa20 2026-05-25)\nbinary: rustc\ncommit-hash: ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96\ncommit-date: 2026-05-25\nhost: x86_64-unknown-linux-gnu\nrelease: 1.96.0\nLLVM version: 22.1.2\n",
+  "platform": "Linux-6.18.44-x86_64-with-glibc2.39",
+  "cpu": 0,
+  "cpu_count": 9,
+  "batches": 3,
+  "pairs_per_batch": 5,
+  "warmup_samples_per_process": 1,
+  "raw_sha256": "40b8272b93a23f3b780526ab1539024ef48a8e989c0bfaf7647c8e7cb3b77891",
+  "results": {
+    "int": {
+      "baseline": 17361482.0,
+      "candidate": 3616331.5,
+      "ratio": 4.80085467828378,
+      "batches": [
+        {
+          "batch": 0,
+          "baseline": 17550047.0,
+          "candidate": 3743656.0,
+          "ratio": 4.687943283250384
+        },
+        {
+          "batch": 1,
+          "baseline": 18380764.0,
+          "candidate": 3752774.0,
+          "ratio": 4.89791391647885
+        },
+        {
+          "batch": 2,
+          "baseline": 15476740.5,
+          "candidate": 3504421.0,
+          "ratio": 4.416347379495785
+        }
+      ]
+    },
+    "string": {
+      "baseline": 20128697.0,
+      "candidate": 4426176.0,
+      "ratio": 4.547649483436718,
+      "batches": [
+        {
+          "batch": 0,
+          "baseline": 19612002.0,
+          "candidate": 4223590.0,
+          "ratio": 4.643443610767144
+        },
+        {
+          "batch": 1,
+          "baseline": 20203267.5,
+          "candidate": 4339543.0,
+          "ratio": 4.655620995114002
+        },
+        {
+          "batch": 2,
+          "baseline": 20545957.0,
+          "candidate": 4665834.0,
+          "ratio": 4.403490779997745
+        }
+      ]
+    }
+  },
+  "limits": "Microbenchmark only; includes run_module verification and loading. No language-wide, startup, memory or MCU claim. Tests were not run.",
+  "raw_before_normalization_sha256": "a4ca0a1cab011b43f9ca14b3956542643adb4ace60e65e7fdc46aebcc990bb12",
+  "raw_serialization": "CSV with LF line endings; normalized after collection; all 480 observations unchanged"
+}
