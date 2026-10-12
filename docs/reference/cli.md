@@ -9,8 +9,8 @@
 The stable command surface comprises (`run`/`check`/`fmt` stable since Wave 1,
 `build` stable since Wave 2, `disasm` stable since Wave 4, `test` and Wasm targets stable since v0.1.0/ADP-013):
 
-- `aipo run <file.aipo> [--wasm] [--package-cache <dir>] [--ahs=<file>] [--host=headless-test]`: Compiles and executes an Aipo source file via Stack VM or WebAssembly JIT engine (`--wasm` / `-t wasm`). `--ahs` makes the described host surface available to checking; it does not install host implementations or grant capabilities.
-- `aipo run <file.aibc|file.wasm>`: Loads, verifies and executes a pre-compiled bytecode file or WebAssembly binary.
+- `aipo run <file.aipo> [--wasm] [--engine=<vm|reg>] [--budget=<N>] [--max-instructions=<N>] [--package-cache <dir>] [--ahs=<file>] [--host=headless-test]`: Compiles and executes an Aipo source file via Stack VM (default), Register VM (`--engine=reg`), or WebAssembly JIT engine (`--wasm` / `-t wasm`). Execution budgets (`--budget=<N>` / `--max-instructions=<N>`) bound instruction or fuel consumption. `--ahs` makes the described host surface available to checking; it does not install host implementations or grant capabilities.
+- `aipo run <file.aibc|file.wasm> [--budget=<N>] [--max-instructions=<N>]`: Loads, verifies and executes a pre-compiled bytecode file or WebAssembly binary with optional budget metering.
 - `aipo test [path] [--filter <pattern>] [--package-cache <dir>]`: Discovers and executes isolated unit tests (`*_test.aipo`, `test_*.aipo`) with temporal freezing and PRNG seed reset.
 - `aipo check <file.aipo> [--wasm] [--package-cache <dir>] [--ahs=<file>] [--host=headless-test]`: Runs the frontend and semantic analysis without execution, emitting diagnostics. `--ahs` loads a validated Aipo Host Schema (AHS) JSON description for this invocation; described host modules and callable signatures (unknown member, arity with optional parameters, named arguments, literal contract violations) are available to static checking.
 - `aipo build <file.aipo> [--target <js|wasm>] [--out <dir>] [--package-cache <dir>]`: Emits an ESM JavaScript bundle (`dist/app.js` + `dist/aipo-runtime.js` + source maps) or standalone WebAssembly binary (`dist/app.wasm`).
@@ -66,6 +66,19 @@ VM publication checks (global, return, field, index, list or dict), not a fabric
 Runtime argument contracts also apply to dynamic values. Faults are not recoverable `Failure`
 values. Fixtures in `docs/conformance/host/` pair `.aipo` with `.code` or `.stdout` and are
 run through the real CLI by `crates/aipo-cli/tests/host_runtime.rs`.
+
+## Execution engines and metering
+
+`aipo run` supports selectable bytecode execution engines for `.aipo` source files:
+- `--engine=vm` (default): Stack-based Virtual Machine with direct operand evaluation, cooperative task scheduling, and full host/stdlib integration.
+- `--engine=reg`: Register-based Virtual Machine (`crates/aipo-vm/src/reg_vm.rs`) with windowed register execution. Cannot be combined with `--wasm` and requires `.aipo` source.
+- `--wasm`: Standalone WebAssembly JIT engine powered by `wasmtime`.
+
+### Instruction and fuel budget
+
+To protect against runaway loops and enforce deterministic bounded execution, `aipo run` accepts `--budget=<N>` (or alias `--max-instructions=<N>`):
+- For Stack VM and Register VM, execution faults if the executed instruction count exceeds `N`.
+- For WebAssembly, `wasmtime` fuel metering consumes fuel up to `N`.
 
 ## Local package entries
 

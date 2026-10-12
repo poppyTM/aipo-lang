@@ -130,6 +130,31 @@ pub enum RegOpCode {
     PushHandler = 72,
     /// Pop exception/failure handler from handler stack.
     PopHandler = 73,
+
+    // --- Contracts, Invariants & Closures ---
+    /// Assert invariant: `assert R[A] is true` for type `Constants[Bx]`.
+    AssertInvariant = 74,
+    /// Seal struct: seal fixed fields on `R[A]` instance.
+    SealStruct = 75,
+    /// Assert signature contract: `R[A]` satisfies contract descriptor `Contracts[Bx]`.
+    AssertContract = 76,
+    /// Register collection on `R[A]` as actively iterated.
+    IterGuard = 77,
+    /// Unregister topmost active iteration.
+    IterGuardEnd = 78,
+    /// Create closure: `R[A] = Closure(func_idx: B, upvalues: C starting at R[A])`.
+    MakeClosure = 79,
+    /// Read captured upvalue: `R[A] = Upvalues[Bx]`.
+    GetUpvalue = 80,
+    /// Write captured upvalue: `Upvalues[Bx] = R[A]`.
+    SetUpvalue = 81,
+    /// Fill self-capture cell: fill Unset cell in `R[A]` with `R[A]`.
+    FillSelfCapture = 82,
+    /// Check mutation boundary: verify journaled mutations.
+    CheckMutations = 83,
+    /// Await a task: `R[A] = await R[A]`. Suspends the running task when the
+    /// operand is a live, non-terminal `Task`.
+    Await = 84,
 }
 
 impl RegOpCode {
@@ -186,6 +211,17 @@ impl RegOpCode {
             71 => Some(Self::LoadUnset),
             72 => Some(Self::PushHandler),
             73 => Some(Self::PopHandler),
+            74 => Some(Self::AssertInvariant),
+            75 => Some(Self::SealStruct),
+            76 => Some(Self::AssertContract),
+            77 => Some(Self::IterGuard),
+            78 => Some(Self::IterGuardEnd),
+            79 => Some(Self::MakeClosure),
+            80 => Some(Self::GetUpvalue),
+            84 => Some(Self::Await),
+            81 => Some(Self::SetUpvalue),
+            82 => Some(Self::FillSelfCapture),
+            83 => Some(Self::CheckMutations),
             _ => None,
         }
     }

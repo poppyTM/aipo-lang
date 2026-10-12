@@ -40,6 +40,42 @@ fn test_eval_source_simple_expression() {
     assert!(err.is_empty());
 }
 
+/// Runs `code` on one engine and returns `(exit, stdout, diagnostics)`.
+fn run_engine(code: &str, reg: bool) -> (u8, String, String) {
+    let captured = Arc::new(Mutex::new(Vec::new()));
+    aipo_cli::set_output_sink(Some(Box::new(TestSink(Arc::clone(&captured)))));
+    let mut out = Vec::new();
+    let mut err = Vec::new();
+    let exit = if reg {
+        aipo_cli::eval_source_reg(code, &mut out, &mut err)
+    } else {
+        aipo_cli::eval_source(code, &mut out, &mut err)
+    };
+    aipo_cli::set_output_sink(None);
+    let stdout = String::from_utf8(captured.lock().unwrap().clone()).unwrap();
+    let mut diag = String::from_utf8(out).unwrap();
+    diag.push_str(&String::from_utf8(err).unwrap());
+    (exit, stdout, diag)
+}
+
+/// Both engines must agree on open-ended (`usize::MAX`) variadic natives and on arity
+/// handling: the RegVm's call path mirrors the stack VM's `check_arity`, where `usize::MAX`
+/// accepts any argument count and a fixed arity rejects a wrong one.
+#[test]
+fn test_engine_parity_variadic_and_arity() {
+    let _guard = test_lock();
+    for code in [
+        "io.println(path.join(\"a\", \"b\", \"c\"))",
+        "io.println(path.join(\"a\"))",
+        "io.println(String(math.sqrt(4.0)))",
+        "io.println(String(math.sqrt(1.0, 2.0)))",
+    ] {
+        let stack = run_engine(code, false);
+        let reg = run_engine(code, true);
+        assert_eq!(stack, reg, "engine divergence for: {code}");
+    }
+}
+
 #[test]
 fn test_eval_source_pipeline() {
     let _guard = test_lock();
@@ -232,6 +268,30 @@ io.println(total)
     assert_eq!(exit_code, 0, "stderr: {}", String::from_utf8_lossy(&err));
     let output = String::from_utf8(captured.lock().unwrap().clone()).unwrap();
     assert_eq!(output, "40\n");
+}
+
+#[test]
+fn test_eval_source_reg_closure_captures_upvalue() {
+    let _guard = test_lock();
+    let captured = Arc::new(Mutex::new(Vec::new()));
+    aipo_cli::set_output_sink(Some(Box::new(TestSink(Arc::clone(&captured)))));
+    let mut out = Vec::new();
+    let mut err = Vec::new();
+    let code = r#"
+fn make_adder(base) {
+    let add = fn(x) { return x + base }
+    return add
+}
+let add5 = make_adder(5)
+let add10 = make_adder(10)
+io.println(add5(7) + add10(7))
+"#;
+    let exit_code = aipo_cli::eval_source_reg(code, &mut out, &mut err);
+    aipo_cli::set_output_sink(None);
+
+    assert_eq!(exit_code, 0, "stderr: {}", String::from_utf8_lossy(&err));
+    let output = String::from_utf8(captured.lock().unwrap().clone()).unwrap();
+    assert_eq!(output, "29\n");
 }
 
 #[test]

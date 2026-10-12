@@ -1,7 +1,13 @@
-# Programação assíncrona, blocos sequenciais e combinadores
-import task
-import io
-
+# Programação assíncrona, blocos sequenciais e combinadores em Aipo V1
+#
+# Fatos da linguagem usados aqui:
+# - `task` e `io` são prelude: disponíveis sem `import`.
+# - `task` expõe `spawn`, `sleep`, `all`, `race`, `timeout`, `cancel` e `group`.
+#   Não existe `task.now`.
+# - `await do { ... }` é **statement** (não inicializador) e o `return`
+#   dentro dele retorna da função externa.
+# - `task.spawn(fn, args)` recebe a lista de argumentos como segundo item.
+# - Não existe `main` implícito: o topo do módulo é o script.
 export buscar_dados_combinados
 
 async fn simular_requisicao(url: String, atraso_ms: Int) -> String {
@@ -10,21 +16,25 @@ async fn simular_requisicao(url: String, atraso_ms: Int) -> String {
 }
 
 async fn buscar_dados_combinados() -> Dict {
-    # 'await do' executa múltiplos awaits sequenciais com clareza
-    let resultado = await do {
+    # 'await do' executa awaits sequenciais com ordem explícita: sem closure
+    # e sem paralelismo implícito.
+    await do {
         let perfil = await simular_requisicao("https://api/perfil", 20)
         let config = await simular_requisicao("https://api/config", 30)
         return {
             "perfil": perfil,
-            "config": config,
-            "timestamp": task.now()
+            "config": config
         }
     }
-    return resultado
 }
 
-fn main() {
-    let t = task.spawn(buscar_dados_combinados)
-    let final = await t
-    io.println(f"Perfil carregado: {final.perfil}")
-}
+let dados = await buscar_dados_combinados()
+io.println(f"Perfil carregado: {dados.perfil}")
+io.println(f"Config carregada: {dados.config}")
+
+# Combinador: `task.all` preserva a ordem em que as tarefas foram dadas.
+let tarefas = [
+    simular_requisicao("https://api/a", 10),
+    simular_requisicao("https://api/b", 5)
+]
+io.println(task.all(tarefas))

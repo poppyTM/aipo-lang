@@ -368,6 +368,28 @@ mod tests {
         assert!(diags.is_empty(), "found: {diags:?}");
     }
 
+    /// `attempt` diverges only when the body *and* the handler both diverge: a
+    /// transaction that returns a value in both arms honours a value contract.
+    #[test]
+    fn test_attempt_with_total_arms_is_accepted() {
+        let code = "fn transfer(source: Int) -> Bool {\n  attempt {\n    return true\n  } failed err {\n    return false\n  }\n}";
+        let diags = analyze_source(code);
+        assert!(diags.is_empty(), "found: {diags:?}");
+    }
+
+    /// Completing the body normally falls through to the statement after the
+    /// `attempt`, so a handler that does not diverge still leaves a falling path.
+    #[test]
+    fn test_attempt_with_falling_handler_is_reported() {
+        let code = "fn transfer(source: Int) -> Bool {\n  var visto = \"\"\n  attempt {\n    return true\n  } failed err {\n    visto = err.message\n  }\n}";
+        let diags = analyze_source(code);
+        assert_eq!(diags.len(), 1, "found: {diags:?}");
+        assert_eq!(
+            diags[0].code,
+            DiagnosticCode::AIPO_SEM_PATH_MISSING_RETURN_VALUE
+        );
+    }
+
     /// `match` without an `else` can fall out of the statement, so a value
     /// contract is not honoured on that path.
     #[test]

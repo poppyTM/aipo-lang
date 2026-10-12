@@ -9,10 +9,34 @@ use aipo_stdlib::{
     binary, collections, convert, encoding, io, log, math, path, prelude, regex, register_stdlib,
     string, testing, time, url,
 };
-use aipo_vm::{FailureValue, Value, Vm};
+use aipo_vm::{FailureValue, TypeTag, Value, Vm};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
+
+fn range_global_module() -> BytecodeModule {
+    let mut module = BytecodeModule::new();
+    module.names = vec!["Range".to_string()];
+    module.code = vec![OpCode::GetGlobal as u8, 0, 0, OpCode::Return as u8];
+    module
+}
+
+#[test]
+fn test_prelude_binds_range_as_type_value() {
+    let mut vm = Vm::new();
+    let mut registry = NativeRegistry::new();
+    register_stdlib(&mut vm, &mut registry);
+
+    // §5.1 (check vs run): `Range` is accepted by `aipo check` but was missing as a
+    // runtime global, so `is Range` / `Range(..)` failed at run time with "undefined
+    // global variable 'Range'". It is now bound as a type value, matching `Bool`/`List`
+    // (usable with `is`, not a constructor).
+    assert_eq!(vm.get_global("Range"), Some(&Value::Type(TypeTag::Range)));
+    let result = vm
+        .run(&range_global_module())
+        .expect("Range global resolves at run time");
+    assert_eq!(result, Value::Type(TypeTag::Range));
+}
 
 #[test]
 fn test_prelude_len() {
@@ -205,6 +229,29 @@ fn test_math_pow() {
         math::math_pow(&[Value::Float(4.0), Value::Float(0.5)]).unwrap(),
         Value::Float(2.0)
     );
+}
+
+#[test]
+fn test_math_constants() {
+    let mut vm = Vm::new();
+    let mut registry = NativeRegistry::new();
+    register_stdlib(&mut vm, &mut registry);
+
+    let math_val = vm.get_global("math").expect("math global bound");
+    if let Value::Dict(dict) = math_val {
+        let map = dict.borrow();
+        let tau_key = Value::String(Rc::new("tau".to_string()));
+        let pi_key = Value::String(Rc::new("pi".to_string()));
+        let e_key = Value::String(Rc::new("e".to_string()));
+        assert_eq!(
+            map.get(&tau_key),
+            Some(&Value::Float(std::f64::consts::TAU))
+        );
+        assert_eq!(map.get(&pi_key), Some(&Value::Float(std::f64::consts::PI)));
+        assert_eq!(map.get(&e_key), Some(&Value::Float(std::f64::consts::E)));
+    } else {
+        panic!("math global is not a Dict");
+    }
 }
 
 #[test]

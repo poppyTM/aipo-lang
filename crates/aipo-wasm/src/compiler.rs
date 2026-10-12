@@ -84,13 +84,9 @@ struct FailureGlobals {
 
 /// Helper containing function indices of built-in async runtime functions and host I/O helpers.
 #[derive(Debug, Clone, Copy)]
-#[allow(dead_code)]
 struct AsyncHelpers {
     task_create_idx: u32,
-    task_drive_idx: u32,
     await_idx: u32,
-    task_sleep_idx: u32,
-    task_cancel_idx: u32,
     host_io: Option<HostIoHelpers>,
     /// Failure status/message globals implementing the hybrid failure model.
     fail_globals: FailureGlobals,
@@ -158,22 +154,120 @@ pub fn compile_hir(program: &HirProgram) -> Result<Vec<u8>, WasmCompileError> {
     let mut func_decls: Vec<HirFunctionDecl> = Vec::new();
     let mut async_wrappers: Vec<(String, String, Vec<HirParam>)> = Vec::new();
     for item in &program.items {
-        if let HirItem::Fn(func) = item {
-            if func.is_async {
-                let inner_body_name = format!("__async_body_{}", func.name);
-                func_decls.push(HirFunctionDecl {
-                    directives: func.directives.clone(),
-                    name: inner_body_name.clone(),
-                    is_async: false,
-                    params: func.params.clone(),
-                    return_type: func.return_type.clone(),
-                    body: func.body.clone(),
-                    span: func.span,
-                });
-                async_wrappers.push((func.name.clone(), inner_body_name, func.params.clone()));
-            } else {
-                func_decls.push(func.clone());
+        match item {
+            HirItem::Fn(func) => {
+                if func.is_async {
+                    let inner_body_name = format!("__async_body_{}", func.name);
+                    func_decls.push(HirFunctionDecl {
+                        directives: func.directives.clone(),
+                        name: inner_body_name.clone(),
+                        is_async: false,
+                        params: func.params.clone(),
+                        return_type: func.return_type.clone(),
+                        body: func.body.clone(),
+                        span: func.span,
+                    });
+                    async_wrappers.push((func.name.clone(), inner_body_name, func.params.clone()));
+                } else {
+                    func_decls.push(func.clone());
+                }
             }
+            HirItem::Impl(imp) => {
+                if let Some(init) = &imp.init {
+                    let full_name = format!("{}.init", imp.target);
+                    let mut params = init.params.clone();
+                    if !params
+                        .first()
+                        .is_some_and(|p| p.is_self || p.name == "self")
+                    {
+                        params.insert(
+                            0,
+                            HirParam {
+                                name: "self".to_string(),
+                                is_mut: true,
+                                is_self: true,
+                                type_annotation: None,
+                                default: None,
+                                span: init.span,
+                            },
+                        );
+                    }
+                    func_decls.push(HirFunctionDecl {
+                        directives: init.directives.clone(),
+                        name: full_name,
+                        is_async: false,
+                        params,
+                        return_type: init.return_type.clone(),
+                        body: init.body.clone(),
+                        span: init.span,
+                    });
+                }
+                for method in &imp.methods {
+                    let full_name = format!("{}.{}", imp.target, method.name);
+                    let mut params = method.params.clone();
+                    if !params
+                        .first()
+                        .is_some_and(|p| p.is_self || p.name == "self")
+                    {
+                        params.insert(
+                            0,
+                            HirParam {
+                                name: "self".to_string(),
+                                is_mut: false,
+                                is_self: true,
+                                type_annotation: None,
+                                default: None,
+                                span: method.span,
+                            },
+                        );
+                    }
+                    if method.is_async {
+                        let inner_body_name = format!("__async_body_{}", full_name);
+                        func_decls.push(HirFunctionDecl {
+                            directives: method.directives.clone(),
+                            name: inner_body_name.clone(),
+                            is_async: false,
+                            params: params.clone(),
+                            return_type: method.return_type.clone(),
+                            body: method.body.clone(),
+                            span: method.span,
+                        });
+                        async_wrappers.push((full_name, inner_body_name, params));
+                    } else {
+                        func_decls.push(HirFunctionDecl {
+                            directives: method.directives.clone(),
+                            name: full_name,
+                            is_async: false,
+                            params,
+                            return_type: method.return_type.clone(),
+                            body: method.body.clone(),
+                            span: method.span,
+                        });
+                    }
+                }
+            }
+            HirItem::Batch(binding) => {
+                for function_name in &binding.functions {
+                    if let Some(source) = program.items.iter().find_map(|it| match it {
+                        HirItem::Fn(f) if &f.name == function_name => Some(f),
+                        _ => None,
+                    }) {
+                        if source.params.first().is_some_and(|p| p.is_self) {
+                            let full_name = format!("{}.{}", binding.target, function_name);
+                            func_decls.push(HirFunctionDecl {
+                                directives: source.directives.clone(),
+                                name: full_name,
+                                is_async: source.is_async,
+                                params: source.params.clone(),
+                                return_type: source.return_type.clone(),
+                                body: source.body.clone(),
+                                span: source.span,
+                            });
+                        }
+                    }
+                }
+            }
+            _ => {}
         }
     }
     func_decls.extend(anon_decls);
@@ -433,6 +527,17 @@ pub fn compile_hir(program: &HirProgram) -> Result<Vec<u8>, WasmCompileError> {
         (list_len_func_idx, list_len_type_idx, list_len_fn_type),
     );
 
+    // Function 11.5: `__aipo_list_add(list_ptr: i32, value: i64) -> i64`
+    let list_add_fn_type = WasmFnType::new(vec![WasmType::I32, WasmType::I64], vec![WasmType::I64]);
+    let list_add_type_idx = emitter.add_type(list_add_fn_type.clone());
+    let list_add_fn = build_list_add_function(alloc_func_idx);
+    let list_add_func_idx = emitter.add_function(list_add_type_idx, list_add_fn);
+    emitter.export_function("__aipo_list_add", list_add_func_idx);
+    functions.insert(
+        "__aipo_list_add".to_string(),
+        (list_add_func_idx, list_add_type_idx, list_add_fn_type),
+    );
+
     // Function 12: `__aipo_range_get(range_ptr: i32, index: i32) -> i64`
     let range_get_fn_type =
         WasmFnType::new(vec![WasmType::I32, WasmType::I32], vec![WasmType::I64]);
@@ -520,10 +625,7 @@ pub fn compile_hir(program: &HirProgram) -> Result<Vec<u8>, WasmCompileError> {
 
     let async_helpers = AsyncHelpers {
         task_create_idx: task_create_func_idx,
-        task_drive_idx: task_drive_func_idx,
         await_idx: await_func_idx,
-        task_sleep_idx: task_sleep_func_idx,
-        task_cancel_idx: task_cancel_func_idx,
         host_io,
         fail_globals: failure_globals,
     };
@@ -536,6 +638,7 @@ pub fn compile_hir(program: &HirProgram) -> Result<Vec<u8>, WasmCompileError> {
             Some(WasmType::I64)
         } else {
             resolve_return_type(
+                &func.name,
                 &func.return_type,
                 &func.params,
                 &func.body,
@@ -664,8 +767,22 @@ fn collect_anon_functions(
     anon_decls: &mut Vec<HirFunctionDecl>,
 ) {
     for item in &program.items {
-        if let HirItem::Fn(func) = item {
-            collect_stmts_anon_functions(&func.body, anon_map, anon_decls);
+        match item {
+            HirItem::Fn(func) => {
+                collect_stmts_anon_functions(&func.body, anon_map, anon_decls);
+            }
+            HirItem::Impl(imp) => {
+                if let Some(init) = &imp.init {
+                    collect_stmts_anon_functions(&init.body, anon_map, anon_decls);
+                }
+                if let Some(inv) = &imp.invariant {
+                    collect_stmts_anon_functions(&inv.body, anon_map, anon_decls);
+                }
+                for m in &imp.methods {
+                    collect_stmts_anon_functions(&m.body, anon_map, anon_decls);
+                }
+            }
+            _ => {}
         }
     }
     collect_stmts_anon_functions(&program.statements, anon_map, anon_decls);
@@ -831,8 +948,22 @@ fn register_struct_layout(decl: &HirStructDecl, structs: &mut HashMap<String, St
 /// Scans program expressions to refine field types in `structs` based on constructor literals.
 fn refine_struct_layouts(program: &HirProgram, structs: &mut HashMap<String, StructLayout>) {
     for item in &program.items {
-        if let HirItem::Fn(func) = item {
-            scan_stmts_for_constructs(&func.body, structs);
+        match item {
+            HirItem::Fn(func) => {
+                scan_stmts_for_constructs(&func.body, structs);
+            }
+            HirItem::Impl(imp) => {
+                if let Some(init) = &imp.init {
+                    scan_stmts_for_constructs(&init.body, structs);
+                }
+                if let Some(inv) = &imp.invariant {
+                    scan_stmts_for_constructs(&inv.body, structs);
+                }
+                for m in &imp.methods {
+                    scan_stmts_for_constructs(&m.body, structs);
+                }
+            }
+            _ => {}
         }
     }
     scan_stmts_for_constructs(&program.statements, structs);
@@ -975,10 +1106,26 @@ fn scan_expr_for_constructs(expr: &HirExpr, structs: &mut HashMap<String, Struct
 /// Scans the program to determine if any I/O printing calls (`print`, `println`, `io.print`, `io.println`) are present.
 fn scan_program_for_io(program: &HirProgram) -> bool {
     for item in &program.items {
-        if let HirItem::Fn(func) = item {
-            if scan_stmts_for_io(&func.body) {
-                return true;
+        let has_io = match item {
+            HirItem::Fn(func) => scan_stmts_for_io(&func.body),
+            HirItem::Impl(impl_block) => {
+                impl_block
+                    .init
+                    .as_ref()
+                    .is_some_and(|f| scan_stmts_for_io(&f.body))
+                    || impl_block
+                        .invariant
+                        .as_ref()
+                        .is_some_and(|f| scan_stmts_for_io(&f.body))
+                    || impl_block
+                        .methods
+                        .iter()
+                        .any(|m| scan_stmts_for_io(&m.body))
             }
+            _ => false,
+        };
+        if has_io {
+            return true;
         }
     }
     scan_stmts_for_io(&program.statements)
@@ -1013,6 +1160,17 @@ fn scan_stmts_for_io(stmts: &[HirStmt]) -> bool {
                     return true;
                 }
             }
+            HirStmt::Match(m) => {
+                if scan_expr_for_io(&m.target)
+                    || m.when_arms.iter().any(|arm| {
+                        arm.guard.as_ref().is_some_and(scan_expr_for_io)
+                            || scan_stmts_for_io(&arm.body)
+                    })
+                    || m.else_arm.as_ref().is_some_and(|b| scan_stmts_for_io(b))
+                {
+                    return true;
+                }
+            }
             HirStmt::While(cond, body, _) if scan_expr_for_io(cond) || scan_stmts_for_io(body) => {
                 return true;
             }
@@ -1029,6 +1187,7 @@ fn scan_stmts_for_io(stmts: &[HirStmt]) -> bool {
             {
                 return true;
             }
+            HirStmt::FnDecl(f) if scan_stmts_for_io(&f.body) => return true,
             _ => {}
         }
     }
@@ -1069,7 +1228,11 @@ fn scan_expr_for_io(expr: &HirExpr) -> bool {
         HirExpr::Construct(_, fields, _) => {
             fields.iter().any(|(_, f_expr)| scan_expr_for_io(f_expr))
         }
-        HirExpr::Dot(receiver, _, _) => scan_expr_for_io(receiver),
+        HirExpr::Dot(receiver, _, _) | HirExpr::QuestionDot(receiver, _, _) => {
+            scan_expr_for_io(receiver)
+        }
+        HirExpr::List(items, _) => items.iter().any(scan_expr_for_io),
+        HirExpr::Index(target, index, _) => scan_expr_for_io(target) || scan_expr_for_io(index),
         _ => false,
     }
 }
@@ -1869,24 +2032,43 @@ fn build_string_hash_function() -> Function {
 
 /// Builds `__aipo_list_new(len: i32) -> i32`.
 ///
-/// A list is a heap block whose first i32 is the element count, followed by
-/// `len` i64 slots (one per element). Elements are stored unboxed as i64,
-/// which covers `Int`, `Bool`, and raw bit patterns.
+/// A list value is an 8-byte handle block `[data_ptr: i32, pad: i32]` in linear memory.
+/// The `data_ptr` points to the dynamically resizable buffer `[len: i32, cap: i32, elements: [i64; cap]]`.
+/// Handlers never change address across growth, ensuring reference identity is preserved.
 fn build_list_new_function(alloc_func_idx: u32) -> Function {
-    let mut func = Function::new([(1, ValType::I32)]);
-    // bytes = 8 header/padding + len * 8 per element
+    let mut func = Function::new([(4, ValType::I32)]);
+    // local 0: len (param)
+    // local 1: cap
+    // local 2: buf_size
+    // local 3: buf_ptr
+    // local 4: handle_ptr
+
+    // cap = if len < 8 { 8 } else { len }
     func.instruction(&Instruction::LocalGet(0));
-    func.instruction(&Instruction::I64ExtendI32U);
-    func.instruction(&Instruction::I64Const(8));
-    func.instruction(&Instruction::I64Mul);
-    func.instruction(&Instruction::I64Const(8));
-    func.instruction(&Instruction::I64Add);
-    func.instruction(&Instruction::I32WrapI64);
-    func.instruction(&Instruction::Call(alloc_func_idx));
+    func.instruction(&Instruction::I32Const(8));
+    func.instruction(&Instruction::I32GeS);
+    func.instruction(&Instruction::If(BlockType::Result(ValType::I32)));
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::Else);
+    func.instruction(&Instruction::I32Const(8));
+    func.instruction(&Instruction::End);
     func.instruction(&Instruction::LocalSet(1));
 
-    // store len at offset 0
+    // buf_size = 8 + cap * 8
     func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I32Const(3));
+    func.instruction(&Instruction::I32Shl);
+    func.instruction(&Instruction::I32Const(8));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::LocalSet(2));
+
+    // buf_ptr = alloc(buf_size)
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::Call(alloc_func_idx));
+    func.instruction(&Instruction::LocalSet(3));
+
+    // store len at buf_ptr + 0
+    func.instruction(&Instruction::LocalGet(3));
     func.instruction(&Instruction::LocalGet(0));
     func.instruction(&Instruction::I32Store(MemArg {
         offset: 0,
@@ -1894,15 +2076,52 @@ fn build_list_new_function(alloc_func_idx: u32) -> Function {
         memory_index: 0,
     }));
 
+    // store cap at buf_ptr + 4
+    func.instruction(&Instruction::LocalGet(3));
     func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I32Store(MemArg {
+        offset: 4,
+        align: 2,
+        memory_index: 0,
+    }));
+
+    // handle_ptr = alloc(8)
+    func.instruction(&Instruction::I32Const(8));
+    func.instruction(&Instruction::Call(alloc_func_idx));
+    func.instruction(&Instruction::LocalSet(4));
+
+    // store buf_ptr at handle_ptr + 0
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I32Store(MemArg {
+        offset: 0,
+        align: 2,
+        memory_index: 0,
+    }));
+
+    // return handle_ptr
+    func.instruction(&Instruction::LocalGet(4));
     func.instruction(&Instruction::End);
     func
 }
 
 /// Builds `__aipo_list_get(list_ptr: i32, index: i32) -> i64`.
 fn build_list_get_function() -> Function {
-    let mut func = Function::new([]);
-    // bounds check: if index < 0 trap; if index >= len trap
+    let mut func = Function::new([(1, ValType::I32)]);
+    // local 0: handle_ptr
+    // local 1: index
+    // local 2: buf_ptr
+
+    // buf_ptr = i32.load(handle_ptr + 0)
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::I32Load(MemArg {
+        offset: 0,
+        align: 2,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalSet(2));
+
+    // bounds check: if index < 0 trap
     func.instruction(&Instruction::LocalGet(1));
     func.instruction(&Instruction::I32Const(0));
     func.instruction(&Instruction::I32LtS);
@@ -1910,8 +2129,9 @@ fn build_list_get_function() -> Function {
     func.instruction(&Instruction::Unreachable);
     func.instruction(&Instruction::End);
 
+    // bounds check: if index >= len trap
     func.instruction(&Instruction::LocalGet(1));
-    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::LocalGet(2));
     func.instruction(&Instruction::I32Load(MemArg {
         offset: 0,
         align: 2,
@@ -1922,8 +2142,8 @@ fn build_list_get_function() -> Function {
     func.instruction(&Instruction::Unreachable);
     func.instruction(&Instruction::End);
 
-    // element address = list_ptr + index * 8, then load at the +8 header
-    func.instruction(&Instruction::LocalGet(0));
+    // element address = buf_ptr + 8 + index * 8
+    func.instruction(&Instruction::LocalGet(2));
     func.instruction(&Instruction::LocalGet(1));
     func.instruction(&Instruction::I32Const(3));
     func.instruction(&Instruction::I32Shl);
@@ -1940,7 +2160,13 @@ fn build_list_get_function() -> Function {
 /// Builds `__aipo_list_len(list_ptr: i32) -> i64`.
 fn build_list_len_function() -> Function {
     let mut func = Function::new([]);
+    // local 0: handle_ptr
     func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::I32Load(MemArg {
+        offset: 0,
+        align: 2,
+        memory_index: 0,
+    }));
     func.instruction(&Instruction::I32Load(MemArg {
         offset: 0,
         align: 2,
@@ -1953,7 +2179,21 @@ fn build_list_len_function() -> Function {
 
 /// Builds `__aipo_list_set(list_ptr: i32, index: i32, value: i64) -> i64`.
 fn build_list_set_function() -> Function {
-    let mut func = Function::new([]);
+    let mut func = Function::new([(1, ValType::I32)]);
+    // local 0: handle_ptr
+    // local 1: index
+    // local 2: value
+    // local 3: buf_ptr
+
+    // buf_ptr = i32.load(handle_ptr + 0)
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::I32Load(MemArg {
+        offset: 0,
+        align: 2,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalSet(3));
+
     // bounds check: if index < 0 or index >= len trap
     func.instruction(&Instruction::LocalGet(1));
     func.instruction(&Instruction::I32Const(0));
@@ -1963,7 +2203,7 @@ fn build_list_set_function() -> Function {
     func.instruction(&Instruction::End);
 
     func.instruction(&Instruction::LocalGet(1));
-    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::LocalGet(3));
     func.instruction(&Instruction::I32Load(MemArg {
         offset: 0,
         align: 2,
@@ -1974,8 +2214,8 @@ fn build_list_set_function() -> Function {
     func.instruction(&Instruction::Unreachable);
     func.instruction(&Instruction::End);
 
-    // element address = list_ptr + index * 8, stored at the +8 header offset
-    func.instruction(&Instruction::LocalGet(0));
+    // element address = buf_ptr + 8 + index * 8
+    func.instruction(&Instruction::LocalGet(3));
     func.instruction(&Instruction::LocalGet(1));
     func.instruction(&Instruction::I32Const(3));
     func.instruction(&Instruction::I32Shl);
@@ -1987,6 +2227,180 @@ fn build_list_set_function() -> Function {
         memory_index: 0,
     }));
     func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::End);
+    func
+}
+
+/// Builds `__aipo_list_add(list_ptr: i32, value: i64) -> i64`.
+///
+/// Appends an item to the list, expanding the backing buffer exponentially (2x) when full.
+fn build_list_add_function(alloc_func_idx: u32) -> Function {
+    let mut func = Function::new([(6, ValType::I32)]);
+    // local 0: handle_ptr (param)
+    // local 1: val (param i64)
+    // local 2: buf_ptr
+    // local 3: len
+    // local 4: cap
+    // local 5: new_cap
+    // local 6: new_buf
+    // local 7: i
+
+    // buf_ptr = i32.load(handle_ptr + 0)
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::I32Load(MemArg {
+        offset: 0,
+        align: 2,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalSet(2));
+
+    // len = i32.load(buf_ptr + 0)
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I32Load(MemArg {
+        offset: 0,
+        align: 2,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalSet(3));
+
+    // cap = i32.load(buf_ptr + 4)
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I32Load(MemArg {
+        offset: 4,
+        align: 2,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalSet(4));
+
+    // if len >= cap { grow }
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I32GeS);
+    func.instruction(&Instruction::If(BlockType::Empty));
+
+    // new_cap = if cap <= 0 { 8 } else { cap * 2 }
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I32Const(0));
+    func.instruction(&Instruction::I32LeS);
+    func.instruction(&Instruction::If(BlockType::Result(ValType::I32)));
+    func.instruction(&Instruction::I32Const(8));
+    func.instruction(&Instruction::Else);
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I32Const(1));
+    func.instruction(&Instruction::I32Shl);
+    func.instruction(&Instruction::End);
+    func.instruction(&Instruction::LocalSet(5));
+
+    // new_buf = alloc(8 + new_cap * 8)
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::I32Const(3));
+    func.instruction(&Instruction::I32Shl);
+    func.instruction(&Instruction::I32Const(8));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::Call(alloc_func_idx));
+    func.instruction(&Instruction::LocalSet(6));
+
+    // new_buf[0] = len
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I32Store(MemArg {
+        offset: 0,
+        align: 2,
+        memory_index: 0,
+    }));
+
+    // new_buf[4] = new_cap
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::I32Store(MemArg {
+        offset: 4,
+        align: 2,
+        memory_index: 0,
+    }));
+
+    // copy loop: i = 0; while i < len { new_buf[8 + i*8] = buf_ptr[8 + i*8]; i++ }
+    func.instruction(&Instruction::I32Const(0));
+    func.instruction(&Instruction::LocalSet(7));
+    func.instruction(&Instruction::Block(BlockType::Empty));
+    func.instruction(&Instruction::Loop(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(7));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I32GeS);
+    func.instruction(&Instruction::BrIf(1));
+
+    // dst = new_buf + (i << 3)
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::LocalGet(7));
+    func.instruction(&Instruction::I32Const(3));
+    func.instruction(&Instruction::I32Shl);
+    func.instruction(&Instruction::I32Add);
+
+    // src = buf_ptr + (i << 3)
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::LocalGet(7));
+    func.instruction(&Instruction::I32Const(3));
+    func.instruction(&Instruction::I32Shl);
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::I64Load(MemArg {
+        offset: 8,
+        align: 3,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::I64Store(MemArg {
+        offset: 8,
+        align: 3,
+        memory_index: 0,
+    }));
+
+    // i += 1
+    func.instruction(&Instruction::LocalGet(7));
+    func.instruction(&Instruction::I32Const(1));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::LocalSet(7));
+    func.instruction(&Instruction::Br(0));
+    func.instruction(&Instruction::End); // loop
+    func.instruction(&Instruction::End); // block
+
+    // handle_ptr[0] = new_buf
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::I32Store(MemArg {
+        offset: 0,
+        align: 2,
+        memory_index: 0,
+    }));
+
+    // buf_ptr = new_buf
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::LocalSet(2));
+
+    func.instruction(&Instruction::End); // if len >= cap
+
+    // store val at buf_ptr + 8 + (len << 3)
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I32Const(3));
+    func.instruction(&Instruction::I32Shl);
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I64Store(MemArg {
+        offset: 8,
+        align: 3,
+        memory_index: 0,
+    }));
+
+    // update len at buf_ptr + 0 = len + 1
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I32Const(1));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::I32Store(MemArg {
+        offset: 0,
+        align: 2,
+        memory_index: 0,
+    }));
+
+    func.instruction(&Instruction::I64Const(0));
     func.instruction(&Instruction::End);
     func
 }
@@ -2236,10 +2650,14 @@ fn collect_expr_strings(
 
 /// Resolves the Wasm type for a function parameter.
 fn param_wasm_type(param: &HirParam) -> WasmType {
+    if param.name == "self" || param.is_self {
+        return WasmType::I32;
+    }
     if let Some(ty) = &param.type_annotation {
         match ty.name.as_str() {
             "Float" => WasmType::F64,
             "Bool" => WasmType::I32,
+            "String" => WasmType::I32,
             _ => WasmType::I64,
         }
     } else {
@@ -2249,6 +2667,7 @@ fn param_wasm_type(param: &HirParam) -> WasmType {
 
 /// Resolves the return type from explicit annotation or infers it from the function body.
 fn resolve_return_type(
+    func_name: &str,
     annot: &Option<aipo_ast::TypeAnnotation>,
     params: &[HirParam],
     body: &[HirStmt],
@@ -2265,6 +2684,11 @@ fn resolve_return_type(
             _ => Some(WasmType::I64),
         }
     } else {
+        let struct_target = if func_name.contains('.') {
+            func_name.split('.').next()
+        } else {
+            None
+        };
         let mut locals = HashMap::new();
         for (i, param) in params.iter().enumerate() {
             let ty = param_wasm_type(param);
@@ -2276,6 +2700,10 @@ fn resolve_return_type(
                     other if structs.contains_key(other) => LocalKind::Struct(other.to_string()),
                     _ => LocalKind::Int,
                 }
+            } else if (param.name == "self" || param.is_self)
+                && struct_target.is_some_and(|s| structs.contains_key(s))
+            {
+                LocalKind::Struct(struct_target.unwrap().to_string())
             } else {
                 LocalKind::Int
             };
@@ -2799,6 +3227,12 @@ fn compile_function_body(
     let mut locals: HashMap<String, (u32, WasmType, LocalKind)> = HashMap::new();
     let mut declared_locals: Vec<WasmType> = Vec::new();
 
+    let struct_target = if _func_name.contains('.') {
+        _func_name.split('.').next()
+    } else {
+        None
+    };
+
     // Map parameters to locals 0..params.len()
     for (i, param) in params.iter().enumerate() {
         let ty = param_wasm_type(param);
@@ -2810,6 +3244,10 @@ fn compile_function_body(
                 other if structs.contains_key(other) => LocalKind::Struct(other.to_string()),
                 _ => LocalKind::Int,
             }
+        } else if (param.name == "self" || param.is_self)
+            && struct_target.is_some_and(|s| structs.contains_key(s))
+        {
+            LocalKind::Struct(struct_target.unwrap().to_string())
         } else {
             LocalKind::Int
         };
@@ -4753,31 +5191,6 @@ fn compile_attempt_stmt(
     Ok(())
 }
 
-/// Helper to get span from statement.
-#[allow(dead_code)]
-fn program_stmt_span(stmt: &HirStmt) -> SourceSpan {
-    match stmt {
-        HirStmt::Let(_, _, span)
-        | HirStmt::Var(_, _, span)
-        | HirStmt::Assign(_, _, span)
-        | HirStmt::CompoundAssign(_, _, _, span)
-        | HirStmt::Loop(_, span)
-        | HirStmt::While(_, _, span)
-        | HirStmt::Repeat(_, _, _, span)
-        | HirStmt::Each(_, _, _, span)
-        | HirStmt::Break(span)
-        | HirStmt::Continue(span)
-        | HirStmt::Return(_, span)
-        | HirStmt::Fail(_, span)
-        | HirStmt::AwaitDo(_, span) => *span,
-        HirStmt::If(s) => s.span,
-        HirStmt::Match(s) => s.span,
-        HirStmt::Attempt(s) => s.span,
-        HirStmt::FnDecl(f) => f.span,
-        HirStmt::Expr(e) => e.span(),
-    }
-}
-
 /// Compresses a slice of local types into run-length encoded `(count, ValType)` pairs.
 fn compress_locals(types: &[WasmType]) -> Vec<(u32, ValType)> {
     let mut compressed = Vec::new();
@@ -5674,6 +6087,185 @@ fn compile_expr(
                             struct_depth,
                             call_depth,
                         );
+                    }
+                }
+            }
+
+            // Case 0.8: List `.add(...)` dynamic append
+            if let HirExpr::Dot(receiver, method_name, _) = &**callee {
+                if method_name == "add" && args.len() == 1 {
+                    let receiver_kind =
+                        infer_expr_kind(receiver, locals, functions, table_indices, anon_map);
+                    let is_struct_method = match &receiver_kind {
+                        LocalKind::Struct(s) => functions.contains_key(&format!("{s}.add")),
+                        _ => false,
+                    };
+                    if !is_struct_method {
+                        let (list_add_idx, _, _) = functions["__aipo_list_add"];
+                        let r_ty = compile_expr(
+                            receiver,
+                            func,
+                            locals,
+                            functions,
+                            control_stack,
+                            structs,
+                            static_strings,
+                            table_indices,
+                            anon_map,
+                            indirect_sigs,
+                            alloc_func_idx,
+                            async_helpers,
+                            struct_depth,
+                            call_depth,
+                        )?;
+                        coerce_type(func, r_ty, WasmType::I32);
+                        let val_ty = compile_expr(
+                            &args[0].value,
+                            func,
+                            locals,
+                            functions,
+                            control_stack,
+                            structs,
+                            static_strings,
+                            table_indices,
+                            anon_map,
+                            indirect_sigs,
+                            alloc_func_idx,
+                            async_helpers,
+                            struct_depth,
+                            call_depth,
+                        )?;
+                        coerce_type(func, val_ty, WasmType::I64);
+                        func.instruction(&Instruction::Call(list_add_idx));
+                        return Ok(WasmType::I64);
+                    }
+                }
+            }
+
+            // Case 0.9: Struct method call: `receiver.method(...)` or static `Type.method(...)`
+            if let HirExpr::Dot(receiver, method_name, _) = &**callee {
+                let static_type_call = if let HirExpr::Identifier(rec_name, _) = &**receiver {
+                    if structs.contains_key(rec_name) && !locals.contains_key(rec_name) {
+                        Some(rec_name.clone())
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                };
+
+                if let Some(type_name) = static_type_call {
+                    let full_name = format!("{type_name}.{method_name}");
+                    if let Some(&(func_idx, _, ref fn_type)) = functions.get(&full_name) {
+                        let fn_type = fn_type.clone();
+                        for (arg, &expected_ty) in args.iter().zip(fn_type.params.iter()) {
+                            let actual_ty = compile_expr(
+                                &arg.value,
+                                func,
+                                locals,
+                                functions,
+                                control_stack,
+                                structs,
+                                static_strings,
+                                table_indices,
+                                anon_map,
+                                indirect_sigs,
+                                alloc_func_idx,
+                                async_helpers,
+                                struct_depth,
+                                call_depth,
+                            )?;
+                            coerce_type(func, actual_ty, expected_ty);
+                        }
+                        func.instruction(&Instruction::Call(func_idx));
+                        if fn_type.results.is_empty() {
+                            func.instruction(&Instruction::I64Const(0));
+                            return Ok(WasmType::I64);
+                        } else {
+                            return Ok(fn_type.results[0]);
+                        }
+                    }
+                } else {
+                    let target_struct_name = match &**receiver {
+                        HirExpr::Identifier(rec_name, _) => {
+                            locals.get(rec_name).and_then(|(_, _, kind)| match kind {
+                                LocalKind::Struct(s_name) => Some(s_name.clone()),
+                                _ => None,
+                            })
+                        }
+                        HirExpr::Construct(s_name, ..) => Some(s_name.clone()),
+                        _ => None,
+                    }
+                    .or_else(|| {
+                        let candidates: Vec<_> = structs
+                            .keys()
+                            .filter(|s| functions.contains_key(&format!("{s}.{method_name}")))
+                            .cloned()
+                            .collect();
+                        if candidates.len() == 1 {
+                            Some(candidates[0].clone())
+                        } else {
+                            None
+                        }
+                    });
+
+                    if let Some(s_name) = target_struct_name {
+                        let full_name = format!("{s_name}.{method_name}");
+                        if let Some(&(func_idx, _, ref fn_type)) = functions.get(&full_name) {
+                            let fn_type = fn_type.clone();
+                            // Argument 0 is receiver `self: i32`
+                            let r_ty = compile_expr(
+                                receiver,
+                                func,
+                                locals,
+                                functions,
+                                control_stack,
+                                structs,
+                                static_strings,
+                                table_indices,
+                                anon_map,
+                                indirect_sigs,
+                                alloc_func_idx,
+                                async_helpers,
+                                struct_depth,
+                                call_depth,
+                            )?;
+                            coerce_type(func, r_ty, WasmType::I32);
+
+                            // Remaining arguments
+                            let expected_params = if fn_type.params.len() > 1 {
+                                &fn_type.params[1..]
+                            } else {
+                                &[]
+                            };
+                            for (arg, &expected_ty) in args.iter().zip(expected_params.iter()) {
+                                let actual_ty = compile_expr(
+                                    &arg.value,
+                                    func,
+                                    locals,
+                                    functions,
+                                    control_stack,
+                                    structs,
+                                    static_strings,
+                                    table_indices,
+                                    anon_map,
+                                    indirect_sigs,
+                                    alloc_func_idx,
+                                    async_helpers,
+                                    struct_depth,
+                                    call_depth,
+                                )?;
+                                coerce_type(func, actual_ty, expected_ty);
+                            }
+
+                            func.instruction(&Instruction::Call(func_idx));
+                            if fn_type.results.is_empty() {
+                                func.instruction(&Instruction::I64Const(0));
+                                return Ok(WasmType::I64);
+                            } else {
+                                return Ok(fn_type.results[0]);
+                            }
+                        }
                     }
                 }
             }
@@ -7187,6 +7779,15 @@ fn infer_expr_type(
                             "sleep" | "cancel" | "race" | "all" => return Ok(WasmType::I64),
                             _ => {}
                         }
+                    }
+                }
+                if method_name == "add" {
+                    return Ok(WasmType::I64);
+                }
+                for s_name in structs.keys() {
+                    let full_name = format!("{s_name}.{method_name}");
+                    if let Some((_, _, fn_type)) = functions.get(&full_name) {
+                        return Ok(fn_type.results.first().copied().unwrap_or(WasmType::I64));
                     }
                 }
             }

@@ -4,7 +4,7 @@ use std::io::Write;
 #[cfg(feature = "wasmtime")]
 use std::sync::{Arc, Mutex};
 #[cfg(feature = "wasmtime")]
-use wasmtime::{Caller, Engine, Linker, Module, Store};
+use wasmtime::{Caller, Config, Engine, Linker, Module, Store};
 
 /// Errors encountered during WebAssembly execution.
 #[derive(Debug)]
@@ -26,6 +26,13 @@ impl std::fmt::Display for WasmRuntimeError {
                     write!(
                         f,
                         "[AIPO_RT_DIV_ZERO] runtime fault [AIPO_RT_DIV_ZERO]: division by zero"
+                    )
+                } else if msg.contains("all fuel consumed by WebAssembly")
+                    || msg.contains("out of fuel")
+                {
+                    write!(
+                        f,
+                        "[AIPO_RT_OVERFLOW] runtime fault [AIPO_RT_OVERFLOW]: execution budget exceeded: fuel limit reached"
                     )
                 } else {
                     write!(f, "Wasm execution error: {msg}")
@@ -70,12 +77,41 @@ impl HostState {
 /// 2. `run`
 /// 3. `main`
 ///
+/// Executes a compiled WebAssembly module, routing host I/O (`print`, `println`) to `stdout`.
+///
+/// Looks for an entrypoint function in the following priority order:
+/// 1. `__top_level__`
+/// 2. `run`
+/// 3. `main`
+///
 /// # Errors
 ///
 /// Returns a [`WasmRuntimeError`] if instantiation fails or execution traps.
 #[cfg(feature = "wasmtime")]
 pub fn execute_wasm(wasm_bytes: &[u8], stdout: &mut dyn Write) -> Result<i64, WasmRuntimeError> {
-    let engine = Engine::default();
+    execute_wasm_with_fuel(wasm_bytes, stdout, None)
+}
+
+/// Executes a compiled WebAssembly module with optional execution fuel budget (S6 / ADP-003).
+///
+/// If `fuel` is `Some(limit)`, execution consumes fuel on each WebAssembly instruction and
+/// traps with an out-of-fuel error if the budget is exhausted. Passing `None` runs with unlimited fuel.
+///
+/// # Errors
+///
+/// Returns a [`WasmRuntimeError`] if instantiation fails or execution traps.
+#[cfg(feature = "wasmtime")]
+pub fn execute_wasm_with_fuel(
+    wasm_bytes: &[u8],
+    stdout: &mut dyn Write,
+    fuel: Option<u64>,
+) -> Result<i64, WasmRuntimeError> {
+    let mut config = Config::new();
+    if fuel.is_some() {
+        config.consume_fuel(true);
+    }
+    let engine =
+        Engine::new(&config).map_err(|e| WasmRuntimeError::Instantiation(e.to_string()))?;
     let module = Module::new(&engine, wasm_bytes)
         .map_err(|e| WasmRuntimeError::Instantiation(e.to_string()))?;
 
@@ -84,6 +120,11 @@ pub fn execute_wasm(wasm_bytes: &[u8], stdout: &mut dyn Write) -> Result<i64, Wa
         output: Arc::clone(&output),
     };
     let mut store = Store::new(&engine, state);
+    if let Some(limit) = fuel {
+        store
+            .set_fuel(limit)
+            .map_err(|e| WasmRuntimeError::Instantiation(e.to_string()))?;
+    }
     let mut linker = Linker::new(&engine);
 
     // Register host I/O functions under module "aipo_host"
@@ -212,4 +253,17 @@ pub fn execute_wasm(_wasm_bytes: &[u8], _stdout: &mut dyn Write) -> Result<i64, 
         "WebAssembly JIT execution is disabled in this build (wasmtime feature not enabled)"
             .to_string(),
     ))
+}
+
+/// Fallback execution function with fuel when `wasmtime` is disabled.
+///
+/// # Errors
+/// Always returns [`WasmRuntimeError::Execution`] indicating that the execution engine is disabled.
+#[cfg(not(feature = "wasmtime"))]
+pub fn execute_wasm_with_fuel(
+    wasm_bytes: &[u8],
+    stdout: &mut dyn Write,
+    _fuel: Option<u64>,
+) -> Result<i64, WasmRuntimeError> {
+    execute_wasm(wasm_bytes, stdout)
 }

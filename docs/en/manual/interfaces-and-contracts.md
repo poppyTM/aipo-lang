@@ -30,7 +30,7 @@ io.println(s.id)     # "srv-1"
 io.println(s.status) # "online"
 ```
 
-Reassigning an immutable field after construction triggers the static semantic diagnostic `AIPO_SEM_IMMUTABLE_FIELD_REASSIGN`.
+Reassigning an immutable field after construction triggers the static semantic diagnostic `AIPO_SEM_FIXED_REASSIGN`.
 
 ---
 

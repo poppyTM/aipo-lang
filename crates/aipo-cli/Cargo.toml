@@ -2,6 +2,7 @@
 name = "aipo-cli"
 description = "Command-line interface for the Aipo programming language"
 publish = false
+default-run = "aipo"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true

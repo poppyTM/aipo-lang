@@ -5,6 +5,54 @@ O formato baseia-se no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 ## [0.11.0] - Em desenvolvimento (Trilha WebAssembly & Self-Hosting)
 
+- **Substrato de Execução WebAssembly & C ABI (ADP-009, ADP-013)**:
+  - **Expansão do Backend WebAssembly (`crates/aipo-wasm`)**:
+    - **Crescimento Dinâmico de Listas e Buffer Geométrico**: Refatoração do layout de listas para ponteiro indireto estável (`[data_ptr: i32]`) apontando para buffer redimensionável (`[len: i32, cap: i32, elements: [i64; cap]]`). Implementada rotina `__aipo_list_add` com realocação geométrica 2x em memória linear e lowering direto de `list.add(item)`.
+    - **Compilação e Despacho de Métodos de Structs**: Coleta e compilação de blocos `HirItem::Impl` (incluindo `init` e métodos com receptor `self: i32`), funções batch `Tipo:nome`, e despacho polimórfico de chamadas de método (`receiver.method(args)`) e chamadas estáticas (`Type.method(args)`).
+    - **Workloads `fields` e `collections` no Wasm**: Cobertura com novos testes de ponta a ponta (`test_list_dynamic_add_growth`, `test_struct_methods_invocation_and_mutation`, `test_benchmark_fields_workload_on_wasm`) executados via Cranelift JIT / Wasmtime.
+  - **Evolução e Novos Exports na C ABI (`crates/aipo-c-abi`, `include/aipo.h`)**:
+    - **Suporte a Bytecode Pré-compilado**: `aipo_compile_to_bytecode`, `aipo_bytecode_free` e `aipo_runtime_load_bytecode` para compilação externa, serialização binária `.aibc` v1 e carregamento atômico direto sem passar pelo frontend.
+    - **Passo-a-passo Cooperativo e Iteração Limitada**: `aipo_runtime_prepare_module`, `aipo_runtime_step` e `aipo_runtime_run_until_idle` com controle de orçamentos de instruções e frame stepping.
+    - **Compilação e Execução de Wasm via C ABI**: `aipo_wasm_compile`, `aipo_wasm_free` e `aipo_wasm_run` integrando execução JIT com orçamentação estrita de fuel (`fuel > 0`).
+    - **Sincronização do Cabeçalho C**: Declarações e documentação Doxygen canônicas no header `crates/aipo-c-abi/include/aipo.h`. Suíte de testes de integração exaustiva com 100% de aprovação.
+
+  - **Wasm Host I/O Scanner em Match Arms e Funções Locais (`aipo-wasm`)**:
+    - Corrigido `scan_stmts_for_io` e `scan_expr_for_io` em `crates/aipo-wasm/src/compiler.rs` para inspecionar recursivamente braços `match` (`when_arms`), funções locais (`HirStmt::FnDecl`), listas, indexações e métodos (`HirItem::Impl`), garantindo a geração de imports de I/O de host no Wasm mesmo quando as chamadas ocorrem exclusivamente no interior dessas construções.
+    - Eliminado código morto (`program_stmt_span`, helpers assíncronos não utilizados em `AsyncHelpers`).
+    - Adicionado teste de regressão ponta a ponta `test_host_io_in_match_arms_without_outer_io` com execução via Wasmtime.
+  - **Constante `math.tau` Canônica na Stdlib e Runtime JS (`aipo-stdlib`, `aipo-js`)**:
+    - Adicionada constante `math.tau = 6.283185307179586` ($\tau = 2\pi$) na biblioteca padrão Rust (`crates/aipo-stdlib/src/math.rs`) e no runtime ESM JavaScript (`crates/aipo-js/runtime/aipo-runtime.js`).
+    - Testado com asserções estritas de precisão em `crates/aipo-stdlib/tests/stdlib_tests.rs`.
+  - **Construtor de Conjunto Vazio `Set()` Sem Argumentos (`aipo-stdlib`, `aipo-vm`, `aipo-js`)**:
+    - Habilitada a invocação de `Set()` sem argumentos para criação direta de conjuntos vazios na VM (`crates/aipo-stdlib/src/convert.rs`, `crates/aipo-vm/src/convert.rs`) e no runtime JS (`crates/aipo-js/runtime/aipo-runtime.js`).
+    - Adicionado teste unitário `test_empty_set_creation` e validada execução pelo CLI `aipo-sh -c`.
+  - **Sincronização do Cabeçalho C ABI (`crates/aipo-c-abi/include/aipo.h`)**:
+    - Adicionados os protótipos de embedding e controle da Register VM em C: `aipo_reg_vm_t`, `aipo_reg_vm_create`, `aipo_reg_vm_destroy`, `aipo_reg_vm_set_reg_int`, `aipo_reg_vm_get_reg_int`, `aipo_reg_vm_run`.
+    - 100% dos testes da C ABI aprovados, incluindo harness C nativo.
+  - **Suíte de Testes Automatizada para `aipo-egui` (`packages/aipo-egui`)**:
+    - Criado arquivo de testes `packages/aipo-egui/tests/egui_test.aipo` cobrindo ciclo de vida de contexto, renderização de frames imediatos, layout de janelas e consulta de estado de input.
+    - Integrado `aipo-egui` à suíte de verificação contínua de pacotes em `crates/aipo-cli/tests/package_suites.rs`.
+  - **Sincronização e Harmonização da Documentação**:
+    - Atualizado `SYNTAX.md` formalizando a remoção definitiva das construções legadas (`end`, `div`, `self!`) e a integração de `Tipo:nome`, `Tipo::[...]`, `#!satisfies`, `#!test` e `enum`.
+    - Documentadas as opções `--engine=<vm|reg>`, `--budget=<N>` e `--max-instructions=<N>` em `docs/reference/cli.md`.
+    - Sincronizado o nome do diagnóstico de reatribuição de campos imutáveis (`AIPO_SEM_FIXED_REASSIGN`) em todos os manuais técnicos e decisões arquiteturais.
+
+  - **AIPO-OMNI-001 (Canários de Vazamento de Memória / `CountingAllocator`)**:
+    - Implementado `CountingAllocator` em `crates/aipo-testkit` monitorando alocações atômicas em nível global.
+    - Suíte com 8 canários de churn (`leak_canaries.rs`) cobrindo Stack VM, closures e upvalues, RegVm, frontend/HIR/sema, compilador de bytecode, compilador Wasm, `HandleTable` geracional e embedding scoped, certificando $\Delta \text{bytes} = 0$.
+  - **AIPO-OMNI-002 (Instruction Budget Ininterceptável e Sticky)**:
+    - Endurecida a proteção contra negação de serviço e loops infinitos (`while true { }`): falhas de esgotamento de quota de instruções (`VmFault::BudgetExhausted`) são ininterceptáveis pelo construto de linguagem `attempt { ... }`.
+    - Garantido desbobinamento incondicional de pilha e propagação de estado sticky em `Vm`, `RegVm`, runtime Wasm e CLI (`--budget`, `--max-instructions`).
+  - **AIPO-OMNI-003 (API de Embedding Rust Scoped / `AipoEngine::scope`)**:
+    - Implementada fachada de embedding ergonômica e segura em Rust puro (`AipoEngine::scope`) com suporte a handles temporários `ScopedHandle<'scope>` e injeção de userdata em `HandleTable` geracional.
+    - Prevenção garantida de escape de referências (`AIPO_RT_SCOPE_ESCAPE`), invalidação automática de handles no descarte do escopo e zero código `unsafe`.
+  - **AIPO-OMNI-004 (Tarifação Periódica de Fuel no Despacho / Interval Metering)**:
+    - Amortizado o custo de verificação de limites de instrução no loop principal de despacho da Stack VM e da `RegVm`.
+    - O consumo de fuel é debitado deterministicamente, mas a verificação de estouro ocorre a cada `DEFAULT_METER_INTERVAL = 64` instruções (configurável via `set_meter_interval` e no `AipoEngineBuilder`), eliminando 98.4% das checagens de branch no caminho quente, com reconciliação estrita na saída de módulos e em opcodes de retorno.
+  - **AIPO-OMNI-005 (Janelas de Registrador na `RegVm` / Register Windowing)**:
+    - Eliminada a cópia cega de 256 `Value`s (4 KiB) e alocações de `Value::None` por ativação de função em `RegVm::invoke_with_upvalues`.
+    - Implementada pilha contígua `register_stack: Vec<Value>` onde apenas os registradores ativos do chamador (`0..callee_regs`) são salvos e restaurados cirurgicamente, preservando isolamento em chamadas recursivas e reduzindo o tráfego de memória de pilha em até 98.8% sem qualquer `unsafe`.
+
 - **Referência canônica de sintaxe (`SYNTAX.md`)**:
   - Novo documento normativo na raiz extraído do compilador (`aipo-lexer`, `aipo-syntax`, `aipo-ast`), não da prosa: 46 keywords e 36 operadores, as duas terminações de bloco (`end` e `{ }`), e os limites de aninhamento do ADP-005.
   - Fecha lacunas do manual, que omitia `fixed`, `end`, `satisfy`, `div` e `do`, nunca declarava `#` como único comentário e não alertava que `//` é divisão inteira.

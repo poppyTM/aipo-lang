@@ -46,6 +46,8 @@ pub(crate) fn from_json(text: &str) -> Result<PreludeSurface, aipo_host::HostFau
                                 optional: param.is_optional,
                             })
                             .collect(),
+                        // An AHS names every parameter it accepts, so its arity is exact.
+                        variadic: false,
                     },
                 )
             })

@@ -176,6 +176,64 @@ fn test_binary_cli_consumes_ahs_and_emits_jsonl_contract_errors() {
     assert!(String::from_utf8_lossy(&unknown.stderr).contains("AIPO_SEM_UNKNOWN_NAME"));
 }
 
+/// The prelude modules are the standard library's own host surface. Without member
+/// signatures, `check` accepted *any* `modulo.membro`, so a typo like `math.nope(1.0)`
+/// or a documented-but-absent `task.now()` passed the frontend and only faulted at
+/// runtime with `AIPO_RT_KEY_NOT_FOUND`.
+#[test]
+fn test_prelude_module_members_are_checked_against_the_runtime() {
+    let (code, _, stderr) = run_source(
+        "prelude-member-ok",
+        "io.println(String(math.sqrt(4.0)))",
+        &[],
+    );
+    assert_eq!(code, EXIT_SUCCESS, "{stderr}");
+
+    // Open-ended natives (`Value::native(.., usize::MAX, ..)`) record a lower bound,
+    // so the extra arguments they genuinely accept must stay accepted.
+    for (name, program) in [
+        (
+            "prelude-variadic-join",
+            "io.println(path.join(\"a\", \"b\", \"c\"))",
+        ),
+        (
+            "prelude-variadic-log",
+            "log.info(\"mensagem\", {\"campo\": \"valor\"})",
+        ),
+        ("prelude-variadic-approx", "expect.approx(0.1, 0.2, 0.5)"),
+    ] {
+        let (code, _, stderr) = run_source(name, program, &[]);
+        assert_eq!(code, EXIT_SUCCESS, "{name}: {stderr}");
+    }
+
+    for (name, program, expected) in [
+        (
+            "prelude-member-unknown",
+            "io.println(String(math.nope(1.0)))",
+            "unknown host member 'math.nope'",
+        ),
+        (
+            "prelude-member-absent",
+            "io.println(String(task.now()))",
+            "unknown host member 'task.now'",
+        ),
+        (
+            "prelude-member-wrong-arity",
+            "io.println(String(math.sqrt(1.0, 2.0)))",
+            "AIPO_SEM_ARITY_MISMATCH",
+        ),
+        (
+            "prelude-member-too-few",
+            "io.println(path.join())",
+            "AIPO_SEM_ARITY_MISMATCH",
+        ),
+    ] {
+        let (code, _, stderr) = run_source(name, program, &[]);
+        assert_eq!(code, EXIT_LANGUAGE_FAILURE, "{name}: {stderr}");
+        assert!(stderr.contains(expected), "{name}: {stderr}");
+    }
+}
+
 #[test]
 fn test_a_missing_surface_file_is_a_usage_error() {
     let (code, _stdout, stderr) = run_cli(&[

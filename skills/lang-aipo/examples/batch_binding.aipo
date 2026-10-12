@@ -2,8 +2,8 @@
 export Retangulo, calcular_area, calcular_perimetro, escalar
 
 struct Retangulo {
-    largura: Float     # Tipagem de campos opcional, mas fortemente recomendada
-    altura: Float
+    var largura: Float     # Tipagem de campos opcional, mas fortemente recomendada
+    var altura: Float      # `var` porque `escalar` muta os dois
 }
 
 Retangulo:invariant {

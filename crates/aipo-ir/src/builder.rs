@@ -935,6 +935,16 @@ impl IrBuilder {
         name
     }
 
+    /// Checks whether an identifier name is referenced inside a function body.
+    fn references_name(&self, f: &HirFunctionExpr, name: &str) -> bool {
+        let mut free = Vec::new();
+        let mut seen = HashSet::new();
+        for stmt in &f.body {
+            collect_free_stmt(stmt, &mut seen, &mut free);
+        }
+        free.iter().any(|n| n == name)
+    }
+
     /// Returns the names referenced by a closure body that resolve to an enclosing scope.
     fn enclosing_captures(&mut self, f: &HirFunctionExpr) -> Vec<String> {
         let mut free = Vec::new();
@@ -1041,24 +1051,35 @@ impl IrBuilder {
                     span: f.span,
                 };
                 let captures = self.enclosing_captures(&fn_expr);
-                let captures = if captures.iter().any(|c| c == &self_capture) {
-                    captures
+                let is_self_recursive = self.references_name(&fn_expr, &self_capture);
+                if is_self_recursive {
+                    let captures = if captures.iter().any(|c| c == &self_capture) {
+                        captures
+                    } else {
+                        let mut with_self = vec![self_capture.clone()];
+                        with_self.extend(captures);
+                        with_self
+                    };
+                    let name = self.build_closure(&fn_expr, &captures, Some(&self_capture));
+                    out.push(CoreInst::MakeClosure {
+                        name,
+                        upvalues: captures,
+                        self_capture: Some(self_capture.clone()),
+                        span: f.span,
+                    });
+                    out.push(CoreInst::FillSelfCapture {
+                        name: self_capture,
+                        span: f.span,
+                    });
                 } else {
-                    let mut with_self = vec![self_capture.clone()];
-                    with_self.extend(captures);
-                    with_self
-                };
-                let name = self.build_closure(&fn_expr, &captures, Some(&self_capture));
-                out.push(CoreInst::MakeClosure {
-                    name,
-                    upvalues: captures,
-                    self_capture: Some(self_capture.clone()),
-                    span: f.span,
-                });
-                out.push(CoreInst::FillSelfCapture {
-                    name: self_capture,
-                    span: f.span,
-                });
+                    let name = self.build_closure(&fn_expr, &captures, None);
+                    out.push(CoreInst::MakeClosure {
+                        name,
+                        upvalues: captures,
+                        self_capture: None,
+                        span: f.span,
+                    });
+                }
                 self.fn_stack
                     .last_mut()
                     .expect("a function context is always active")

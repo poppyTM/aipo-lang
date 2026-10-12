@@ -646,3 +646,338 @@ pub unsafe extern "C" fn aipo_reg_vm_run(
         Err(_) => aipo_status_t::AIPO_ERR_FAULT,
     }
 }
+
+/// Loads and executes an already compiled Aipo bytecode module (.aibc).
+///
+/// # Safety
+/// `rt` must point to a live [`aipo_runtime_t`]. `name` must point to a valid null-terminated C string.
+/// `bytecode` must point to a buffer of at least `len` bytes.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aipo_runtime_load_bytecode(
+    rt: *mut aipo_runtime_t,
+    name: *const c_char,
+    bytecode: *const u8,
+    len: usize,
+) -> aipo_status_t {
+    if rt.is_null() || name.is_null() || (bytecode.is_null() && len > 0) {
+        return aipo_status_t::AIPO_ERR_NULL_POINTER;
+    }
+    if crate::runtime::in_host_callback() {
+        return aipo_status_t::AIPO_ERR_USAGE;
+    }
+    let result = catch_unwind(AssertUnwindSafe(|| {
+        let runtime = unsafe { &mut *rt };
+        let name_str = match unsafe { std::ffi::CStr::from_ptr(name) }.to_str() {
+            Ok(s) => s,
+            Err(e) => {
+                runtime.last_error = Some(format!("invalid UTF-8 in module name: {e}"));
+                return aipo_status_t::AIPO_ERR_USAGE;
+            }
+        };
+        let bytes = if len == 0 {
+            &[]
+        } else {
+            unsafe { std::slice::from_raw_parts(bytecode, len) }
+        };
+        match runtime.load_bytecode(name_str, bytes) {
+            Ok(()) => aipo_status_t::AIPO_OK,
+            Err((status, msg)) => {
+                runtime.last_error = Some(msg);
+                status
+            }
+        }
+    }));
+    result.unwrap_or(aipo_status_t::AIPO_ERR_FAULT)
+}
+
+/// Compiles Aipo source code to precompiled bytecode (.aibc).
+///
+/// On success, allocates a buffer containing bytecode bytes, sets `*out_bytes` and `*out_len`.
+/// The caller must free this buffer using [`aipo_bytecode_free`].
+///
+/// # Safety
+/// `source` must point to valid UTF-8 bytes of length `source_len` (or null-terminated if `source_len == 0`).
+/// `out_bytes` and `out_len` must point to valid writable locations.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aipo_compile_to_bytecode(
+    source: *const c_char,
+    source_len: usize,
+    out_bytes: *mut *mut u8,
+    out_len: *mut usize,
+) -> aipo_status_t {
+    if source.is_null() || out_bytes.is_null() || out_len.is_null() {
+        return aipo_status_t::AIPO_ERR_NULL_POINTER;
+    }
+    let result = catch_unwind(AssertUnwindSafe(|| {
+        let src_str = if source_len > 0 {
+            let slice = unsafe { std::slice::from_raw_parts(source.cast::<u8>(), source_len) };
+            match std::str::from_utf8(slice) {
+                Ok(s) => s,
+                Err(_) => return aipo_status_t::AIPO_ERR_USAGE,
+            }
+        } else {
+            match unsafe { std::ffi::CStr::from_ptr(source) }.to_str() {
+                Ok(s) => s,
+                Err(_) => return aipo_status_t::AIPO_ERR_USAGE,
+            }
+        };
+
+        match AipoRuntime::compile_bytecode(src_str) {
+            Ok(bytes) => {
+                let len = bytes.len();
+                let mut boxed = bytes.into_boxed_slice();
+                let ptr = boxed.as_mut_ptr();
+                std::mem::forget(boxed);
+                unsafe {
+                    *out_bytes = ptr;
+                    *out_len = len;
+                }
+                aipo_status_t::AIPO_OK
+            }
+            Err((status, _msg)) => status,
+        }
+    }));
+    result.unwrap_or(aipo_status_t::AIPO_ERR_FAULT)
+}
+
+/// Frees a bytecode buffer previously allocated by [`aipo_compile_to_bytecode`].
+///
+/// # Safety
+/// If non-null, `bytes` must be a pointer returned by [`aipo_compile_to_bytecode`] with matching `len`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aipo_bytecode_free(bytes: *mut u8, len: usize) {
+    if bytes.is_null() || len == 0 {
+        return;
+    }
+    let _ = catch_unwind(AssertUnwindSafe(|| {
+        let slice_ptr = std::ptr::slice_from_raw_parts_mut(bytes, len);
+        drop(unsafe { Box::from_raw(slice_ptr) });
+    }));
+}
+
+/// Prepares a loaded module for execution or stepping from instruction 0.
+///
+/// # Safety
+/// `rt` must point to a live [`aipo_runtime_t`]. `module_name` must point to a valid null-terminated C string.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aipo_runtime_prepare_module(
+    rt: *mut aipo_runtime_t,
+    module_name: *const c_char,
+) -> aipo_status_t {
+    if rt.is_null() || module_name.is_null() {
+        return aipo_status_t::AIPO_ERR_NULL_POINTER;
+    }
+    if crate::runtime::in_host_callback() {
+        return aipo_status_t::AIPO_ERR_USAGE;
+    }
+    let result = catch_unwind(AssertUnwindSafe(|| {
+        let runtime = unsafe { &mut *rt };
+        let name_str = match unsafe { std::ffi::CStr::from_ptr(module_name) }.to_str() {
+            Ok(s) => s,
+            Err(e) => {
+                runtime.last_error = Some(format!("invalid UTF-8 in module name: {e}"));
+                return aipo_status_t::AIPO_ERR_USAGE;
+            }
+        };
+        match runtime.prepare_module(name_str) {
+            Ok(()) => aipo_status_t::AIPO_OK,
+            Err((status, msg)) => {
+                runtime.last_error = Some(msg);
+                status
+            }
+        }
+    }));
+    result.unwrap_or(aipo_status_t::AIPO_ERR_FAULT)
+}
+
+/// Advances the execution of the specified (or last loaded) module by a single step.
+///
+/// # Safety
+/// `rt` must point to a live [`aipo_runtime_t`]. If `module_name` is non-null, it must point to a valid null-terminated C string.
+/// `out_done` must point to a valid writable `bool`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aipo_runtime_step(
+    rt: *mut aipo_runtime_t,
+    module_name: *const c_char,
+    out_done: *mut bool,
+) -> aipo_status_t {
+    if rt.is_null() || out_done.is_null() {
+        return aipo_status_t::AIPO_ERR_NULL_POINTER;
+    }
+    if crate::runtime::in_host_callback() {
+        return aipo_status_t::AIPO_ERR_USAGE;
+    }
+    let result = catch_unwind(AssertUnwindSafe(|| {
+        let runtime = unsafe { &mut *rt };
+        let mod_opt = if module_name.is_null() {
+            None
+        } else {
+            match unsafe { std::ffi::CStr::from_ptr(module_name) }.to_str() {
+                Ok(s) => Some(s),
+                Err(e) => {
+                    runtime.last_error = Some(format!("invalid UTF-8 in module name: {e}"));
+                    return aipo_status_t::AIPO_ERR_USAGE;
+                }
+            }
+        };
+
+        match runtime.step(mod_opt) {
+            Ok(done) => {
+                unsafe { *out_done = done };
+                aipo_status_t::AIPO_OK
+            }
+            Err((status, msg)) => {
+                runtime.last_error = Some(msg);
+                status
+            }
+        }
+    }));
+    result.unwrap_or(aipo_status_t::AIPO_ERR_FAULT)
+}
+
+/// Executes instructions on the specified (or last loaded) module until it finishes or hits `max_steps`.
+///
+/// If `max_steps == 0`, execution proceeds without a step limit until completion or suspension.
+///
+/// # Safety
+/// `rt` must point to a live [`aipo_runtime_t`]. If `module_name` is non-null, it must point to a valid null-terminated C string.
+/// `out_done` must point to a valid writable `bool`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aipo_runtime_run_until_idle(
+    rt: *mut aipo_runtime_t,
+    module_name: *const c_char,
+    max_steps: u64,
+    out_done: *mut bool,
+) -> aipo_status_t {
+    if rt.is_null() || out_done.is_null() {
+        return aipo_status_t::AIPO_ERR_NULL_POINTER;
+    }
+    if crate::runtime::in_host_callback() {
+        return aipo_status_t::AIPO_ERR_USAGE;
+    }
+    let result = catch_unwind(AssertUnwindSafe(|| {
+        let runtime = unsafe { &mut *rt };
+        let mod_opt = if module_name.is_null() {
+            None
+        } else {
+            match unsafe { std::ffi::CStr::from_ptr(module_name) }.to_str() {
+                Ok(s) => Some(s),
+                Err(e) => {
+                    runtime.last_error = Some(format!("invalid UTF-8 in module name: {e}"));
+                    return aipo_status_t::AIPO_ERR_USAGE;
+                }
+            }
+        };
+
+        match runtime.run_until_idle(mod_opt, max_steps) {
+            Ok(done) => {
+                unsafe { *out_done = done };
+                aipo_status_t::AIPO_OK
+            }
+            Err((status, msg)) => {
+                runtime.last_error = Some(msg);
+                status
+            }
+        }
+    }));
+    result.unwrap_or(aipo_status_t::AIPO_ERR_FAULT)
+}
+
+/// Compiles Aipo source code to standalone WebAssembly binary (.wasm).
+///
+/// On success, allocates a buffer containing Wasm bytes, sets `*out_wasm` and `*out_len`.
+/// The caller must free this buffer using [`aipo_wasm_free`].
+///
+/// # Safety
+/// `source` must point to valid UTF-8 bytes of length `source_len` (or null-terminated if `source_len == 0`).
+/// `out_wasm` and `out_len` must point to valid writable locations.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aipo_wasm_compile(
+    source: *const c_char,
+    source_len: usize,
+    out_wasm: *mut *mut u8,
+    out_len: *mut usize,
+) -> aipo_status_t {
+    if source.is_null() || out_wasm.is_null() || out_len.is_null() {
+        return aipo_status_t::AIPO_ERR_NULL_POINTER;
+    }
+    let result = catch_unwind(AssertUnwindSafe(|| {
+        let src_str = if source_len > 0 {
+            let slice = unsafe { std::slice::from_raw_parts(source.cast::<u8>(), source_len) };
+            match std::str::from_utf8(slice) {
+                Ok(s) => s,
+                Err(_) => return aipo_status_t::AIPO_ERR_USAGE,
+            }
+        } else {
+            match unsafe { std::ffi::CStr::from_ptr(source) }.to_str() {
+                Ok(s) => s,
+                Err(_) => return aipo_status_t::AIPO_ERR_USAGE,
+            }
+        };
+
+        match AipoRuntime::compile_wasm(src_str) {
+            Ok(bytes) => {
+                let len = bytes.len();
+                let mut boxed = bytes.into_boxed_slice();
+                let ptr = boxed.as_mut_ptr();
+                std::mem::forget(boxed);
+                unsafe {
+                    *out_wasm = ptr;
+                    *out_len = len;
+                }
+                aipo_status_t::AIPO_OK
+            }
+            Err((status, _msg)) => status,
+        }
+    }));
+    result.unwrap_or(aipo_status_t::AIPO_ERR_FAULT)
+}
+
+/// Frees a WebAssembly buffer previously allocated by [`aipo_wasm_compile`].
+///
+/// # Safety
+/// If non-null, `wasm_bytes` must be a pointer returned by [`aipo_wasm_compile`] with matching `len`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aipo_wasm_free(wasm_bytes: *mut u8, len: usize) {
+    if wasm_bytes.is_null() || len == 0 {
+        return;
+    }
+    let _ = catch_unwind(AssertUnwindSafe(|| {
+        let slice_ptr = std::ptr::slice_from_raw_parts_mut(wasm_bytes, len);
+        drop(unsafe { Box::from_raw(slice_ptr) });
+    }));
+}
+
+/// Executes precompiled WebAssembly bytecode using Wasmtime JIT.
+///
+/// If `fuel > 0`, execution is bounded by that fuel budget. If `fuel == 0`, execution is unlimited.
+/// On completion, sets `*out_result` if non-null.
+///
+/// # Safety
+/// `wasm_bytes` must point to valid WebAssembly binary bytes of length `len`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn aipo_wasm_run(
+    wasm_bytes: *const u8,
+    len: usize,
+    fuel: u64,
+    out_result: *mut i64,
+) -> aipo_status_t {
+    if wasm_bytes.is_null() || len == 0 {
+        return aipo_status_t::AIPO_ERR_NULL_POINTER;
+    }
+    let result = catch_unwind(AssertUnwindSafe(|| {
+        let slice = unsafe { std::slice::from_raw_parts(wasm_bytes, len) };
+        let mut stdout = std::io::sink();
+        let fuel_opt = if fuel > 0 { Some(fuel) } else { None };
+        match aipo_wasm::execute_wasm_with_fuel(slice, &mut stdout, fuel_opt) {
+            Ok(ret) => {
+                if !out_result.is_null() {
+                    unsafe { *out_result = ret };
+                }
+                aipo_status_t::AIPO_OK
+            }
+            Err(_) => aipo_status_t::AIPO_ERR_FAULT,
+        }
+    }));
+    result.unwrap_or(aipo_status_t::AIPO_ERR_FAULT)
+}

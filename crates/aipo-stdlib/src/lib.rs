@@ -230,6 +230,7 @@ fn register_prelude(vm: &mut Vm, registry: &mut NativeRegistry) {
     vm.define_global("List", Value::Type(TypeTag::List));
     vm.define_global("Dict", Value::Type(TypeTag::Dict));
     vm.define_global("Bytes", Value::Type(TypeTag::Bytes));
+    vm.define_global("Range", Value::Type(TypeTag::Range));
     vm.define_global("Set", Value::Type(TypeTag::Set));
     vm.define_global("Duration", Value::Type(TypeTag::Duration));
 }
@@ -500,22 +501,61 @@ fn register_string(registry: &mut NativeRegistry) {
         Some("string"),
         "Substitutes named placeholders from a Dict into a runtime template.",
     ));
+    // The catalog mirrors the `string` module dictionary the VM exposes; a member
+    // present at runtime but missing here would make the frontend reject a valid
+    // call, so the two lists are kept equal (`string::create_module`).
+    registry.register(NativeFunctionMeta::new(
+        "graphemes",
+        1,
+        Some("string"),
+        "Splits into extended grapheme clusters as a List.",
+    ));
+    registry.register(NativeFunctionMeta::new(
+        "words",
+        1,
+        Some("string"),
+        "Splits on whitespace into a List of words.",
+    ));
+    registry.register(NativeFunctionMeta::new(
+        "lines",
+        1,
+        Some("string"),
+        "Splits into a List of lines.",
+    ));
+    registry.register(NativeFunctionMeta::new(
+        "casefold",
+        1,
+        Some("string"),
+        "Unicode case folding for comparison.",
+    ));
 }
 
 /// Registers `io` module metadata.
+///
+/// `io` is the one module whose arity is *target-dependent*: on the VM the two
+/// natives take exactly one value, while the WebAssembly/JavaScript host IO form is
+/// the call itself (`io.print("a")`, `io.println()` to end a line — see
+/// `tests/wasm_cli.rs`). The catalog is shared by every target, so these entries
+/// record the permissive lower bound and leave the count to the target.
 fn register_io(registry: &mut NativeRegistry) {
-    registry.register(NativeFunctionMeta::new(
-        "print",
-        1,
-        Some("io"),
-        "Prints value without trailing newline.",
-    ));
-    registry.register(NativeFunctionMeta::new(
-        "println",
-        1,
-        Some("io"),
-        "Prints value with trailing newline.",
-    ));
+    registry.register(
+        NativeFunctionMeta::new(
+            "print",
+            0,
+            Some("io"),
+            "Prints value without trailing newline.",
+        )
+        .with_variadic(),
+    );
+    registry.register(
+        NativeFunctionMeta::new(
+            "println",
+            0,
+            Some("io"),
+            "Prints value with trailing newline.",
+        )
+        .with_variadic(),
+    );
 }
 
 /// Registers `task` module metadata.
@@ -653,10 +693,23 @@ fn register_testing(registry: &mut NativeRegistry) {
         2,
         "Asserts collection contains element, returning none or Failure."
     );
-    reg!(
-        "approx",
-        2,
-        "Asserts floating point difference <= tolerance, returning none or Failure."
+    registry.register(
+        NativeFunctionMeta::new(
+            "approx",
+            2,
+            Some("expect"),
+            "Asserts floating point difference <= tolerance, returning none or Failure.",
+        )
+        .with_variadic(),
+    );
+    registry.register(
+        NativeFunctionMeta::new(
+            "approx",
+            2,
+            Some("testing"),
+            "Asserts floating point difference <= tolerance, returning none or Failure.",
+        )
+        .with_variadic(),
     );
 }
 
@@ -664,7 +717,8 @@ fn register_testing(registry: &mut NativeRegistry) {
 fn register_log(registry: &mut NativeRegistry) {
     macro_rules! reg {
         ($name:expr, $doc:expr) => {
-            registry.register(NativeFunctionMeta::new($name, 1, Some("log"), $doc));
+            // `log.<nivel>(mensagem, [campos])`: o segundo argumento é opcional.
+            registry.register(NativeFunctionMeta::new($name, 1, Some("log"), $doc).with_variadic());
         };
     }
     reg!("trace", "Emits structured log at TRACE level.");
@@ -866,12 +920,15 @@ fn register_binary(registry: &mut NativeRegistry) {
 
 /// Registers `path` module metadata.
 fn register_path(registry: &mut NativeRegistry) {
-    registry.register(NativeFunctionMeta::new(
-        "join",
-        1,
-        Some("path"),
-        "Joins multiple path segments into a normalized path.",
-    ));
+    registry.register(
+        NativeFunctionMeta::new(
+            "join",
+            1,
+            Some("path"),
+            "Joins multiple path segments into a normalized path.",
+        )
+        .with_variadic(),
+    );
     registry.register(NativeFunctionMeta::new(
         "normalize",
         1,
@@ -884,12 +941,15 @@ fn register_path(registry: &mut NativeRegistry) {
         Some("path"),
         "Returns true if the path starts with a root separator or drive letter.",
     ));
-    registry.register(NativeFunctionMeta::new(
-        "basename",
-        1,
-        Some("path"),
-        "Returns the final component of a path, optionally stripping an extension.",
-    ));
+    registry.register(
+        NativeFunctionMeta::new(
+            "basename",
+            1,
+            Some("path"),
+            "Returns the final component of a path, optionally stripping an extension.",
+        )
+        .with_variadic(),
+    );
     registry.register(NativeFunctionMeta::new(
         "dirname",
         1,
@@ -906,12 +966,15 @@ fn register_path(registry: &mut NativeRegistry) {
 
 /// Registers `sh` system automation module metadata.
 fn register_sh(registry: &mut NativeRegistry) {
-    registry.register(NativeFunctionMeta::new(
-        "run",
-        2,
-        Some("sh"),
-        "Executes a system process command, returning a dictionary with code, stdout, stderr, ok.",
-    ));
+    registry.register(
+        NativeFunctionMeta::new(
+            "run",
+            2,
+            Some("sh"),
+            "Executes a system process command, returning a dictionary with code, stdout, stderr, ok.",
+        )
+        .with_variadic(),
+    );
     registry.register(NativeFunctionMeta::new(
         "cd",
         1,
@@ -1075,18 +1138,24 @@ fn register_time(registry: &mut NativeRegistry) {
         Some("time"),
         "Creates a Date struct instance (year, month, day).",
     ));
-    registry.register(NativeFunctionMeta::new(
-        "time_of_day",
-        2,
-        Some("time"),
-        "Creates a TimeOfDay struct instance (hour, minute, [second, millisecond]).",
-    ));
-    registry.register(NativeFunctionMeta::new(
-        "date_time",
-        2,
-        Some("time"),
-        "Creates a DateTime struct instance from date/time components or objects.",
-    ));
+    registry.register(
+        NativeFunctionMeta::new(
+            "time_of_day",
+            2,
+            Some("time"),
+            "Creates a TimeOfDay struct instance (hour, minute, [second, millisecond]).",
+        )
+        .with_variadic(),
+    );
+    registry.register(
+        NativeFunctionMeta::new(
+            "date_time",
+            2,
+            Some("time"),
+            "Creates a DateTime struct instance from date/time components or objects.",
+        )
+        .with_variadic(),
+    );
     registry.register(NativeFunctionMeta::new(
         "parse_date",
         1,

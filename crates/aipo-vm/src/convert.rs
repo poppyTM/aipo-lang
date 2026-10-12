@@ -173,7 +173,7 @@ pub fn convert_bytes(value: &Value) -> Result<Value, VmFault> {
 /// order (canon: `Set` preserves insertion order).
 ///
 /// # Errors
-/// Returns [`VmFault::TypeMismatch`] for non-list values.
+/// Returns [`VmFault::TypeMismatch`] for non-list and non-set values.
 pub fn convert_set(value: &Value) -> Result<Value, VmFault> {
     match value {
         Value::List(items) => {
@@ -185,8 +185,9 @@ pub fn convert_set(value: &Value) -> Result<Value, VmFault> {
             }
             Ok(Value::Set(Rc::new(RefCell::new(unique))))
         }
+        Value::Set(items) => Ok(Value::Set(Rc::new(RefCell::new(items.borrow().clone())))),
         Value::Failure(f) => Ok(Value::Failure(Rc::clone(f))),
-        other => Err(type_error("List for Set(list)", other)),
+        other => Err(type_error("List or Set for Set(collection)", other)),
     }
 }
 
@@ -354,9 +355,16 @@ pub fn convert_string(value: &Value) -> Result<Value, VmFault> {
 /// # Errors
 /// Returns [`VmFault::TypeMismatch`] when the type is not callable or the arity is wrong.
 pub fn convert_via_type(tag: TypeTag, args: &[Value]) -> Result<Value, VmFault> {
+    if tag == TypeTag::Set && args.is_empty() {
+        return Ok(Value::Set(Rc::new(RefCell::new(Vec::new()))));
+    }
     if args.len() != 1 {
         return Err(VmFault::TypeMismatch {
-            expected: format!("1 argument for {}", tag.name()),
+            expected: if tag == TypeTag::Set {
+                "0 or 1 arguments for Set".to_string()
+            } else {
+                format!("1 argument for {}", tag.name())
+            },
             actual: format!("{} arguments", args.len()),
         });
     }

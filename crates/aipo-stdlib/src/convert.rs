@@ -69,12 +69,21 @@ pub fn convert_bytes(args: &[Value]) -> Result<Value, VmFault> {
     vm_convert::convert_bytes(single_argument("Bytes", args)?)
 }
 
-/// Explicit conversion to `Set` from a list or existing set.
+/// Explicit conversion to `Set` from a list or existing set, or an empty set when 0 arguments are given.
 ///
 /// # Errors
-/// Returns [`VmFault::TypeMismatch`] when the argument is not a `List` or `Set`.
+/// Returns [`VmFault::TypeMismatch`] when the argument is not a `List` or `Set`, or more than 1 argument is given.
 pub fn convert_set(args: &[Value]) -> Result<Value, VmFault> {
-    vm_convert::convert_set(single_argument("Set", args)?)
+    match args.len() {
+        0 => Ok(Value::Set(std::rc::Rc::new(std::cell::RefCell::new(
+            Vec::new(),
+        )))),
+        1 => vm_convert::convert_set(&args[0]),
+        n => Err(VmFault::TypeMismatch {
+            expected: "0 or 1 arguments for Set".to_string(),
+            actual: format!("{n} arguments"),
+        }),
+    }
 }
 
 /// Explicit conversion to `Duration` from Int or Float seconds.

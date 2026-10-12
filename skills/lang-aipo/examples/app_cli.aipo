@@ -1,8 +1,11 @@
 # Aplicação CLI canônica em Aipo V1
-import sys
-import io
-
-export main
+#
+# Fatos da linguagem usados aqui:
+# - `io` é prelude: está disponível sem `import` (e `import io` é erro).
+# - Não existe `main` implícito: o **topo do módulo** é o script executado.
+# - Não existe módulo `sys`; os argumentos chegam como parâmetro (`List`),
+#   o que também torna o parser testável sem processo externo.
+export Config, parsear_argumentos
 
 struct Config {
     limite: Int = 10
@@ -25,20 +28,17 @@ fn parsear_argumentos(args: List) -> Config {
     return Config{ limite: limite, modo_verboso: verboso }
 }
 
-fn main() {
-    let args = sys.args()
-    let cfg = parsear_argumentos(args)
+let cfg = parsear_argumentos(["--limite=3", "-v"])
 
-    if cfg.modo_verboso {
-        io.println(f"Iniciando processamento com limite={cfg.limite}")
-    }
-
-    var total_processado = 0
-    repeat cfg.limite as i {
-        let valor = (i + 1) * 2
-        io.println(f"Item #{i + 1}: valor={valor}")
-        total_processado += 1
-    }
-
-    io.println(f"Concluído com sucesso. Total: {total_processado}")
+if cfg.modo_verboso {
+    io.println(f"Iniciando processamento com limite={cfg.limite}")
 }
+
+var total_processado = 0
+repeat cfg.limite as i {
+    let valor = (i + 1) * 2
+    io.println(f"Item #{i + 1}: valor={valor}")
+    total_processado += 1
+}
+
+io.println(f"Concluído com sucesso. Total: {total_processado}")

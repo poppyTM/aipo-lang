@@ -1167,3 +1167,162 @@ fn run() -> Int {
         .expect("exported function");
     assert_eq!(f.call(&mut store, ()).unwrap(), 42);
 }
+
+#[test]
+fn test_wasm_fuel_budget_halts_infinite_loop() {
+    let code = r#"
+fn run() -> Int {
+  loop {
+    let x = 1
+  }
+  return 0
+}
+"#;
+    let source = Source::new(SourceId::next(), "infinite.aipo", code);
+    let (ast, diags) = parse(&source);
+    assert!(diags.is_empty(), "parse diagnostics: {diags:?}");
+    let hir = lower(ast);
+    let wasm_bytes = compile_hir(&hir).expect("compilation to Wasm succeeds");
+
+    let mut out = Vec::new();
+    let err = aipo_wasm::execute_wasm_with_fuel(&wasm_bytes, &mut out, Some(100))
+        .expect_err("infinite loop must trap with out of fuel error");
+
+    let msg = err.to_string();
+    assert!(
+        msg.contains("AIPO_RT_OVERFLOW") || msg.contains("fuel limit reached"),
+        "expected overflow/fuel diagnostic, got: {msg}"
+    );
+}
+
+#[test]
+fn test_host_io_in_match_arms_without_outer_io() {
+    let code = r#"
+let x = 1
+match x {
+  when 1 {
+    io.println(42)
+  }
+  else {
+    io.println(0)
+  }
+}
+"#;
+    let source = Source::new(SourceId::next(), "match_io.aipo", code);
+    let (ast, diags) = parse(&source);
+    assert!(diags.is_empty(), "diags: {diags:?}");
+    let hir = lower(ast);
+    let wasm_bytes = compile_hir(&hir).expect("compilation of match with IO succeeds");
+
+    let mut stdout = Vec::new();
+    let res = execute_wasm(&wasm_bytes, &mut stdout).expect("execution succeeds");
+    assert_eq!(res, 0);
+    assert_eq!(String::from_utf8(stdout).unwrap(), "42\n");
+}
+
+#[test]
+fn test_list_dynamic_add_growth() {
+    let code = r#"
+var xs = []
+var i = 0
+while i < 100 {
+    xs.add(i * 2)
+    i = i + 1
+}
+var total = 0
+each x in xs {
+    total = total + x
+}
+io.println(total)
+"#;
+    let source = Source::new(SourceId::next(), "list_add.aipo", code);
+    let (ast, diags) = parse(&source);
+    assert!(diags.is_empty(), "diags: {diags:?}");
+    let hir = lower(ast);
+    let wasm_bytes = compile_hir(&hir).expect("compilation succeeds");
+
+    let mut stdout = Vec::new();
+    let res = execute_wasm(&wasm_bytes, &mut stdout).expect("execution succeeds");
+    assert_eq!(res, 0);
+    assert_eq!(String::from_utf8(stdout).unwrap(), "9900\n");
+}
+
+#[test]
+fn test_struct_methods_invocation_and_mutation() {
+    let code = r#"
+struct Counter {
+    var val
+}
+
+Counter:inc(var self, step) {
+    self.val = self.val + step
+}
+
+Counter:get(self) -> Int {
+    return self.val
+}
+
+var c = Counter{val: 10}
+c.inc(5)
+c.inc(15)
+io.println(c.get())
+"#;
+    let source = Source::new(SourceId::next(), "struct_method.aipo", code);
+    let (ast, diags) = parse(&source);
+    assert!(diags.is_empty(), "diags: {diags:?}");
+    let hir = lower(ast);
+    let wasm_bytes = compile_hir(&hir).expect("compilation succeeds");
+
+    let mut stdout = Vec::new();
+    let res = execute_wasm(&wasm_bytes, &mut stdout).expect("execution succeeds");
+    assert_eq!(res, 0);
+    assert_eq!(String::from_utf8(stdout).unwrap(), "30\n");
+}
+
+#[test]
+fn test_benchmark_fields_workload_on_wasm() {
+    let code = r#"
+struct Box {
+    var a
+    var b
+    var c
+    var d
+    var e
+    var f
+}
+
+Box:advance(var self, i) {
+    self.a = (self.b + i) % 1000
+    self.b = (self.c + self.a) % 1000
+    self.c = (self.d + self.b) % 1000
+    self.d = (self.e + self.c) % 1000
+    self.e = (self.f + self.d) % 1000
+    self.f = (self.a + 1) % 1000
+}
+
+Box:score() {
+    return self.a + 2 * self.b + 3 * self.c + 4 * self.d + 5 * self.e + 6 * self.f
+}
+
+var n = 50
+var box = Box{a: 0, b: 0, c: 0, d: 0, e: 0, f: 0}
+var i = 0
+var total = 0
+while i < n {
+    box.advance(i)
+    total = total + box.score()
+    i = i + 1
+}
+io.println(f"checksum:{total}")
+"#;
+    let source = Source::new(SourceId::next(), "fields_bench.aipo", code);
+    let (ast, diags) = parse(&source);
+    assert!(diags.is_empty(), "diags: {diags:?}");
+    let hir = lower(ast);
+    let wasm_bytes = compile_hir(&hir).expect("compilation succeeds");
+
+    let mut stdout = Vec::new();
+    let res = execute_wasm(&wasm_bytes, &mut stdout).expect("execution succeeds");
+    assert_eq!(res, 0);
+    assert!(String::from_utf8(stdout).unwrap().starts_with("checksum:"));
+}

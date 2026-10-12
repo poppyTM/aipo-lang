@@ -111,6 +111,99 @@ fn replace_extension(path: &Path, from: &str, to: &str) -> PathBuf {
     PathBuf::from(path.to_string_lossy().replace(from, to))
 }
 
+/// Runs a program on the register engine, capturing the output its `io` calls produce.
+fn run_program_reg(path: &Path) -> (u8, String, String) {
+    let _serialized = run_lock();
+    let captured = Arc::new(Mutex::new(Vec::new()));
+    aipo_cli::set_output_sink(Some(Box::new(CaptureSink(Arc::clone(&captured)))));
+    let result = run_cli_inner(&["run", "--engine=reg", &path.to_string_lossy()]);
+    aipo_cli::set_output_sink(None);
+
+    let program_output = {
+        let buffer = captured
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        String::from_utf8_lossy(&buffer).into_owned()
+    };
+    (result.0, program_output, result.2)
+}
+
+/// Programs whose register-engine behaviour is not yet at parity with the stack VM,
+/// each with its tracking reason. This list is a registry of open work, never a
+/// permission slip: the gate fails on any NEW divergence **and** on any entry that
+/// starts matching (it must then be removed here). Keep in sync with
+/// `docs/llm/project-structure.md` (engine parity section).
+const REG_KNOWN_DIVERGENCES: &[(&str, &str)] = &[
+    (
+        "04_collections",
+        "higher-order collection methods (filter/map/sort_by) are not dispatched \
+         on the register engine yet",
+    ),
+    (
+        "08_failures",
+        "recoverable-failure recovery (`attempt` regions) diverges on the register engine",
+    ),
+    (
+        "10_integrated",
+        "higher-order collection methods, same gap as 04_collections",
+    ),
+    (
+        "15_invariant_on_mutation",
+        "CheckMutations has no mutation journal on the register engine yet",
+    ),
+    (
+        "21_attempt_recovery_and_journal",
+        "attempt recovery plus the mutation journal, same gap as 15_invariant_on_mutation",
+    ),
+    (
+        "29_try_propagation_operator",
+        "the `try` propagation operator's lowering diverges on the register engine",
+    ),
+];
+
+/// Engine parity gate: every conformance program must produce its committed stdout
+/// snapshot on the register engine exactly like on the stack VM. The corpus is the
+/// arbiter between engines (see `docs/studies/lessons-for-aipo.md` §5): a divergence
+/// is a bug to register here, never a behaviour of a profile.
+#[test]
+fn test_programs_match_committed_stdout_on_register_engine() {
+    let mut new_divergences: Vec<String> = Vec::new();
+    let mut now_matching: Vec<String> = Vec::new();
+    for program in fixtures("programs", ".aipo") {
+        let name = program
+            .file_stem()
+            .expect("fixture has a stem")
+            .to_string_lossy()
+            .into_owned();
+        let snapshot = replace_extension(&program, ".aipo", ".stdout");
+        let expected = std::fs::read_to_string(&snapshot).expect("snapshot is readable");
+        let (code, stdout, stderr) = run_program_reg(&program);
+        let passes = code == EXIT_SUCCESS && stderr.is_empty() && stdout == expected;
+        let known = REG_KNOWN_DIVERGENCES.iter().find(|(n, _)| *n == name);
+        match (passes, known) {
+            (true, None) => {}
+            (false, Some(_)) => {}
+            (false, None) => new_divergences.push(format!(
+                "{name}: exit {code}, stderr {stderr:?}, output {stdout:?} vs snapshot {expected:?}"
+            )),
+            (true, Some((_, reason))) => {
+                now_matching.push(format!("{name}: {reason}"));
+            }
+        }
+    }
+    assert!(
+        new_divergences.is_empty(),
+        "register engine diverges from the corpus (parity gate); fix the engine or, if the \
+         gap is genuinely open work, register it in REG_KNOWN_DIVERGENCES with a reason:\n{}",
+        new_divergences.join("\n")
+    );
+    assert!(
+        now_matching.is_empty(),
+        "these programs match again; remove them from REG_KNOWN_DIVERGENCES:\n{}",
+        now_matching.join("\n")
+    );
+}
+
 #[test]
 fn test_programs_run_and_match_committed_stdout() {
     let update = std::env::var("AIPO_UPDATE_SNAPSHOTS").is_ok();

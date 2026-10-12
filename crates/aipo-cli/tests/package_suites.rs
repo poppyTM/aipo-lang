@@ -15,7 +15,7 @@ use std::path::{Path, PathBuf};
 const EXIT_SUCCESS: u8 = 0;
 
 /// Host-free packages whose `tests/*.aipo` suites must stay green.
-const SUITES: &[&str] = &["aipo-ui", "aipo-html", "aipo-http"];
+const SUITES: &[&str] = &["aipo-ui", "aipo-html", "aipo-http", "aipo-egui"];
 
 fn workspace_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))

@@ -17,6 +17,15 @@ pub struct NativeFunctionMeta {
     pub capabilities: Vec<String>,
     /// Whether calling the native produces a `Task` instead of a value.
     pub is_async: bool,
+    /// Whether `arity` is a *lower bound* instead of an exact count.
+    ///
+    /// The VM ships natives whose arity is deliberately unchecked
+    /// (`Value::native(name, usize::MAX, f)`) because the implementation accepts an
+    /// open tail: `path.join` concatenates any number of parts, `log.info` takes an
+    /// optional fields dict, `expect.approx` an optional tolerance. A consumer that
+    /// enforces `arity` as a maximum would reject those calls, so the catalog has to
+    /// say which entries are open-ended.
+    pub is_variadic: bool,
 }
 
 impl NativeFunctionMeta {
@@ -35,6 +44,7 @@ impl NativeFunctionMeta {
             doc: doc.into(),
             capabilities: Vec::new(),
             is_async: false,
+            is_variadic: false,
         }
     }
 
@@ -42,6 +52,13 @@ impl NativeFunctionMeta {
     #[must_use]
     pub fn with_async(mut self) -> Self {
         self.is_async = true;
+        self
+    }
+
+    /// Marks `arity` as a lower bound: the native accepts additional arguments.
+    #[must_use]
+    pub fn with_variadic(mut self) -> Self {
+        self.is_variadic = true;
         self
     }
 
