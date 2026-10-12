@@ -33,7 +33,9 @@ impl Vm {
         }
         if let Some(limit) = self.max_instructions {
             let interval = self.meter_interval.min(limit.max(1));
-            if self.metrics.instructions % interval == 0 && self.metrics.instructions > limit {
+            if self.metrics.instructions.is_multiple_of(interval)
+                && self.metrics.instructions > limit
+            {
                 return Err(VmFault::Overflow {
                     details: format!(
                         "execution budget exceeded: instruction limit of {limit} reached"
@@ -46,15 +48,15 @@ impl Vm {
             return self.drive_host_task();
         }
         if self.ip >= module.code.len() || self.halted_with.is_some() {
-            if let Some(limit) = self.max_instructions {
-                if self.metrics.instructions > limit {
-                    return Err(VmFault::Overflow {
-                        details: format!(
-                            "execution budget exceeded: instruction limit of {limit} reached"
-                        ),
-                    }
-                    .into());
+            if let Some(limit) = self.max_instructions
+                && self.metrics.instructions > limit
+            {
+                return Err(VmFault::Overflow {
+                    details: format!(
+                        "execution budget exceeded: instruction limit of {limit} reached"
+                    ),
                 }
+                .into());
             }
             return Ok(self.finish_current());
         }

@@ -365,7 +365,6 @@ impl AipoRuntime {
         self.load_module_internal(name, module)
     }
 
-
     /// Loads and initializes an Aipo module from precompiled bytecode (.aibc).
     pub fn load_bytecode(
         &mut self,

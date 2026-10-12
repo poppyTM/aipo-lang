@@ -340,19 +340,18 @@ pub fn compile_hir(program: &HirProgram) -> Result<Vec<u8>, WasmCompileError> {
                     if let Some(source) = program.items.iter().find_map(|it| match it {
                         HirItem::Fn(f) if &f.name == function_name => Some(f),
                         _ => None,
-                    }) {
-                        if source.params.first().is_some_and(|p| p.is_self) {
-                            let full_name = format!("{}.{}", binding.target, function_name);
-                            func_decls.push(HirFunctionDecl {
-                                directives: source.directives.clone(),
-                                name: full_name,
-                                is_async: source.is_async,
-                                params: source.params.clone(),
-                                return_type: source.return_type.clone(),
-                                body: source.body.clone(),
-                                span: source.span,
-                            });
-                        }
+                    }) && source.params.first().is_some_and(|p| p.is_self)
+                    {
+                        let full_name = format!("{}.{}", binding.target, function_name);
+                        func_decls.push(HirFunctionDecl {
+                            directives: source.directives.clone(),
+                            name: full_name,
+                            is_async: source.is_async,
+                            params: source.params.clone(),
+                            return_type: source.return_type.clone(),
+                            body: source.body.clone(),
+                            span: source.span,
+                        });
                     }
                 }
             }
@@ -3536,7 +3535,9 @@ fn pre_scan_stmts(
             }
             HirStmt::CompoundAssign(op, HirExpr::Identifier(name, _), _, _)
                 if *op == BinaryOp::Add
-                    && locals.get(name).is_some_and(|(_, _, k)| *k == LocalKind::String) =>
+                    && locals
+                        .get(name)
+                        .is_some_and(|(_, _, k)| *k == LocalKind::String) =>
             {
                 // String compound addition preserves String kind!
             }
@@ -7380,110 +7381,112 @@ fn compile_expr(
             }
 
             // Case 0.8: List `.add(...)` dynamic append
-            if let HirExpr::Dot(receiver, method_name, _) = &**callee {
-                if method_name == "add" && args.len() == 1 {
-                    let receiver_kind =
-                        infer_expr_kind(receiver, locals, functions, table_indices, anon_map);
-                    let is_struct_method = match &receiver_kind {
-                        LocalKind::Struct(s) => functions.contains_key(&format!("{s}.add")),
-                        _ => false,
-                    };
-                    if !is_struct_method {
-                        let (list_add_idx, _, _) = functions["__aipo_list_add"];
-                        let r_ty = compile_expr(
-                            receiver,
-                            func,
-                            locals,
-                            functions,
-                            control_stack,
-                            structs,
-                            static_strings,
-                            table_indices,
-                            anon_map,
-                            indirect_sigs,
-                            alloc_func_idx,
-                            async_helpers,
-                            struct_depth,
-                            call_depth,
-                        )?;
-                        coerce_type(func, r_ty, WasmType::I32);
-                        let val_ty = compile_expr(
-                            &args[0].value,
-                            func,
-                            locals,
-                            functions,
-                            control_stack,
-                            structs,
-                            static_strings,
-                            table_indices,
-                            anon_map,
-                            indirect_sigs,
-                            alloc_func_idx,
-                            async_helpers,
-                            struct_depth,
-                            call_depth,
-                        )?;
-                        coerce_type(func, val_ty, WasmType::I64);
-                        func.instruction(&Instruction::Call(list_add_idx));
-                        return Ok(WasmType::I64);
-                    }
+            if let HirExpr::Dot(receiver, method_name, _) = &**callee
+                && method_name == "add"
+                && args.len() == 1
+            {
+                let receiver_kind =
+                    infer_expr_kind(receiver, locals, functions, table_indices, anon_map);
+                let is_struct_method = match &receiver_kind {
+                    LocalKind::Struct(s) => functions.contains_key(&format!("{s}.add")),
+                    _ => false,
+                };
+                if !is_struct_method {
+                    let (list_add_idx, _, _) = functions["__aipo_list_add"];
+                    let r_ty = compile_expr(
+                        receiver,
+                        func,
+                        locals,
+                        functions,
+                        control_stack,
+                        structs,
+                        static_strings,
+                        table_indices,
+                        anon_map,
+                        indirect_sigs,
+                        alloc_func_idx,
+                        async_helpers,
+                        struct_depth,
+                        call_depth,
+                    )?;
+                    coerce_type(func, r_ty, WasmType::I32);
+                    let val_ty = compile_expr(
+                        &args[0].value,
+                        func,
+                        locals,
+                        functions,
+                        control_stack,
+                        structs,
+                        static_strings,
+                        table_indices,
+                        anon_map,
+                        indirect_sigs,
+                        alloc_func_idx,
+                        async_helpers,
+                        struct_depth,
+                        call_depth,
+                    )?;
+                    coerce_type(func, val_ty, WasmType::I64);
+                    func.instruction(&Instruction::Call(list_add_idx));
+                    return Ok(WasmType::I64);
                 }
             }
 
             // Case 0.82: Dict `.has(...)` key presence check
-            if let HirExpr::Dot(receiver, method_name, _) = &**callee {
-                if method_name == "has" && args.len() == 1 {
-                    let receiver_kind =
-                        infer_expr_kind(receiver, locals, functions, table_indices, anon_map);
-                    if matches!(receiver_kind, LocalKind::Dict) {
-                        let (dict_has_idx, _, _) = functions["__aipo_dict_has"];
-                        let (string_hash_idx, _, _) = functions["__aipo_string_hash"];
-                        let r_ty = compile_expr(
-                            receiver,
-                            func,
-                            locals,
-                            functions,
-                            control_stack,
-                            structs,
-                            static_strings,
-                            table_indices,
-                            anon_map,
-                            indirect_sigs,
-                            alloc_func_idx,
-                            async_helpers,
-                            struct_depth,
-                            call_depth,
-                        )?;
-                        coerce_type(func, r_ty, WasmType::I32);
+            if let HirExpr::Dot(receiver, method_name, _) = &**callee
+                && method_name == "has"
+                && args.len() == 1
+            {
+                let receiver_kind =
+                    infer_expr_kind(receiver, locals, functions, table_indices, anon_map);
+                if matches!(receiver_kind, LocalKind::Dict) {
+                    let (dict_has_idx, _, _) = functions["__aipo_dict_has"];
+                    let (string_hash_idx, _, _) = functions["__aipo_string_hash"];
+                    let r_ty = compile_expr(
+                        receiver,
+                        func,
+                        locals,
+                        functions,
+                        control_stack,
+                        structs,
+                        static_strings,
+                        table_indices,
+                        anon_map,
+                        indirect_sigs,
+                        alloc_func_idx,
+                        async_helpers,
+                        struct_depth,
+                        call_depth,
+                    )?;
+                    coerce_type(func, r_ty, WasmType::I32);
 
-                        let key_expr = &args[0].value;
-                        let key_kind =
-                            infer_expr_kind(key_expr, locals, functions, table_indices, anon_map);
-                        let k_ty = compile_expr(
-                            key_expr,
-                            func,
-                            locals,
-                            functions,
-                            control_stack,
-                            structs,
-                            static_strings,
-                            table_indices,
-                            anon_map,
-                            indirect_sigs,
-                            alloc_func_idx,
-                            async_helpers,
-                            struct_depth,
-                            call_depth,
-                        )?;
-                        if matches!(key_kind, LocalKind::String) {
-                            coerce_type(func, k_ty, WasmType::I32);
-                            func.instruction(&Instruction::Call(string_hash_idx));
-                        } else {
-                            coerce_type(func, k_ty, WasmType::I64);
-                        }
-                        func.instruction(&Instruction::Call(dict_has_idx));
-                        return Ok(WasmType::I32);
+                    let key_expr = &args[0].value;
+                    let key_kind =
+                        infer_expr_kind(key_expr, locals, functions, table_indices, anon_map);
+                    let k_ty = compile_expr(
+                        key_expr,
+                        func,
+                        locals,
+                        functions,
+                        control_stack,
+                        structs,
+                        static_strings,
+                        table_indices,
+                        anon_map,
+                        indirect_sigs,
+                        alloc_func_idx,
+                        async_helpers,
+                        struct_depth,
+                        call_depth,
+                    )?;
+                    if matches!(key_kind, LocalKind::String) {
+                        coerce_type(func, k_ty, WasmType::I32);
+                        func.instruction(&Instruction::Call(string_hash_idx));
+                    } else {
+                        coerce_type(func, k_ty, WasmType::I64);
                     }
+                    func.instruction(&Instruction::Call(dict_has_idx));
+                    return Ok(WasmType::I32);
                 }
             }
 

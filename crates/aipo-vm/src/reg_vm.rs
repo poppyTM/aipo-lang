@@ -410,18 +410,16 @@ impl RegVm {
             // this activation joins the chain unless it is the task entry (the
             // chain bottom has no caller to resume into). The cell pop matches
             // what the suspend hook left: one pop per unwinding activation.
-            if !entry {
-                if let Some(capture) = self.pending_capture.as_mut() {
-                    capture.chain.push(RegFrameSlot {
-                        code: Vec::new(),
-                        registers: self.registers.clone(),
-                        constants: self.constants.clone(),
-                        contracts: self.contracts.clone(),
-                        pc: self.pc,
-                        dest,
-                        cells,
-                    });
-                }
+            if !entry && let Some(capture) = self.pending_capture.as_mut() {
+                capture.chain.push(RegFrameSlot {
+                    code: Vec::new(),
+                    registers: self.registers.clone(),
+                    constants: self.constants.clone(),
+                    contracts: self.contracts.clone(),
+                    pc: self.pc,
+                    dest,
+                    cells,
+                });
             }
             return Ok(RegCall::Suspended);
         }
@@ -508,7 +506,8 @@ impl RegVm {
             if let Some(limit) = self.max_instructions {
                 self.instructions_executed = self.instructions_executed.saturating_add(1);
                 let interval = self.meter_interval.min(limit.max(1));
-                if self.instructions_executed % interval == 0 && self.instructions_executed > limit
+                if self.instructions_executed.is_multiple_of(interval)
+                    && self.instructions_executed > limit
                 {
                     return Err(VmFault::Overflow {
                         details: format!(
@@ -575,11 +574,10 @@ impl RegVm {
                 }
                 RegOpCode::LoadConst => {
                     let bx = inst.bx() as usize;
-                    let val = self
-                        .constants
-                        .get(bx)
-                        .cloned()
-                        .ok_or_else(|| self.corrupted(format!("invalid constant index {bx}")))?;
+                    let val =
+                        self.constants.get(bx).cloned().ok_or_else(|| {
+                            self.corrupted(format!("invalid constant index {bx}"))
+                        })?;
                     self.registers[a] = val;
                 }
                 RegOpCode::LoadInt => {
@@ -839,8 +837,9 @@ impl RegVm {
                         (Value::Bytes(b), Value::Range(r)) => {
                             let bytes = b.borrow().to_vec();
                             let (from, to) = normalize_range(r.start, r.end, bytes.len());
-                            self.registers[a] =
-                                Value::Bytes(Rc::new(RefCell::new(bytes[from..to].to_vec().into())));
+                            self.registers[a] = Value::Bytes(Rc::new(RefCell::new(
+                                bytes[from..to].to_vec().into(),
+                            )));
                         }
                         (Value::Range(r), Value::Int(i)) => {
                             // Positional access into a half-open range, which is what makes
@@ -1237,14 +1236,14 @@ impl RegVm {
                     }
                 }
                 RegOpCode::Return => {
-                    if let Some(limit) = self.max_instructions {
-                        if self.instructions_executed > limit {
-                            return Err(VmFault::Overflow {
-                                details: format!(
-                                    "execution budget exceeded: instruction limit of {limit} reached"
-                                ),
-                            });
-                        }
+                    if let Some(limit) = self.max_instructions
+                        && self.instructions_executed > limit
+                    {
+                        return Err(VmFault::Overflow {
+                            details: format!(
+                                "execution budget exceeded: instruction limit of {limit} reached"
+                            ),
+                        });
                     }
                     return Ok(self.registers[a].clone());
                 }
@@ -1678,31 +1677,30 @@ impl RegVm {
                 }
                 RegOpCode::AssertContract | RegOpCode::AssertContractNullable => {
                     let bx = inst.bx() as usize;
-                    let (type_name, nullable, position, operations) = match (
-                        self.constants.get(bx),
-                        self.constants.get(bx + 1),
-                    ) {
-                        (Some(Value::String(t)), Some(Value::String(p))) => (
-                            (**t).clone(),
-                            op == RegOpCode::AssertContractNullable,
-                            (**p).clone(),
-                            Vec::new(),
-                        ),
-                        _ => {
-                            let contract = self.contracts.get(bx).cloned().ok_or_else(|| {
-                                VmFault::CorruptedBytecode {
-                                    offset: self.pc - 1,
-                                    reason: format!("contract index {bx} out of bounds"),
-                                }
-                            })?;
-                            (
-                                contract.type_name,
-                                contract.nullable,
-                                contract.position,
-                                contract.operations,
-                            )
-                        }
-                    };
+                    let (type_name, nullable, position, operations) =
+                        match (self.constants.get(bx), self.constants.get(bx + 1)) {
+                            (Some(Value::String(t)), Some(Value::String(p))) => (
+                                (**t).clone(),
+                                op == RegOpCode::AssertContractNullable,
+                                (**p).clone(),
+                                Vec::new(),
+                            ),
+                            _ => {
+                                let contract =
+                                    self.contracts.get(bx).cloned().ok_or_else(|| {
+                                        VmFault::CorruptedBytecode {
+                                            offset: self.pc - 1,
+                                            reason: format!("contract index {bx} out of bounds"),
+                                        }
+                                    })?;
+                                (
+                                    contract.type_name,
+                                    contract.nullable,
+                                    contract.position,
+                                    contract.operations,
+                                )
+                            }
+                        };
                     let value = self.registers[a].clone();
                     // An omitted argument keeps the sentinel and `fail(...)` ends the path, so
                     // neither is a contract violation (mirrors the stack VM).
@@ -1724,19 +1722,14 @@ impl RegVm {
                     }
                     if !skippable && !matches!(value, Value::None) {
                         for (operation, declared) in &operations {
-                            if let Some(actual) = self.operation_arity(&value, operation) {
-                                if actual != *declared {
-                                    return Err(VmFault::ContractViolation {
-                                        position: position.clone(),
-                                        expected: format!(
-                                            "{type_name}.{operation}/{declared}"
-                                        ),
-                                        actual: format!(
-                                            "{}.{operation}/{actual}",
-                                            value.type_name()
-                                        ),
-                                    });
-                                }
+                            if let Some(actual) = self.operation_arity(&value, operation)
+                                && actual != *declared
+                            {
+                                return Err(VmFault::ContractViolation {
+                                    position: position.clone(),
+                                    expected: format!("{type_name}.{operation}/{declared}"),
+                                    actual: format!("{}.{operation}/{actual}", value.type_name()),
+                                });
                             }
                         }
                     }
@@ -1811,14 +1804,12 @@ impl RegVm {
                 }
             }
         }
-        if let Some(limit) = self.max_instructions {
-            if self.instructions_executed > limit {
-                return Err(VmFault::Overflow {
-                    details: format!(
-                        "execution budget exceeded: instruction limit of {limit} reached"
-                    ),
-                });
-            }
+        if let Some(limit) = self.max_instructions
+            && self.instructions_executed > limit
+        {
+            return Err(VmFault::Overflow {
+                details: format!("execution budget exceeded: instruction limit of {limit} reached"),
+            });
         }
         Ok(Value::None)
     }
@@ -1930,7 +1921,9 @@ mod tests {
     fn test_register_vm_list_get_and_set_index() {
         use std::cell::RefCell;
         let mut vm = RegVm::new();
-        let list = Value::List(Rc::new(RefCell::new(vec![Value::Int(10), Value::Int(20)].into())));
+        let list = Value::List(Rc::new(RefCell::new(
+            vec![Value::Int(10), Value::Int(20)].into(),
+        )));
         vm.registers[0] = list;
         vm.registers[1] = Value::Int(1); // index 1
         vm.registers[2] = Value::Int(99); // new value

@@ -515,10 +515,10 @@ impl RegVm {
             .map(|(join_id, _)| *join_id)
             .collect();
         for join_id in affected {
-            if let Some(join) = self.sched.joins.get_mut(&join_id) {
-                if !join.completed.contains(&id) {
-                    join.completed.push(id);
-                }
+            if let Some(join) = self.sched.joins.get_mut(&join_id)
+                && !join.completed.contains(&id)
+            {
+                join.completed.push(id);
             }
             self.poll_join(join_id);
         }
@@ -1082,11 +1082,11 @@ impl RegVm {
                 .map(|(join_id, _)| *join_id)
                 .collect();
             for join_id in open {
-                if let Some(join) = self.sched.joins.get_mut(&join_id) {
-                    if !join.members.contains(&id) {
-                        join.members.push(id);
-                        join.order.push(id);
-                    }
+                if let Some(join) = self.sched.joins.get_mut(&join_id)
+                    && !join.members.contains(&id)
+                {
+                    join.members.push(id);
+                    join.order.push(id);
                 }
             }
         }

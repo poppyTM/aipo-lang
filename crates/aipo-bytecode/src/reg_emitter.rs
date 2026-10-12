@@ -78,6 +78,7 @@ impl RegEmitter {
     ///
     /// # Errors
     /// Rejects unsupported IR and values that cannot fit the fixed instruction encoding.
+    #[allow(unused_assignments)]
     pub fn compile_function(mut self, func: &CoreFunction) -> Result<RegCompiledFunction, String> {
         if func.is_async || !func.upvalues.is_empty() {
             return Err(format!(
@@ -846,7 +847,6 @@ impl RegEmitter {
                 | CoreInst::IterGuardEnd(..)
                 | CoreInst::FillSelfCapture { .. }
                 | CoreInst::CheckMutations(..) => (0, 0),
-                unsupported => return Err(format!("unsupported register IR: {unsupported:?}")),
             };
             match inst {
                 CoreInst::Jump(target, _)
@@ -935,6 +935,7 @@ impl RegEmitter {
     }
 
     /// Interns a signature-contract descriptor for the current function's pool.
+    #[allow(dead_code)]
     fn add_contract(&mut self, contract: RegContract) -> usize {
         if let Some(pos) = self.contracts.iter().position(|x| x == &contract) {
             pos
