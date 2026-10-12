@@ -41,33 +41,33 @@ fn mouse_y() -> Float {
 
 fn mouse_down(button: String) -> Bool {
     let btn_id = if button == "left" then 0 else if button == "right" then 1 else 2
-    return host_mouse_btn(btn_id)
-}
+                    return host_mouse_btn(btn_id)
+                }
 
-fn mouse_btn(button: Int) -> Bool {
-    return host_mouse_btn(button)
-}
+                fn mouse_btn(button: Int) -> Bool {
+                    return host_mouse_btn(button)
+                }
 
-fn axis_x() -> Float {
-    var val = 0.0
-    if key_down("ArrowRight") or key_down("D") {
-        val += 1.0
-    }
-    if key_down("ArrowLeft") or key_down("A") {
-        val -= 1.0
-    }
-    return val
-}
+                fn axis_x() -> Float {
+                    var val = 0.0
+                    if key_down("ArrowRight") or key_down("D") {
+                        val += 1.0
+                    }
+                    if key_down("ArrowLeft") or key_down("A") {
+                        val -= 1.0
+                    }
+                    return val
+                }
 
-fn axis_y() -> Float {
-    var val = 0.0
-    if key_down("ArrowDown") or key_down("S") {
-        val += 1.0
-    }
-    if key_down("ArrowUp") or key_down("W") {
-        val -= 1.0
-    }
-    return val
-}
+                fn axis_y() -> Float {
+                    var val = 0.0
+                    if key_down("ArrowDown") or key_down("S") {
+                        val += 1.0
+                    }
+                    if key_down("ArrowUp") or key_down("W") {
+                        val -= 1.0
+                    }
+                    return val
+                }
 
-export KEY_CODES, key_down, key_pressed, mouse_x, mouse_y, mouse_down, mouse_btn, axis_x, axis_y
+                export KEY_CODES, key_down, key_pressed, mouse_x, mouse_y, mouse_down, mouse_btn, axis_x, axis_y

@@ -135,7 +135,7 @@ source-level size cannot exhaust memory). Packing APIs (`read_i32`, `write_f32`,
 | `pow(base, exponent)` | `Int ** Int(>= 0)` stays `Int` while it fits; otherwise `Float`. Non-finite results are a fault. |
 | `clamp(value, min, max)` | Inclusive interval; mixed operands promote to `Float`. Inverted bounds (`min > max`) produce a recoverable `Failure`: a bound is a *value* outside a valid range, and canon reserves `Failure` for exactly that (like `Byte(value)` out of range), while an *index* outside a range is a fault. `or_else` recovers (ADP-001 Q3, closed by `P00-G15`). |
 
-Constants: `math.pi`, `math.e`.
+Constants: `math.pi`, `math.e`, `math.tau`.
 
 ## `string`
 

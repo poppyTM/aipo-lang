@@ -1,7 +1,6 @@
 # Demonstração canônica de 'enum' (tipo de soma fechado) em Aipo V1
-import io
 
-export EstadoConexao, transicionar, avaliar_estado
+export EstadoConexao, avaliar_estado
 
 # Declaração do enum com as 3 formas de variante suportadas
 enum EstadoConexao {
@@ -18,32 +17,33 @@ EstadoConexao:invariant {
 
 # Método associado ao enum (self implícito em leitura)
 EstadoConexao:esta_operacional() -> Bool {
-    return match self {
+    match self {
         when EstadoConexao.Conectado { ip, ping_ms } {
-            ping_ms < 500
+            return ping_ms < 500
         }
         else {
-            false
+            return false
         }
     }
 }
 
 fn avaliar_estado(estado: EstadoConexao) -> String {
     # Match exaustivo sobre enum: todas as variantes cobertas
-    return match estado {
+    match estado {
         when EstadoConexao.Desconectado {
-            "Conexão inativa"
+            return "Conexão inativa"
         }
         when EstadoConexao.Tentando(tentativa) {
-            f"Tentando reconectar (tentativa #{tentativa})"
+            return f"Tentando reconectar (tentativa #{tentativa})"
         }
         when EstadoConexao.Conectado { ip, ping_ms } {
-            f"Conectado a {ip} ({ping_ms}ms)"
+            return f"Conectado a {ip} ({ping_ms}ms)"
         }
         when EstadoConexao.Erro(mensagem) {
-            f"Falha de conexão: {mensagem}"
+            return f"Falha de conexão: {mensagem}"
         }
     }
+    return "estado desconhecido"
 }
 
 #!test("ciclo de vida e matching exaustivo de enum")

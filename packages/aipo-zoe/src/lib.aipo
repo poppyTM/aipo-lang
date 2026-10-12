@@ -67,12 +67,12 @@ fn center(arg1, arg2 = none) {
     if arg2 == none {
         if (arg1 is List) {
             return elements_mod.make_rect({
-                "direction": "column",
-                "align_items": "center",
-                "justify_content": "center",
-                "width": "100%",
-                "height": "100%"
-            }, arg1)
+                    "direction": "column",
+                    "align_items": "center",
+                    "justify_content": "center",
+                    "width": "100%",
+                    "height": "100%"
+                }, arg1)
         } else {
             return elements_mod.make_rect(arg1, [])
         }
@@ -90,453 +90,452 @@ fn spacer(flex: Float = 1.0) {
     # "flex" spelling so existing trees and tests are unaffected.
     if flex <= 1.0 {
         return elements_mod.make_rect({
-            "tag": "spacer",
-            "width": "flex",
-            "height": "flex"
-        }, [])
+                "tag": "spacer",
+                "width": "flex",
+                "height": "flex"
+            }, [])
     }
     return elements_mod.make_rect({
-        "tag": "spacer",
-        "width": f"flex{flex}",
-        "height": "flex"
-    }, [])
+            "tag": "spacer",
+            "width": f"flex{flex}",
+            "height": "flex"
+        }, [])
 }
 
 fn divider(props: Dict = {}) {
     let dir = if props.has("direction") then props["direction"] else "horizontal"
-    let thickness = if props.has("thickness") then props["thickness"] else 1.0
-    let bg_color = if props.has("color") then props["color"] else color_mod.surface_1
-    if dir == "vertical" {
-        return elements_mod.make_rect({
-            "tag": "divider",
-            "width": thickness,
-            "height": "100%",
-            "background": bg_color
-        }, [])
-    } else {
-        return elements_mod.make_rect({
-            "tag": "divider",
-            "width": "100%",
-            "height": thickness,
-            "background": bg_color
-        }, [])
-    }
-}
-
-# --- Core Primitives ---
-
-fn rect(props: Dict = {}, children: List = []) {
-    return elements_mod.make_rect(props, children)
-}
-
-fn label(text: String, props: Dict = {}) {
-    return elements_mod.make_label(text, props)
-}
-
-fn container(props: Dict = {}, children: List = []) {
-    return elements_mod.make_container(props, children)
-}
-
-# --- Declarative Zoe Components ---
-
-fn button(label_text: String, on_click = none, props: Dict = {}) {
-    return components_mod.make_button(label_text, on_click, props)
-}
-
-fn switch(is_on: Bool, on_toggle = none, props: Dict = {}) {
-    return components_mod.make_switch(is_on, on_toggle, props)
-}
-
-fn slider(value: Float, min_val: Float, max_val: Float, on_change = none, props: Dict = {}) {
-    return components_mod.make_slider(value, min_val, max_val, on_change, props)
-}
-
-fn progress_bar(progress: Float, props: Dict = {}) {
-    return components_mod.make_progress_bar(progress, props)
-}
-
-fn card(arg1, arg2 = none) {
-    if arg2 == none {
-        if (arg1 is List) {
-            return components_mod.make_card({}, arg1)
-        } else {
-            return components_mod.make_card(arg1, [])
-        }
-    }
-    return components_mod.make_card(arg1, arg2)
-}
-
-fn badge(text: String, props: Dict = {}) {
-    return components_mod.make_badge(text, props)
-}
-
-fn split_view(arg1, arg2, arg3 = none) {
-    return components_mod.make_split_view(arg1, arg2, arg3)
-}
-
-fn tab_bar(props: Dict) {
-    return components_mod.make_tab_bar(props)
-}
-
-fn tab_view(props: Dict, views: Dict) {
-    return components_mod.make_tab_view(props, views)
-}
-
-fn scroll_view(arg1, arg2 = none) {
-    return components_mod.make_scroll_view(arg1, arg2)
-}
-
-fn viewport(arg1, arg2 = none) {
-    if arg2 == none {
-        if (arg1 is List) {
-            return components_mod.make_viewport({}, arg1)
-        } else {
-            return components_mod.make_viewport(arg1, [])
-        }
-    }
-    return components_mod.make_viewport(arg1, arg2)
-}
-
-fn screen_to_world(rect, screen_x, screen_y, cam_x, cam_y, zoom) {
-    return components_mod.calc_screen_to_world(rect, screen_x, screen_y, cam_x, cam_y, zoom)
-}
-
-fn world_to_screen(rect, world_x, world_y, cam_x, cam_y, zoom) {
-    return components_mod.calc_world_to_screen(rect, world_x, world_y, cam_x, cam_y, zoom)
-}
-
-fn point_in_rect(px, py, rx, ry, rw, rh) {
-    return components_mod.is_point_in_rect(px, py, rx, ry, rw, rh)
-}
+            let thickness = if props.has("thickness") then props["thickness"] else 1.0
+                    let bg_color = if props.has("color") then props["color"] else color_mod.surface_1
+                            if dir == "vertical" {
+                                return elements_mod.make_rect({
+                                        "tag": "divider",
+                                        "width": thickness,
+                                        "height": "100%",
+                                        "background": bg_color
+                                    }, [])
+                            } else {
+                                return elements_mod.make_rect({
+                                        "tag": "divider",
+                                        "width": "100%",
+                                        "height": thickness,
+                                        "background": bg_color
+                                    }, [])
+                            }
+                        }
+
+                        # --- Core Primitives ---
+
+                        fn rect(props: Dict = {}, children: List = []) {
+                            return elements_mod.make_rect(props, children)
+                        }
+
+                        fn label(text: String, props: Dict = {}) {
+                            return elements_mod.make_label(text, props)
+                        }
+
+                        fn container(props: Dict = {}, children: List = []) {
+                            return elements_mod.make_container(props, children)
+                        }
+
+                        # --- Declarative Zoe Components ---
+
+                        fn button(label_text: String, on_click = none, props: Dict = {}) {
+                            return components_mod.make_button(label_text, on_click, props)
+                        }
+
+                        fn switch(is_on: Bool, on_toggle = none, props: Dict = {}) {
+                            return components_mod.make_switch(is_on, on_toggle, props)
+                        }
+
+                        fn slider(value: Float, min_val: Float, max_val: Float, on_change = none, props: Dict = {}) {
+                            return components_mod.make_slider(value, min_val, max_val, on_change, props)
+                        }
+
+                        fn progress_bar(progress: Float, props: Dict = {}) {
+                            return components_mod.make_progress_bar(progress, props)
+                        }
+
+                        fn card(arg1, arg2 = none) {
+                            if arg2 == none {
+                                if (arg1 is List) {
+                                    return components_mod.make_card({}, arg1)
+                                } else {
+                                    return components_mod.make_card(arg1, [])
+                                }
+                            }
+                            return components_mod.make_card(arg1, arg2)
+                        }
+
+                        fn badge(text: String, props: Dict = {}) {
+                            return components_mod.make_badge(text, props)
+                        }
+
+                        fn split_view(arg1, arg2, arg3 = none) {
+                            return components_mod.make_split_view(arg1, arg2, arg3)
+                        }
+
+                        fn tab_bar(props: Dict) {
+                            return components_mod.make_tab_bar(props)
+                        }
+
+                        fn tab_view(props: Dict, views: Dict) {
+                            return components_mod.make_tab_view(props, views)
+                        }
+
+                        fn scroll_view(arg1, arg2 = none) {
+                            return components_mod.make_scroll_view(arg1, arg2)
+                        }
+
+                        fn viewport(arg1, arg2 = none) {
+                            if arg2 == none {
+                                if (arg1 is List) {
+                                    return components_mod.make_viewport({}, arg1)
+                                } else {
+                                    return components_mod.make_viewport(arg1, [])
+                                }
+                            }
+                            return components_mod.make_viewport(arg1, arg2)
+                        }
+
+                        fn screen_to_world(rect, screen_x, screen_y, cam_x, cam_y, zoom) {
+                            return components_mod.calc_screen_to_world(rect, screen_x, screen_y, cam_x, cam_y, zoom)
+                        }
+
+                        fn world_to_screen(rect, world_x, world_y, cam_x, cam_y, zoom) {
+                            return components_mod.calc_world_to_screen(rect, world_x, world_y, cam_x, cam_y, zoom)
+                        }
+
+                        fn point_in_rect(px, py, rx, ry, rw, rh) {
+                            return components_mod.is_point_in_rect(px, py, rx, ry, rw, rh)
+                        }
 
-fn test_gizmo_hit(mx, my, gx, gy, size = 45.0) {
-    return components_mod.calc_gizmo_hit(mx, my, gx, gy, size)
-}
+                        fn test_gizmo_hit(mx, my, gx, gy, size = 45.0) {
+                            return components_mod.calc_gizmo_hit(mx, my, gx, gy, size)
+                        }
 
-fn draw_gizmo_2d(gx, gy, size = 45.0, active_axis = "none") {
-    components_mod.render_gizmo_2d(gx, gy, size, active_axis)
-}
+                        fn draw_gizmo_2d(gx, gy, size = 45.0, active_axis = "none") {
+                            components_mod.render_gizmo_2d(gx, gy, size, active_axis)
+                        }
 
-fn set_viewport_camera(rect, target_x, target_y, zoom) {
-    components_mod.apply_viewport_camera(rect, target_x, target_y, zoom)
-}
+                        fn set_viewport_camera(rect, target_x, target_y, zoom) {
+                            components_mod.apply_viewport_camera(rect, target_x, target_y, zoom)
+                        }
 
-fn text_input(props: Dict = {}) {
-    return components_mod.make_text_input(props)
-}
+                        fn text_input(props: Dict = {}) {
+                            return components_mod.make_text_input(props)
+                        }
 
-fn number_input(props: Dict = {}) {
-    return components_mod.make_number_input(props)
-}
+                        fn number_input(props: Dict = {}) {
+                            return components_mod.make_number_input(props)
+                        }
 
-fn scrubber_input(props: Dict = {}) {
-    return components_mod.make_scrubber_input(props)
-}
+                        fn scrubber_input(props: Dict = {}) {
+                            return components_mod.make_scrubber_input(props)
+                        }
 
-fn segmented_group(options: List, selected, on_change = none, props: Dict = {}) {
-    return components_mod.make_segmented_group(options, selected, on_change, props)
-}
+                        fn segmented_group(options: List, selected, on_change = none, props: Dict = {}) {
+                            return components_mod.make_segmented_group(options, selected, on_change, props)
+                        }
 
-fn hierarchy_tree(props: Dict = {}) {
-    return components_mod.make_hierarchy_tree(props)
-}
+                        fn hierarchy_tree(props: Dict = {}) {
+                            return components_mod.make_hierarchy_tree(props)
+                        }
 
-fn icon(name: String, props: Dict = {}) {
-    return icons_mod.icons_make_icon(name, props)
-}
+                        fn icon(name: String, props: Dict = {}) {
+                            return icons_mod.icons_make_icon(name, props)
+                        }
 
-fn register_icon(name: String, path_data: String) {
-    icons_mod.icons_register_icon(name, path_data)
-}
+                        fn register_icon(name: String, path_data: String) {
+                            icons_mod.icons_register_icon(name, path_data)
+                        }
 
-fn dropdown_select(props: Dict = {}) {
-    return components_mod.make_dropdown_select(props)
-}
+                        fn dropdown_select(props: Dict = {}) {
+                            return components_mod.make_dropdown_select(props)
+                        }
 
-fn color_picker(props: Dict = {}) {
-    return components_mod.make_color_picker(props)
-}
+                        fn color_picker(props: Dict = {}) {
+                            return components_mod.make_color_picker(props)
+                        }
 
-fn tree_view(props: Dict = {}) {
-    return components_mod.make_tree_view(props)
-}
+                        fn tree_view(props: Dict = {}) {
+                            return components_mod.make_tree_view(props)
+                        }
 
-fn virtual_list(props: Dict = {}) {
-    return components_mod.make_virtual_list(props)
-}
+                        fn virtual_list(props: Dict = {}) {
+                            return components_mod.make_virtual_list(props)
+                        }
 
-fn dialog(title: String, content_children: List, on_confirm = none, on_cancel = none, props: Dict = {}) {
-    return components_mod.make_dialog(title, content_children, on_confirm, on_cancel, props)
-}
+                        fn dialog(title: String, content_children: List, on_confirm = none, on_cancel = none, props: Dict = {}) {
+                            return components_mod.make_dialog(title, content_children, on_confirm, on_cancel, props)
+                        }
 
-fn open_dialog(title: String, content_children: List, on_confirm = none, on_cancel = none, props: Dict = {}) {
-    let dismissible = if props.has("dismissible") then props["dismissible"] else false
-    let dlg = components_mod.make_dialog(title, content_children, on_confirm, on_cancel, props)
-    return overlay_mod.overlay_push(dlg, { "scrim": true, "dismissible": dismissible })
-}
+                        fn open_dialog(title: String, content_children: List, on_confirm = none, on_cancel = none, props: Dict = {}) {
+                            let dismissible = if props.has("dismissible") then props["dismissible"] else false
+                                    let dlg = components_mod.make_dialog(title, content_children, on_confirm, on_cancel, props)
+                                    return overlay_mod.overlay_push(dlg, { "scrim": true, "dismissible": dismissible })
+                                }
 
-# --- Advanced Widgets (Code Editor, Node Graph, Modals) ---
+                                # --- Advanced Widgets (Code Editor, Node Graph, Modals) ---
 
-fn code_editor(props: Dict = {}) {
-    return widgets_mod.make_code_editor(props)
-}
+                                fn code_editor(props: Dict = {}) {
+                                    return widgets_mod.make_code_editor(props)
+                                }
 
-fn node_graph(props: Dict = {}) {
-    return widgets_mod.make_node_graph(props)
-}
+                                fn node_graph(props: Dict = {}) {
+                                    return widgets_mod.make_node_graph(props)
+                                }
 
-fn modal_dialog(title: String, content_children: List, on_confirm = none, on_cancel = none, props: Dict = {}) {
-    return widgets_mod.make_modal_dialog(title, content_children, on_confirm, on_cancel, props)
-}
+                                fn modal_dialog(title: String, content_children: List, on_confirm = none, on_cancel = none, props: Dict = {}) {
+                                    return widgets_mod.make_modal_dialog(title, content_children, on_confirm, on_cancel, props)
+                                }
 
-fn open_modal(title: String, content_children: List, on_confirm = none, on_cancel = none, props: Dict = {}) {
-    return widgets_mod.open_modal_dialog(title, content_children, on_confirm, on_cancel, props)
-}
+                                fn open_modal(title: String, content_children: List, on_confirm = none, on_cancel = none, props: Dict = {}) {
+                                    return widgets_mod.open_modal_dialog(title, content_children, on_confirm, on_cancel, props)
+                                }
 
-fn push_overlay(element, options: Dict = {}) {
-    return overlay_mod.overlay_push(element, options)
-}
+                                fn push_overlay(element, options: Dict = {}) {
+                                    return overlay_mod.overlay_push(element, options)
+                                }
 
-fn pop_overlay() {
-    return overlay_mod.overlay_pop()
-}
+                                fn pop_overlay() {
+                                    return overlay_mod.overlay_pop()
+                                }
 
-fn clear_overlays() {
-    overlay_mod.overlay_clear()
-}
+                                fn clear_overlays() {
+                                    overlay_mod.overlay_clear()
+                                }
 
-fn has_overlays() {
-    return overlay_mod.overlay_has_overlays()
-}
-
-fn get_top_overlay() {
-    return overlay_mod.overlay_get_top()
-}
-
-# --- Reactive Hooks ---
-
-fn use_state(initial_value) {
-    return hooks_mod.signal_use_state(initial_value)
-}
-
-fn set_state(sig, new_value) {
-    hooks_mod.signal_set_value(sig, new_value)
-}
-
-fn use_memo(compute_fn, deps: List) {
-    return hooks_mod.signal_use_memo(compute_fn, deps)
-}
-
-fn use_effect(effect_fn, deps = none) {
-    hooks_mod.signal_use_effect(effect_fn, deps)
-}
-
-fn use_tween(initial_val: Float, target_val: Float, duration: Float = 0.3, easing: String = "ease_out") {
-    return hooks_mod.signal_use_tween(initial_val, target_val, duration, easing)
-}
-
-fn update_tweens(dt: Float) {
-    return hooks_mod.hooks_update_tweens(dt)
-}
-
-# --- Color Utilities & Palette ---
-
-# --- Runtime-resolved UI strings (M13) ---
-
-# Overrides or extends the built-in string table. Partial overrides are safe:
-# keys absent from `table` keep their previous value.
-fn set_strings(table: Dict) {
-    strings_mod.strings_set(table)
-}
-
-# Restores every key to its built-in default.
-fn reset_strings() {
-    strings_mod.strings_reset()
-}
-
-# Resolves a string key, e.g. "dialog.confirm".
-fn str(key: String) -> String {
-    return strings_mod.strings_get(key)
-}
-
-# --- Typography (M13) ---
-
-# Measures a string honoring weight and letter spacing. The single measurement
-# entry point: layout, tooltips and custom widgets all route through this.
-fn measure_text(s: String, size: Float = 14.0, weight = 400) -> Float {
-    return text_mod.text_measure(s, size, text_mod.text_resolve_weight(weight))
-}
-
-# Resolves a `font_weight` value to a CSS-style numeric weight (100..900).
-fn resolve_weight(weight) -> Int {
-    return text_mod.text_resolve_weight(weight)
-}
-
-# Truncates a string with an ellipsis so it fits `max_width`.
-fn ellipsize(s: String, max_width: Float, size: Float = 14.0, weight = 400) -> String {
-    return text_mod.text_ellipsize(s, max_width, size, text_mod.text_resolve_weight(weight))
-}
-
-# Wraps a string into at most `max_lines` lines of `max_width` each.
-fn wrap_text(s: String, max_width: Float, size: Float = 14.0, weight = 400, max_lines: Int = 3) -> List {
-    return text_mod.text_wrap(s, max_width, size, text_mod.text_resolve_weight(weight), max_lines)
-}
-
-# --- Color (M13) ---
-
-fn rgb(r, g, b) {
-    return color_mod.to_rgb(r, g, b)
-}
-
-fn rgba(r, g, b, a) {
-    return color_mod.to_rgba(r, g, b, a)
-}
-
-# Parses "#rgb", "#rrggbb" and "#rrggbbaa" (the leading "#" is optional).
-# Invalid input returns transparent rather than an arbitrary color.
-fn hex(code: String) {
-    return color_mod.parse_hex(code)
-}
-
-# Serializes a color to "#rrggbb", or "#rrggbbaa" when not fully opaque.
-fn color_to_hex(c) -> String {
-    return color_mod.to_hex(c)
-}
-
-let color = {
-    "rgb": color_mod.to_rgb,
-    "rgba": color_mod.to_rgba,
-    "hex": color_mod.parse_hex,
-    "transparent": color_mod.transparent,
-    "white": color_mod.white,
-    "black": color_mod.black,
-    "crust": color_mod.crust,
-    "mantle": color_mod.mantle,
-    "base": color_mod.base,
-    "surface_0": color_mod.surface_0,
-    "surface_1": color_mod.surface_1,
-    "surface_2": color_mod.surface_2,
-    "overlay_0": color_mod.overlay_0,
-    "text": color_mod.text,
-    "blue": color_mod.blue,
-    "lavender": color_mod.lavender,
-    "green": color_mod.green,
-    "red": color_mod.red,
-    "yellow": color_mod.yellow,
-    "peach": color_mod.peach
-}
-
-let tokens = tokens_mod.zoe_tokens
-
-# --- Application Lifecycle ---
-
-fn mount(component_fn) {
-    app_mod.app_mount(component_fn)
-}
-
-fn step(dt) {
-    app_mod.app_update(dt)
-}
-
-fn draw_ui() {
-    app_mod.app_render()
-}
-
-fn get_root_element() {
-    return app_mod.app_get_root_element()
-}
-
-fn get_focused_node() {
-    return app_mod.app_get_focused_node()
-}
-
-fn set_focused_node(node) {
-    app_mod.app_set_focused_node(node)
-}
-
-fn toggle_inspector() {
-    app_mod.app_toggle_inspector()
-}
-
-fn is_inspector_enabled() -> Bool {
-    return app_mod.app_is_inspector_enabled()
-}
-
-fn compute_layout(root, screen_w, screen_h) {
-    leona_mod.leona_compute_layout(root, screen_w, screen_h)
-}
-
-fn create_rect(x, y, w, h) {
-    return types_mod.types_make_rect(x, y, w, h)
-}
-
-fn create_color(r, g, b, a) {
-    return types_mod.types_make_color(r, g, b, a)
-}
-
-# --- 3D Engine Subsystem (Retro 3D) ---
-
-fn vec3(x: Float, y: Float, z: Float) {
-    return retro3d_mod.r3d_vec3(x, y, z)
-}
-
-fn vec3_add(a, b) {
-    return retro3d_mod.r3d_vec3_add(a, b)
-}
-
-fn vec3_sub(a, b) {
-    return retro3d_mod.r3d_vec3_sub(a, b)
-}
-
-fn vec3_scale(v, s) {
-    return retro3d_mod.r3d_vec3_scale(v, s)
-}
-
-fn camera_3d(yaw = 0.6, pitch = 0.45, distance = 220.0, tx = 0.0, ty = 0.0, tz = 0.0, fov = 360.0) {
-    return retro3d_mod.r3d_create_camera(yaw, pitch, distance, tx, ty, tz, fov)
-}
-
-fn project_3d(x, y, z, cam, rect) {
-    return retro3d_mod.r3d_project_3d(x, y, z, cam, rect)
-}
-
-fn cube_mesh(sx, sy, sz, color_val = none) {
-    return retro3d_mod.r3d_create_cube(sx, sy, sz, color_val)
-}
-
-fn pyramid_mesh(base_size, height, color_val = none) {
-    return retro3d_mod.r3d_create_pyramid(base_size, height, color_val)
-}
-
-fn draw_grid_3d(cam, rect, extent = 200.0, step = 40.0) {
-    retro3d_mod.r3d_draw_grid(cam, rect, extent, step)
-}
-
-fn render_mesh_3d(mesh, pos, yaw, pitch, cam, rect, wireframe = false) {
-    retro3d_mod.r3d_render_mesh(mesh, pos, yaw, pitch, cam, rect, wireframe)
-}
-
-fn draw_gizmo_3d(pos, cam, rect, axis_len = 40.0, active_axis = "none") {
-    retro3d_mod.r3d_draw_gizmo(pos, cam, rect, axis_len, active_axis)
-}
-
-fn test_gizmo_3d_hit(mx, my, pos, cam, rect, axis_len = 40.0) {
-    return retro3d_mod.r3d_test_gizmo_hit(mx, my, pos, cam, rect, axis_len)
-}
-
-export column, row, stack, center, spacer, divider
-export rect, label, container
-export button, switch, slider, progress_bar, card, badge, split_view, tab_bar, tab_view, scroll_view, viewport
-export text_input, number_input, scrubber_input, segmented_group, hierarchy_tree, dropdown_select, color_picker, dialog, open_dialog, tree_view, virtual_list
-export code_editor, node_graph, modal_dialog, open_modal
-export icon, register_icon
-export push_overlay, pop_overlay, clear_overlays, has_overlays, get_top_overlay
-export screen_to_world, world_to_screen, point_in_rect, test_gizmo_hit, draw_gizmo_2d, set_viewport_camera
-export vec3, vec3_add, vec3_sub, vec3_scale, camera_3d, project_3d, cube_mesh, pyramid_mesh, draw_grid_3d, render_mesh_3d, draw_gizmo_3d, test_gizmo_3d_hit
-export use_state, set_state, use_memo, use_effect, use_tween, update_tweens
-export rgb, rgba, hex, color_to_hex, color, tokens
-export set_strings, reset_strings, str
-export measure_text, resolve_weight, ellipsize, wrap_text
-export mount, step, draw_ui, get_root_element, compute_layout, get_focused_node, set_focused_node, toggle_inspector, is_inspector_enabled
-export create_rect, create_color
-
+                                fn has_overlays() {
+                                    return overlay_mod.overlay_has_overlays()
+                                }
+
+                                fn get_top_overlay() {
+                                    return overlay_mod.overlay_get_top()
+                                }
+
+                                # --- Reactive Hooks ---
+
+                                fn use_state(initial_value) {
+                                    return hooks_mod.signal_use_state(initial_value)
+                                }
+
+                                fn set_state(sig, new_value) {
+                                    hooks_mod.signal_set_value(sig, new_value)
+                                }
+
+                                fn use_memo(compute_fn, deps: List) {
+                                    return hooks_mod.signal_use_memo(compute_fn, deps)
+                                }
+
+                                fn use_effect(effect_fn, deps = none) {
+                                    hooks_mod.signal_use_effect(effect_fn, deps)
+                                }
+
+                                fn use_tween(initial_val: Float, target_val: Float, duration: Float = 0.3, easing: String = "ease_out") {
+                                    return hooks_mod.signal_use_tween(initial_val, target_val, duration, easing)
+                                }
+
+                                fn update_tweens(dt: Float) {
+                                    return hooks_mod.hooks_update_tweens(dt)
+                                }
+
+                                # --- Color Utilities & Palette ---
+
+                                # --- Runtime-resolved UI strings (M13) ---
+
+                                # Overrides or extends the built-in string table. Partial overrides are safe:
+                                # keys absent from `table` keep their previous value.
+                                fn set_strings(table: Dict) {
+                                    strings_mod.strings_set(table)
+                                }
+
+                                # Restores every key to its built-in default.
+                                fn reset_strings() {
+                                    strings_mod.strings_reset()
+                                }
+
+                                # Resolves a string key, e.g. "dialog.confirm".
+                                fn str(key: String) -> String {
+                                    return strings_mod.strings_get(key)
+                                }
+
+                                # --- Typography (M13) ---
+
+                                # Measures a string honoring weight and letter spacing. The single measurement
+                                # entry point: layout, tooltips and custom widgets all route through this.
+                                fn measure_text(s: String, size: Float = 14.0, weight = 400) -> Float {
+                                    return text_mod.text_measure(s, size, text_mod.text_resolve_weight(weight))
+                                }
+
+                                # Resolves a `font_weight` value to a CSS-style numeric weight (100..900).
+                                fn resolve_weight(weight) -> Int {
+                                    return text_mod.text_resolve_weight(weight)
+                                }
+
+                                # Truncates a string with an ellipsis so it fits `max_width`.
+                                fn ellipsize(s: String, max_width: Float, size: Float = 14.0, weight = 400) -> String {
+                                    return text_mod.text_ellipsize(s, max_width, size, text_mod.text_resolve_weight(weight))
+                                }
+
+                                # Wraps a string into at most `max_lines` lines of `max_width` each.
+                                fn wrap_text(s: String, max_width: Float, size: Float = 14.0, weight = 400, max_lines: Int = 3) -> List {
+                                    return text_mod.text_wrap(s, max_width, size, text_mod.text_resolve_weight(weight), max_lines)
+                                }
+
+                                # --- Color (M13) ---
+
+                                fn rgb(r, g, b) {
+                                    return color_mod.to_rgb(r, g, b)
+                                }
+
+                                fn rgba(r, g, b, a) {
+                                    return color_mod.to_rgba(r, g, b, a)
+                                }
+
+                                # Parses "#rgb", "#rrggbb" and "#rrggbbaa" (the leading "#" is optional).
+                                # Invalid input returns transparent rather than an arbitrary color.
+                                fn hex(code: String) {
+                                    return color_mod.parse_hex(code)
+                                }
+
+                                # Serializes a color to "#rrggbb", or "#rrggbbaa" when not fully opaque.
+                                fn color_to_hex(c) -> String {
+                                    return color_mod.to_hex(c)
+                                }
+
+                                let color = {
+                                    "rgb": color_mod.to_rgb,
+                                    "rgba": color_mod.to_rgba,
+                                    "hex": color_mod.parse_hex,
+                                    "transparent": color_mod.transparent,
+                                    "white": color_mod.white,
+                                    "black": color_mod.black,
+                                    "crust": color_mod.crust,
+                                    "mantle": color_mod.mantle,
+                                    "base": color_mod.base,
+                                    "surface_0": color_mod.surface_0,
+                                    "surface_1": color_mod.surface_1,
+                                    "surface_2": color_mod.surface_2,
+                                    "overlay_0": color_mod.overlay_0,
+                                    "text": color_mod.text,
+                                    "blue": color_mod.blue,
+                                    "lavender": color_mod.lavender,
+                                    "green": color_mod.green,
+                                    "red": color_mod.red,
+                                    "yellow": color_mod.yellow,
+                                    "peach": color_mod.peach
+                                }
+
+                                let tokens = tokens_mod.zoe_tokens
+
+                                # --- Application Lifecycle ---
+
+                                fn mount(component_fn) {
+                                    app_mod.app_mount(component_fn)
+                                }
+
+                                fn step(dt) {
+                                    app_mod.app_update(dt)
+                                }
+
+                                fn draw_ui() {
+                                    app_mod.app_render()
+                                }
+
+                                fn get_root_element() {
+                                    return app_mod.app_get_root_element()
+                                }
+
+                                fn get_focused_node() {
+                                    return app_mod.app_get_focused_node()
+                                }
+
+                                fn set_focused_node(node) {
+                                    app_mod.app_set_focused_node(node)
+                                }
+
+                                fn toggle_inspector() {
+                                    app_mod.app_toggle_inspector()
+                                }
+
+                                fn is_inspector_enabled() -> Bool {
+                                    return app_mod.app_is_inspector_enabled()
+                                }
+
+                                fn compute_layout(root, screen_w, screen_h) {
+                                    leona_mod.leona_compute_layout(root, screen_w, screen_h)
+                                }
+
+                                fn create_rect(x, y, w, h) {
+                                    return types_mod.types_make_rect(x, y, w, h)
+                                }
+
+                                fn create_color(r, g, b, a) {
+                                    return types_mod.types_make_color(r, g, b, a)
+                                }
+
+                                # --- 3D Engine Subsystem (Retro 3D) ---
+
+                                fn vec3(x: Float, y: Float, z: Float) {
+                                    return retro3d_mod.r3d_vec3(x, y, z)
+                                }
+
+                                fn vec3_add(a, b) {
+                                    return retro3d_mod.r3d_vec3_add(a, b)
+                                }
+
+                                fn vec3_sub(a, b) {
+                                    return retro3d_mod.r3d_vec3_sub(a, b)
+                                }
+
+                                fn vec3_scale(v, s) {
+                                    return retro3d_mod.r3d_vec3_scale(v, s)
+                                }
+
+                                fn camera_3d(yaw = 0.6, pitch = 0.45, distance = 220.0, tx = 0.0, ty = 0.0, tz = 0.0, fov = 360.0) {
+                                    return retro3d_mod.r3d_create_camera(yaw, pitch, distance, tx, ty, tz, fov)
+                                }
+
+                                fn project_3d(x, y, z, cam, rect) {
+                                    return retro3d_mod.r3d_project_3d(x, y, z, cam, rect)
+                                }
+
+                                fn cube_mesh(sx, sy, sz, color_val = none) {
+                                    return retro3d_mod.r3d_create_cube(sx, sy, sz, color_val)
+                                }
+
+                                fn pyramid_mesh(base_size, height, color_val = none) {
+                                    return retro3d_mod.r3d_create_pyramid(base_size, height, color_val)
+                                }
+
+                                fn draw_grid_3d(cam, rect, extent = 200.0, step = 40.0) {
+                                    retro3d_mod.r3d_draw_grid(cam, rect, extent, step)
+                                }
+
+                                fn render_mesh_3d(mesh, pos, yaw, pitch, cam, rect, wireframe = false) {
+                                    retro3d_mod.r3d_render_mesh(mesh, pos, yaw, pitch, cam, rect, wireframe)
+                                }
+
+                                fn draw_gizmo_3d(pos, cam, rect, axis_len = 40.0, active_axis = "none") {
+                                    retro3d_mod.r3d_draw_gizmo(pos, cam, rect, axis_len, active_axis)
+                                }
+
+                                fn test_gizmo_3d_hit(mx, my, pos, cam, rect, axis_len = 40.0) {
+                                    return retro3d_mod.r3d_test_gizmo_hit(mx, my, pos, cam, rect, axis_len)
+                                }
+
+                                export column, row, stack, center, spacer, divider
+                                export rect, label, container
+                                export button, switch, slider, progress_bar, card, badge, split_view, tab_bar, tab_view, scroll_view, viewport
+                                export text_input, number_input, scrubber_input, segmented_group, hierarchy_tree, dropdown_select, color_picker, dialog, open_dialog, tree_view, virtual_list
+                                export code_editor, node_graph, modal_dialog, open_modal
+                                export icon, register_icon
+                                export push_overlay, pop_overlay, clear_overlays, has_overlays, get_top_overlay
+                                export screen_to_world, world_to_screen, point_in_rect, test_gizmo_hit, draw_gizmo_2d, set_viewport_camera
+                                export vec3, vec3_add, vec3_sub, vec3_scale, camera_3d, project_3d, cube_mesh, pyramid_mesh, draw_grid_3d, render_mesh_3d, draw_gizmo_3d, test_gizmo_3d_hit
+                                export use_state, set_state, use_memo, use_effect, use_tween, update_tweens
+                                export rgb, rgba, hex, color_to_hex, color, tokens
+                                export set_strings, reset_strings, str
+                                export measure_text, resolve_weight, ellipsize, wrap_text
+                                export mount, step, draw_ui, get_root_element, compute_layout, get_focused_node, set_focused_node, toggle_inspector, is_inspector_enabled
+                                export create_rect, create_color

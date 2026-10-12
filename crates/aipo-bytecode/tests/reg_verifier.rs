@@ -11,6 +11,7 @@ fn function(code: Vec<I>, registers: usize) -> RegCompiledFunction {
         num_registers: registers,
         instructions: code,
         constants: vec![],
+        contracts: vec![],
     }
 }
 

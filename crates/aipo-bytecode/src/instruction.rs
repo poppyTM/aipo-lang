@@ -144,6 +144,25 @@ pub enum RegOpCode {
     AssertContract = 79,
     /// Nullable contract assertion with the same encoding.
     AssertContractNullable = 80,
+
+    // --- Contracts, Invariants & Closures ---
+    /// Assert invariant: `assert R[A] is true` for type `Constants[Bx]`.
+    AssertInvariant = 81,
+    /// Seal struct: seal fixed fields on `R[A]` instance.
+    SealStruct = 82,
+    /// Create closure: `R[A] = Closure(func_idx: B, upvalues: C starting at R[A])`.
+    MakeClosure = 83,
+    /// Read captured upvalue: `R[A] = Upvalues[Bx]`.
+    GetUpvalue = 84,
+    /// Write captured upvalue: `Upvalues[Bx] = R[A]`.
+    SetUpvalue = 85,
+    /// Fill self-capture cell: fill Unset cell in `R[A]` with `R[A]`.
+    FillSelfCapture = 86,
+    /// Check mutation boundary: verify journaled mutations.
+    CheckMutations = 87,
+    /// Await a task: `R[A] = await R[A]`. Suspends the running task when the
+    /// operand is a live, non-terminal `Task`.
+    Await = 88,
 }
 
 impl RegOpCode {
@@ -207,6 +226,14 @@ impl RegOpCode {
             78 => Some(Self::IterGuardEnd),
             79 => Some(Self::AssertContract),
             80 => Some(Self::AssertContractNullable),
+            81 => Some(Self::AssertInvariant),
+            82 => Some(Self::SealStruct),
+            83 => Some(Self::MakeClosure),
+            84 => Some(Self::GetUpvalue),
+            85 => Some(Self::SetUpvalue),
+            86 => Some(Self::FillSelfCapture),
+            87 => Some(Self::CheckMutations),
+            88 => Some(Self::Await),
             _ => None,
         }
     }

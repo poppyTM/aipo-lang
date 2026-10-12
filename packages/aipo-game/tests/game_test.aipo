@@ -17,7 +17,7 @@ test("animation clip creation and defaults") do {
     expect.equal(clip.name, "walk")
     expect.equal(clip.frame_indices.len(), 4)
     expect.equal(clip.fps, 10.0)
-    expect.true(clip.is_looping)
+    expect.true (clip.is_looping)
     expect.equal(clip.tile_w, 32.0)
     expect.equal(clip.tile_h, 32.0)
     expect.equal(clip.tileset_cols, 4)
@@ -32,7 +32,7 @@ test("animator clips registration and playback") do {
 
     expect.equal(g.animation.current_clip(anim), "idle")
     expect.equal(g.animation.get_current_frame(anim), 0)
-    expect.false(g.animation.is_finished(anim))
+    expect.false (g.animation.is_finished(anim))
 
     g.animation.play(anim, "jump", false)
     expect.equal(g.animation.current_clip(anim), "jump")
@@ -47,17 +47,17 @@ test("animator frame advance and non-looping finish") do {
     # At 10 fps, each frame lasts 0.1s
     g.animation.update(anim, 0.05)
     expect.equal(g.animation.get_current_frame(anim), 0)
-    expect.false(g.animation.is_finished(anim))
+    expect.false (g.animation.is_finished(anim))
 
     # Advance past first frame
     g.animation.update(anim, 0.06)
     expect.equal(g.animation.get_current_frame(anim), 1)
-    expect.false(g.animation.is_finished(anim))
+    expect.false (g.animation.is_finished(anim))
 
     # Advance past final frame (non-looping should finish and stay on last frame)
     g.animation.update(anim, 0.10)
     expect.equal(g.animation.get_current_frame(anim), 1)
-    expect.true(g.animation.is_finished(anim))
+    expect.true (g.animation.is_finished(anim))
 }
 test("particle emitter creation, capacity, and clear") do {
     let emitter = g.particles.create_emitter(100.0, 150.0, 64)
@@ -102,8 +102,8 @@ test("particle physics, lifetime decay, and culling") do {
     g.particles.update(emitter, 0.05)
     expect.equal(g.particles.count(emitter), 1)
     let p_after = emitter.particles[0]
-    expect.true(p_after.x > 0.0)
-    expect.true(p_after.life <= 0.055)
+    expect.true (p_after.x > 0.0)
+    expect.true (p_after.life <= 0.055)
 
     # Step simulation past lifetime (0.06s additional => total 0.11s > 0.10s)
     g.particles.update(emitter, 0.06)

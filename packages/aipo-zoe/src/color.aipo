@@ -48,18 +48,18 @@ fn hex_digit_value(c: String) -> Int {
     if c == "d" { return 13 }
     if c == "e" { return 14 }
     if c == "f" { return 15 }
-    return -1
+    return - 1
 }
 
 # Parses a 2-character hex substring at `start` into 0..=255, or -1 if invalid.
 fn hex_pair(s: String, start: Int) -> Int {
     if start + 1 >= s.len() {
-        return -1
+        return - 1
     }
     let hi = hex_digit_value(s.slice(start, start + 1))
     let lo = hex_digit_value(s.slice(start + 1, start + 2))
     if hi < 0 or lo < 0 {
-        return -1
+        return - 1
     }
     return hi * 16 + lo
 }

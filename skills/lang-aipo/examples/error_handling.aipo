@@ -1,6 +1,9 @@
 # Padrões de tratamento de erro e reversão transacional em Aipo V1
-import io
-
+#
+# Fatos da linguagem usados aqui:
+# - `io` é prelude: disponível sem `import` (e `import io` é erro).
+# - `var` é forma de **parâmetro** na declaration (`fn f(var origem: Carteira)`).
+#   No argumento da chamada o valor é passado direto, sem `var`.
 export Carteira, transferir
 
 struct Carteira {
@@ -45,7 +48,7 @@ fn test_reversao_transacional() {
     var c2 = Carteira{ id: 2, saldo: 50.0 }
 
     # Tenta transferir valor superior ao saldo
-    let ok = transferir(var c1, var c2, 150.0)
+    let ok = transferir(c1, c2, 150.0)
     if ok {
         fail "transferência deveria ter sido rejeitada"
     }

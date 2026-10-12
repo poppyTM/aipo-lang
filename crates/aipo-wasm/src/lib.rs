@@ -10,7 +10,7 @@ pub use compiler::compile_hir;
 pub use emitter::WasmEmitter;
 pub use error::WasmCompileError;
 pub use runner::{
-    WasmExecutionOptions, WasmRuntimeError, disassemble_wasm, execute_wasm,
+    WasmExecutionOptions, WasmRuntimeError, disassemble_wasm, execute_wasm, execute_wasm_with_fuel,
     execute_wasm_with_options,
 };
 pub use types::{WasmFnType, WasmType};

@@ -171,3 +171,51 @@ fn unused() -> Int {
             .unwrap_or(true)
     );
 }
+
+#[test]
+fn test_dict_has_key() {
+    let code = r#"
+fn check_keys() -> Int {
+  let d = { "apple": 10, 42: 100 }
+  var count = 0
+  if d.has("apple") {
+    count = count + 1
+  }
+  if d.has("banana") {
+    count = count + 10
+  }
+  if d.has(42) {
+    count = count + 100
+  }
+  if d.has(99) {
+    count = count + 1000
+  }
+  return count
+}
+"#;
+    let (mut store, instance) = instantiate_aipo(code);
+    let f = instance
+        .get_typed_func::<(), i64>(&mut store, "check_keys")
+        .expect("exported `check_keys`");
+
+    assert_eq!(f.call(&mut store, ()).unwrap(), 101);
+}
+
+#[test]
+fn test_dict_compound_assignment() {
+    let code = r#"
+fn tally() -> Int {
+  var d = { "counter": 10, 7: 100 }
+  d["counter"] += 5
+  d[7] += 23
+  return d["counter"] + d[7]
+}
+"#;
+    let (mut store, instance) = instantiate_aipo(code);
+    let f = instance
+        .get_typed_func::<(), i64>(&mut store, "tally")
+        .expect("exported `tally`");
+
+    // 15 + 123 = 138
+    assert_eq!(f.call(&mut store, ()).unwrap(), 138);
+}

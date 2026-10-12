@@ -34,7 +34,7 @@ fn make_context(method: String, raw_path: String, headers: Dict = {}, body_raw: 
         }
     }
 
-    return Context{
+    return Context {
         req_method: method.upper(),
         req_path: path,
         params: {},
@@ -106,23 +106,23 @@ fn ctx_body_json(ctx: Context) {
     return json.parse(ctx.body_raw)
 }
 
-Context:status(self, code: Int) {
+Context:status(self, code:Int) {
     ctx_status(self, code)
 }
 
-Context:set_header(self, key: String, val: String) {
+Context:set_header(self, key:String, val:String) {
     ctx_set_header(self, key, val)
 }
 
-Context:header(self, key: String) {
+Context:header(self, key:String) {
     return ctx_header(self, key)
 }
 
-Context:param(self, name: String) {
+Context:param(self, name:String) {
     return ctx_param(self, name)
 }
 
-Context:query_param(self, name: String) {
+Context:query_param(self, name:String) {
     return ctx_query(self, name)
 }
 
@@ -130,11 +130,11 @@ Context:json(self, data) {
     ctx_json(self, data)
 }
 
-Context:text(self, text_str: String) {
+Context:text(self, text_str:String) {
     ctx_text(self, text_str)
 }
 
-Context:html(self, html_str: String) {
+Context:html(self, html_str:String) {
     ctx_html(self, html_str)
 }
 

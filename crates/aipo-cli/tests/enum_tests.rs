@@ -285,6 +285,47 @@ io.println(String(s is Status.Inativo))
     assert_eq!(stdout.trim(), "true\ntrue\nfalse");
 }
 
+/// An enum method is declared on the enum (`Enum:metodo`), but a payload variant is
+/// stored as a struct named `Enum.Variante`. A variant receiver must therefore
+/// resolve the method on the parent enum, in the frontend *and* in the VM, instead of
+/// reporting `unknown member` / `no field`.
+#[test]
+fn test_enum_method_on_payload_variant_receiver() {
+    let temp = std::env::temp_dir().join("aipo_enum_variant_method.aipo");
+    let source = r#"
+enum EstadoConexao {
+    Desconectado,
+    Conectado { ip: String, ping_ms: Int },
+}
+
+EstadoConexao:esta_operacional() -> Bool {
+    var operacional = false
+    match self {
+        when EstadoConexao.Conectado { ip, ping_ms } if ping_ms < 500 {
+            operacional = true
+        }
+        else {
+            operacional = false
+        }
+    }
+    return operacional
+}
+
+let rapido = EstadoConexao.Conectado{ ip: "10.0.0.1", ping_ms: 42 }
+let lento = EstadoConexao.Conectado{ ip: "10.0.0.2", ping_ms: 900 }
+let off = EstadoConexao.Desconectado
+
+io.println(String(rapido.esta_operacional()))
+io.println(String(lento.esta_operacional()))
+io.println(String(off.esta_operacional()))
+"#;
+    std::fs::write(&temp, source).unwrap();
+    let (code, stdout, stderr) = run_program(&temp);
+    let _ = std::fs::remove_file(&temp);
+    assert_eq!(code, 0, "stderr: {stderr}");
+    assert_eq!(stdout.trim(), "true\nfalse\nfalse");
+}
+
 #[test]
 fn test_enum_invariant_enforcement() {
     let temp = std::env::temp_dir().join("aipo_enum_inv.aipo");

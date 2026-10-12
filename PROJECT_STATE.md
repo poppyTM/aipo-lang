@@ -207,6 +207,30 @@
     - **D1 e D2 bloqueiam o caminho interativo do `aipo.ui`**: `ui.Button(on_click = ...)` aninhado dentro de um closure `body` ainda não é seguro. O exemplo `packages/aipo-ui/examples/counter.aipo` demonstra a árvore sem filhos interativos até que sejam corrigidos.
     - Drift pré-existente de `aipo fmt` em 37 de 45 arquivos de pacote não foi tocado neste ramo, para não enterrar a reparação sob um diff não relacionado.
 
+  - **Polinização Cruzada e Hardening omniLua (AIPO-OMNI-001 a 005 Concluídos e Certificados)**:
+    - **AIPO-OMNI-001 (Canários de Vazamento de Memória)**: `CountingAllocator` em `crates/aipo-testkit`, 8 cenários de churn (`leak_canaries.rs`) com $\Delta \text{bytes} = 0$.
+    - **AIPO-OMNI-002 (Instruction Budget Sticky e Ininterceptável)**: `VmFault::BudgetExhausted` ininterceptável por `attempt { ... }` na Stack VM, RegVm, Wasm e CLI (`--budget`).
+    - **AIPO-OMNI-003 (Embedding Scoped em Rust Puro)**: `AipoEngine::scope`, `ScopedHandle<'scope>`, userdata geracional, verificação de scope escape e zero `unsafe`.
+    - **AIPO-OMNI-004 (Tarifação Periódica de Fuel / Interval Metering)**: Amortização do débito de fuel com verificação a cada 64 instruções, reduzindo 98.4% dos branches no hot path, com reconciliação estrita na saída.
+    - **AIPO-OMNI-005 (Janelas de Registrador na `RegVm`)**: Pilha contígua `register_stack` para salvamento/restauração seletiva (`0..callee_regs`), eliminando cópia cega de 256 registradores por ativação (-98.8% de tráfego de pilha).
+    - 100% dos testes e verificações do workspace aprovados sem warnings.
+
+  - **Remediação de Defeitos e Estabilização Pré-Alpha v0.1.0**:
+    - **Wasm Match Arm / Local Function IO Scanner**: Corrigida a omissão de chamadas de host I/O (`io.println`, etc.) dentro de braços `match` (`when_arms`), funções locais (`HirStmt::FnDecl`) e métodos em `crates/aipo-wasm/src/compiler.rs`. Removido código morto (`program_stmt_span`, helpers assíncronos não utilizados). Coberto por `test_host_io_in_match_arms_without_outer_io`.
+    - **Stdlib `math.tau`**: Adicionada constante canônica `math.tau` (6.283185307179586) em `crates/aipo-stdlib/src/math.rs` e no runtime ESM JavaScript `crates/aipo-js/runtime/aipo-runtime.js`. Coberto por `test_math_constants`.
+    - **Stdlib `Set()` Zero-Argument Constructor**: Habilitada a instanciação de conjuntos vazios `Set()` sem argumentos na Stack VM (`crates/aipo-stdlib/src/convert.rs`, `crates/aipo-vm/src/convert.rs`) e no runtime JS (`aipo-runtime.js`). Coberto por `test_empty_set_creation`.
+    - **C ABI Header `aipo.h` Sincronizado**: Declarados os protótipos de embedding da Register VM (`aipo_reg_vm_t`, `aipo_reg_vm_create`, `aipo_reg_vm_destroy`, `aipo_reg_vm_set_reg_int`, `aipo_reg_vm_get_reg_int`, `aipo_reg_vm_run`) em `crates/aipo-c-abi/include/aipo.h`.
+    - **Suíte de Testes Automatizada para `aipo-egui`**: Criada suíte completa em `packages/aipo-egui/tests/egui_test.aipo` e integrada ao runner `crates/aipo-cli/tests/package_suites.rs`.
+    - **Sincronização de Documentação Canônica**: Atualizado `SYNTAX.md` (preâmbulo e conformidade com ADR-001), `docs/reference/cli.md` (`--engine`, `--budget`, `--max-instructions`) e harmonizado o código de diagnóstico `AIPO_SEM_FIXED_REASSIGN` nos manuais e decisões.
+  - **Substrato de Execução WebAssembly & C ABI (ADP-009, ADP-013)**:
+    - **Crescimento Dinâmico de Listas e Buffer Geométrico (`aipo-wasm`)**: Refatoração do layout de listas para ponteiro indireto estável (`[data_ptr: i32]`) apontando para buffer redimensionável (`[len: i32, cap: i32, elements: [i64; cap]]`). Implementada rotina `__aipo_list_add` com realocação geométrica 2x em memória linear e lowering direto de `list.add(item)`.
+    - **Compilação e Despacho de Métodos de Structs (`aipo-wasm`)**: Coleta e compilação de blocos `HirItem::Impl` (incluindo `init` e métodos com receptor `self: i32`), funções batch `Tipo:nome`, e despacho polimórfico de chamadas de método (`receiver.method(args)`) e chamadas estáticas (`Type.method(args)`).
+    - **Workloads `fields` e `collections` no Wasm**: Cobertura com novos testes de ponta a ponta (`test_list_dynamic_add_growth`, `test_struct_methods_invocation_and_mutation`, `test_benchmark_fields_workload_on_wasm`) executados via Cranelift JIT / Wasmtime.
+    - **Bytecode Pré-compilado na C ABI (`aipo-c-abi`)**: `aipo_compile_to_bytecode`, `aipo_bytecode_free` e `aipo_runtime_load_bytecode` para compilação externa, serialização binária `.aibc` v1 e carregamento atômico direto sem passar pelo frontend.
+    - **Passo-a-passo Cooperativo e Iteração Limitada na C ABI (`aipo-c-abi`)**: `aipo_runtime_prepare_module`, `aipo_runtime_step` e `aipo_runtime_run_until_idle` com controle de orçamentos de instruções e frame stepping.
+    - **Compilação e Execução de Wasm via C ABI (`aipo-c-abi`)**: `aipo_wasm_compile`, `aipo_wasm_free` e `aipo_wasm_run` integrando execução JIT com orçamentação estrita de fuel (`fuel > 0`).
+    - **Sincronização do Cabeçalho C (`include/aipo.h`)**: Declarações e documentação Doxygen canônicas no header `crates/aipo-c-abi/include/aipo.h`. Suíte de testes de integração exaustiva com 100% de aprovação.
+
 ## Next action
 
 Todos os subsistemas essenciais do runtime de jogos (`aipo.game`) foram finalizados e testados com sucesso:

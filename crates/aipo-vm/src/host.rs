@@ -129,6 +129,21 @@ pub trait FilesystemSource {
     /// Reads text from `path`, returning `Ok(None)` when the path is absent.
     fn read_text(&self, path: &str) -> Result<Option<String>, FilesystemError>;
 
+    /// Writes `content` to `path`, creating or replacing it inside an exposed root.
+    ///
+    /// # Errors
+    ///
+    /// [`FilesystemError`] when the path violates the provider's policy or the write fails.
+    /// Read-only providers keep this default, which reports a write as a recoverable provider
+    /// failure instead of panicking.
+    fn write_text(&mut self, path: &str, content: &str) -> Result<(), FilesystemError> {
+        let _ = (path, content);
+        Err(FilesystemError::Provider {
+            operation: "write_text".to_string(),
+            message: "filesystem provider is read-only".to_string(),
+        })
+    }
+
     /// Returns the roots exposed by this provider in deterministic order.
     fn roots(&self) -> Result<Vec<String>, FilesystemError>;
 }
@@ -139,6 +154,10 @@ where
 {
     fn read_text(&self, path: &str) -> Result<Option<String>, FilesystemError> {
         (**self).read_text(path)
+    }
+
+    fn write_text(&mut self, path: &str, content: &str) -> Result<(), FilesystemError> {
+        (**self).write_text(path, content)
     }
 
     fn roots(&self) -> Result<Vec<String>, FilesystemError> {
@@ -269,6 +288,7 @@ impl ScopeId {
 pub struct HostContext {
     granted: CapabilitySet,
     objects: HandleTable<HostValue>,
+    userdata: HandleTable<Box<dyn std::any::Any>>,
     /// Open scopes, innermost last.
     open_scopes: Vec<ScopeId>,
     /// Handles each scope minted, so closing it can release exactly those.
@@ -290,6 +310,7 @@ impl fmt::Debug for HostContext {
             .debug_struct("HostContext")
             .field("granted", &self.granted)
             .field("objects", &self.objects)
+            .field("userdata_count", &self.userdata.len())
             .field(
                 "environment",
                 &self.environment.as_ref().map(|_| "installed"),
@@ -314,6 +335,7 @@ impl HostContext {
         Self {
             granted,
             objects: HandleTable::new(),
+            userdata: HandleTable::new(),
             open_scopes: Vec::new(),
             minted: HashMap::new(),
             escaped: HashSet::new(),
@@ -427,6 +449,14 @@ impl HostContext {
         self.filesystem.as_deref()
     }
 
+    /// Returns the filesystem provider owned by this VM for mutable access.
+    ///
+    /// Writes go through here so a provider can enforce its own path policy on mutation. The
+    /// borrow is exclusive and short-lived: a host callback holds it only for one operation.
+    pub fn filesystem_source_mut(&mut self) -> Option<&mut (dyn FilesystemSource + 'static)> {
+        self.filesystem.as_deref_mut()
+    }
+
     /// Alias for [`Self::filesystem_source`].
     #[must_use]
     pub fn filesystem(&self) -> Option<&dyn FilesystemSource> {
@@ -493,6 +523,87 @@ impl HostContext {
         self.open_scopes.contains(&scope)
     }
 
+    /// Gives the script a generational handle to an arbitrary host object.
+    ///
+    /// If a scope is currently open, the handle is bound to that scope and will be
+    /// released when the scope closes.
+    pub fn hand_out_userdata<T: 'static>(&mut self, value: T) -> Handle {
+        let handle = self.userdata.insert(Box::new(value));
+        if let Some(scope) = self.open_scopes.last().copied() {
+            self.minted.entry(scope).or_default().push(handle);
+        }
+        handle
+    }
+
+    /// Resolves a live generational handle to an immutable reference to a host object.
+    ///
+    /// # Errors
+    ///
+    /// [`VmFault::ScopeEscape`] if the handle belonged to a scope that has closed.
+    /// [`VmFault::StaleHandle`] if the handle was released or belongs to another generation.
+    /// [`VmFault::TypeMismatch`] if the host object is not of type `T`.
+    pub fn resolve_userdata<T: 'static>(&self, handle: Handle) -> Result<&T, VmFault> {
+        if self.escaped.contains(&handle) {
+            return Err(host_fault_to_vm_fault(&HostFault::ScopeEscape {
+                handle,
+                binding: format!("userdata<{}>", std::any::type_name::<T>()),
+            }));
+        }
+        let any_box = self
+            .userdata
+            .require(handle)
+            .map_err(|fault| host_fault_to_vm_fault(&fault))?;
+        any_box
+            .downcast_ref::<T>()
+            .ok_or_else(|| VmFault::TypeMismatch {
+                expected: std::any::type_name::<T>().to_string(),
+                actual: "different userdata type".to_string(),
+            })
+    }
+
+    /// Resolves a live generational handle to a mutable reference to a host object.
+    ///
+    /// # Errors
+    ///
+    /// [`VmFault::ScopeEscape`] if the handle belonged to a scope that has closed.
+    /// [`VmFault::StaleHandle`] if the handle was released or belongs to another generation.
+    /// [`VmFault::TypeMismatch`] if the host object is not of type `T`.
+    pub fn resolve_userdata_mut<T: 'static>(&mut self, handle: Handle) -> Result<&mut T, VmFault> {
+        if self.escaped.contains(&handle) {
+            return Err(host_fault_to_vm_fault(&HostFault::ScopeEscape {
+                handle,
+                binding: format!("userdata<{}>", std::any::type_name::<T>()),
+            }));
+        }
+        let any_box = self
+            .userdata
+            .get_mut(handle)
+            .ok_or_else(|| host_fault_to_vm_fault(&HostFault::StaleHandle { handle }))?;
+        any_box
+            .downcast_mut::<T>()
+            .ok_or_else(|| VmFault::TypeMismatch {
+                expected: std::any::type_name::<T>().to_string(),
+                actual: "different userdata type".to_string(),
+            })
+    }
+
+    /// Releases a host userdata object, invalidating every handle minted for its slot.
+    pub fn release_userdata(&mut self, handle: Handle) -> Option<Box<dyn std::any::Any>> {
+        self.userdata.remove(handle)
+    }
+
+    /// Number of live host userdata objects.
+    #[must_use]
+    pub fn live_userdata(&self) -> usize {
+        self.userdata.len()
+    }
+
+    /// Whether `handle` addresses a live userdata object.
+    #[must_use]
+    pub fn contains_userdata(&self, handle: Handle) -> bool {
+        self.userdata.contains(handle)
+    }
+
     /// Closes a host scope, releasing everything it minted.
     ///
     /// The handles go through the table, so each slot's generation advances and none of them
@@ -506,6 +617,7 @@ impl HostContext {
         self.open_scopes.retain(|open| *open != scope);
         for handle in handles {
             self.objects.remove(handle);
+            self.userdata.remove(handle);
             self.escaped.insert(handle);
         }
     }

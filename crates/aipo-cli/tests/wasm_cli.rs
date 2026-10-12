@@ -282,3 +282,120 @@ fn main() {
 
     let _ = fs::remove_file(script);
 }
+
+#[test]
+fn test_cli_instruction_budget_halts_infinite_loops() {
+    let script = temp_file(
+        "runaway.aipo",
+        r#"
+var x = 0
+while true {
+    x += 1
+}
+"#,
+    );
+
+    // 1. WebAssembly JIT with --budget
+    let (code, _, stderr) = run_cli(&["run", script.to_str().unwrap(), "--wasm", "--budget=500"]);
+    assert_eq!(code, EXIT_LANGUAGE_FAILURE);
+    assert!(stderr.contains("AIPO_RT_OVERFLOW"), "Wasm stderr: {stderr}");
+    assert!(
+        stderr.contains("execution budget exceeded"),
+        "Wasm stderr: {stderr}"
+    );
+
+    // 2. WebAssembly JIT with --max-instructions
+    let (code, _, stderr) = run_cli(&[
+        "run",
+        script.to_str().unwrap(),
+        "--wasm",
+        "--max-instructions=500",
+    ]);
+    assert_eq!(code, EXIT_LANGUAGE_FAILURE);
+    assert!(stderr.contains("AIPO_RT_OVERFLOW"), "Wasm stderr: {stderr}");
+
+    // 3. Stack VM with --max-instructions
+    let (code, _, stderr) = run_cli(&["run", script.to_str().unwrap(), "--max-instructions=100"]);
+    assert_eq!(code, EXIT_LANGUAGE_FAILURE);
+    assert!(
+        stderr.contains("AIPO_RT_OVERFLOW"),
+        "Stack VM stderr: {stderr}"
+    );
+
+    // 4. Register VM with --budget
+    let (code, _, stderr) = run_cli(&[
+        "run",
+        script.to_str().unwrap(),
+        "--engine=reg",
+        "--budget=100",
+    ]);
+    assert_eq!(code, EXIT_LANGUAGE_FAILURE);
+    assert!(
+        stderr.contains("AIPO_RT_OVERFLOW"),
+        "Reg VM stderr: {stderr}"
+    );
+
+    let _ = fs::remove_file(script);
+}
+
+#[test]
+fn test_cli_budget_happy_path_completes() {
+    let script = temp_file(
+        "finite_calc.aipo",
+        r#"
+var sum = 0
+repeat 10 as i {
+    sum += i
+}
+io.println(sum)
+"#,
+    );
+
+    // Stack VM
+    let (code, _, stderr) = run_cli(&["run", script.to_str().unwrap(), "--budget=10000"]);
+    assert_eq!(code, EXIT_SUCCESS, "stderr: {stderr}");
+
+    // Reg VM
+    let (code, _, stderr) = run_cli(&[
+        "run",
+        script.to_str().unwrap(),
+        "--engine=reg",
+        "--budget=10000",
+    ]);
+    assert_eq!(code, EXIT_SUCCESS, "stderr: {stderr}");
+
+    // Wasm (routes io directly to CLI output stream)
+    let (code, stdout, stderr) =
+        run_cli(&["run", script.to_str().unwrap(), "--wasm", "--budget=100000"]);
+    assert_eq!(code, EXIT_SUCCESS, "stderr: {stderr}");
+    assert_eq!(stdout, "45\n");
+
+    let _ = fs::remove_file(script);
+}
+
+#[test]
+fn test_cli_budget_flag_validation() {
+    let script = temp_file("empty.aipo", "fn main() {}\n");
+
+    // Rejected on check command
+    let (code, _, stderr) = run_cli(&["check", script.to_str().unwrap(), "--budget=100"]);
+    assert_eq!(code, EXIT_USAGE);
+    assert!(stderr.contains("--budget is only supported by run"));
+
+    // Duplicate flag rejected
+    let (code, _, stderr) = run_cli(&[
+        "run",
+        script.to_str().unwrap(),
+        "--budget=100",
+        "--max-instructions=200",
+    ]);
+    assert_eq!(code, EXIT_USAGE);
+    assert!(stderr.contains("was provided more than once"));
+
+    // Non-integer budget rejected
+    let (code, _, stderr) = run_cli(&["run", script.to_str().unwrap(), "--budget=invalid"]);
+    assert_eq!(code, EXIT_USAGE);
+    assert!(stderr.contains("invalid budget 'invalid'"));
+
+    let _ = fs::remove_file(script);
+}

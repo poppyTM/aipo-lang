@@ -22,127 +22,126 @@ fn view() {
             "gap": 18.0
         },
         [
-            # Header Row with Spacer
-            zoe.row(
-                {
-                    "align_items": "center",
-                    "width": "100%",
-                    "gap": 16.0
-                },
-                [
-                    zoe.label("Zoe UI & Leona Engine", {
-                        "font_size": 28.0,
-                        "color": zoe.color.text,
-                        "font_weight": "bold"
-                    }),
-                    zoe.badge("Leona 60 FPS", {
-                        "background": zoe.color.surface_0,
-                        "color": zoe.color.blue
-                    }),
-                    zoe.spacer(),
-                    zoe.badge("Aipo Native", {
-                        "background": zoe.color.surface_1,
-                        "color": zoe.color.green
-                    })
-                ]
-            ),
+        # Header Row with Spacer
+        zoe.row(
+        {
+            "align_items": "center",
+            "width": "100%",
+            "gap": 16.0
+        },
+        [
+        zoe.label("Zoe UI & Leona Engine", {
+            "font_size": 28.0,
+            "color": zoe.color.text,
+            "font_weight": "bold"
+        }),
+        zoe.badge("Leona 60 FPS", {
+            "background": zoe.color.surface_0,
+            "color": zoe.color.blue
+        }),
+        zoe.spacer(),
+        zoe.badge("Aipo Native", {
+            "background": zoe.color.surface_1,
+            "color": zoe.color.green
+        })
+        ]
+        ),
 
-            zoe.divider({ "color": zoe.color.surface_0 }),
+        zoe.divider({ "color": zoe.color.surface_0 }),
 
-            # Card 1: Reatividade e Contador
-            zoe.card(
-                {
-                    "width": "100%",
-                    "background": zoe.color.base,
-                    "border_color": zoe.color.surface_0,
-                    "padding": 20.0,
-                    "gap": 16.0
-                },
-                [
-                    zoe.label("Contador Reativo (use_state):", {
-                        "font_size": 18.0,
-                        "color": zoe.color.lavender
-                    }),
-                    zoe.label(f"Valor atual: {counter.get()}", {
-                        "font_size": 24.0,
-                        "color": zoe.color.blue
-                    }),
-                    zoe.row(
-                        { "gap": 12.0 },
-                        [
-                            zoe.button("+1 Incrementar", _ => zoe.set_state(counter, counter.get() + 1), {
-                                "variant": "primary",
-                                "background": zoe.color.blue
-                            }),
-                            zoe.button("-1 Decrementar", _ => zoe.set_state(counter, counter.get() - 1), {
-                                "variant": "secondary",
-                                "background": zoe.color.surface_1
-                            }),
-                            zoe.button("Zerar", _ => zoe.set_state(counter, 0), {
-                                "variant": "danger",
-                                "background": zoe.color.red
-                            })
-                        ]
-                    )
-                ]
-            ),
+        # Card 1: Reatividade e Contador
+        zoe.card(
+        {
+            "width": "100%",
+            "background": zoe.color.base,
+            "border_color": zoe.color.surface_0,
+            "padding": 20.0,
+            "gap": 16.0
+        },
+        [
+        zoe.label("Contador Reativo (use_state):", {
+            "font_size": 18.0,
+            "color": zoe.color.lavender
+        }),
+        zoe.label(f"Valor atual: {counter.get()}", {
+            "font_size": 24.0,
+            "color": zoe.color.blue
+        }),
+        zoe.row(
+        { "gap": 12.0 },
+        [
+        zoe.button("+1 Incrementar", _ => zoe.set_state(counter, counter.get() + 1), {
+            "variant": "primary",
+            "background": zoe.color.blue
+        }),
+        zoe.button("-1 Decrementar", _ => zoe.set_state(counter, counter.get() - 1), {
+            "variant": "secondary",
+            "background": zoe.color.surface_1
+        }),
+        zoe.button("Zerar", _ => zoe.set_state(counter, 0), {
+            "variant": "danger",
+            "background": zoe.color.red
+        })
+        ]
+        )
+        ]
+        ),
 
-            # Card 2: Controles de Interface (Switch & Slider)
-            zoe.card(
-                {
-                    "width": "100%",
-                    "background": zoe.color.base,
-                    "border_color": zoe.color.surface_0,
-                    "padding": 20.0,
-                    "gap": 16.0
-                },
-                [
-                    zoe.label("Controles de Sistema:", {
-                        "font_size": 18.0,
-                        "color": zoe.color.lavender
-                    }),
-                    
-                    # Linha do Switch
-                    zoe.row(
-                        {
-                            "align_items": "center",
-                            "gap": 16.0
-                        },
-                        [
-                            zoe.label(f"Modo Turbo GPU ({turbo_mode.get()}):", {
-                                "font_size": 15.0,
-                                "color": zoe.color.text
-                            }),
-                            zoe.switch(turbo_mode.get(), _ => zoe.set_state(turbo_mode, not turbo_mode.get()))
-                        ]
-                    ),
+        # Card 2: Controles de Interface (Switch & Slider)
+        zoe.card(
+        {
+            "width": "100%",
+            "background": zoe.color.base,
+            "border_color": zoe.color.surface_0,
+            "padding": 20.0,
+            "gap": 16.0
+        },
+        [
+        zoe.label("Controles de Sistema:", {
+            "font_size": 18.0,
+            "color": zoe.color.lavender
+        }),
+        # Linha do Switch
+        zoe.row(
+        {
+            "align_items": "center",
+            "gap": 16.0
+        },
+        [
+        zoe.label(f"Modo Turbo GPU ({turbo_mode.get()}):", {
+            "font_size": 15.0,
+            "color": zoe.color.text
+        }),
+        zoe.switch(turbo_mode.get(), _ => zoe.set_state(turbo_mode, not turbo_mode.get()))
+        ]
+        ),
 
-                    # Linha do Slider & Barra de Progresso
-                    zoe.column(
-                        { "gap": 8.0 },
-                        [
-                            zoe.label(f"Volume de Saída ({volume.get()}%):", {
-                                "font_size": 15.0,
-                                "color": zoe.color.text
-                            }),
-                            zoe.progress_bar(volume.get() / 100.0, {
-                                "width": 320.0,
-                                "height": 8.0,
-                                "color": zoe.color.green
-                            }),
-                            zoe.row(
-                                { "gap": 8.0 },
-                                [
-                                    zoe.button("25%", _ => zoe.set_state(volume, 25.0), { "variant": "ghost" }),
-                                    zoe.button("50%", _ => zoe.set_state(volume, 50.0), { "variant": "ghost" }),
-                                    zoe.button("75%", _ => zoe.set_state(volume, 75.0), { "variant": "ghost" }),
-                                    zoe.button("100%", _ => zoe.set_state(volume, 100.0), { "variant": "ghost" })
-                                ]
-                            )
-                        ]
-                    )
-                ]
-            )
+        # Linha do Slider & Barra de Progresso
+        zoe.column(
+        { "gap": 8.0 },
+        [
+        zoe.label(f"Volume de Saída ({volume.get()}%):", {
+            "font_size": 15.0,
+            "color": zoe.color.text
+        }),
+        zoe.progress_bar(volume.get() / 100.0, {
+            "width": 320.0,
+            "height": 8.0,
+            "color": zoe.color.green
+        }),
+        zoe.row(
+        { "gap": 8.0 },
+        [
+        zoe.button("25%", _ => zoe.set_state(volume, 25.0), { "variant": "ghost" }),
+        zoe.button("50%", _ => zoe.set_state(volume, 50.0), { "variant": "ghost" }),
+        zoe.button("75%", _ => zoe.set_state(volume, 75.0), { "variant": "ghost" }),
+        zoe.button("100%", _ => zoe.set_state(volume, 100.0), { "variant": "ghost" })
+        ]
+        )
+        ]
+        )
+        ]
+        )
         ]
     )
 }

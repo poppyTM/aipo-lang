@@ -12,161 +12,161 @@ struct AnimationClip {
 }
 
 fn create_clip(
-    name: String,
-    frame_indices: List,
-    fps: Float,
-    is_looping: Bool,
-    tile_w: Float,
-    tile_h: Float,
-    tileset_cols: Int
-) -> AnimationClip {
-    let safe_fps = if fps <= 0.0 then 10.0 else fps
-    let safe_cols = if tileset_cols < 1 then 1 else tileset_cols
+        name: String,
+        frame_indices: List,
+        fps: Float,
+        is_looping: Bool,
+        tile_w: Float,
+        tile_h: Float,
+        tileset_cols: Int
+    ) -> AnimationClip {
+        let safe_fps = if fps <= 0.0 then 10.0 else fps
+                let safe_cols = if tileset_cols < 1 then 1 else tileset_cols
 
-    return AnimationClip {
-        name: name,
-        frame_indices: frame_indices,
-        fps: safe_fps,
-        is_looping: is_looping,
-        tile_w: tile_w,
-        tile_h: tile_h,
-        tileset_cols: safe_cols
-    }
-}
+                        return AnimationClip {
+                            name: name,
+                            frame_indices: frame_indices,
+                            fps: safe_fps,
+                            is_looping: is_looping,
+                            tile_w: tile_w,
+                            tile_h: tile_h,
+                            tileset_cols: safe_cols
+                        }
+                    }
 
-struct SpriteAnimator {
-    texture_id
-    var clips
-    var current_clip_name
-    var current_frame_idx
-    var timer
-    var is_finished
-    var flip_x
-}
+                    struct SpriteAnimator {
+                        texture_id
+                        var clips
+                        var current_clip_name
+                        var current_frame_idx
+                        var timer
+                        var is_finished
+                        var flip_x
+                    }
 
-fn create_animator(texture_id: Int) -> SpriteAnimator {
-    return SpriteAnimator {
-        texture_id: texture_id,
-        clips: {},
-        current_clip_name: "",
-        current_frame_idx: 0,
-        timer: 0.0,
-        is_finished: false,
-        flip_x: false
-    }
-}
+                    fn create_animator(texture_id: Int) -> SpriteAnimator {
+                        return SpriteAnimator {
+                            texture_id: texture_id,
+                            clips: {},
+                            current_clip_name: "",
+                            current_frame_idx: 0,
+                            timer: 0.0,
+                            is_finished: false,
+                            flip_x: false
+                        }
+                    }
 
-fn add_clip(animator: SpriteAnimator, clip: AnimationClip) {
-    animator.clips[clip.name] = clip
-    if animator.current_clip_name == "" {
-        animator.current_clip_name = clip.name
-        animator.current_frame_idx = 0
-        animator.timer = 0.0
-        animator.is_finished = false
-    }
-}
+                    fn add_clip(animator: SpriteAnimator, clip: AnimationClip) {
+                        animator.clips[clip.name] = clip
+                        if animator.current_clip_name == "" {
+                            animator.current_clip_name = clip.name
+                            animator.current_frame_idx = 0
+                            animator.timer = 0.0
+                            animator.is_finished = false
+                        }
+                    }
 
-fn play_animation(animator: SpriteAnimator, clip_name: String, reset_if_playing: Bool) {
-    if not animator.clips.has(clip_name) {
-        return
-    }
+                    fn play_animation(animator: SpriteAnimator, clip_name: String, reset_if_playing: Bool) {
+                        if not animator.clips.has(clip_name) {
+                            return
+                        }
 
-    if animator.current_clip_name == clip_name and not reset_if_playing {
-        return
-    }
+                        if animator.current_clip_name == clip_name and not reset_if_playing {
+                            return
+                        }
 
-    animator.current_clip_name = clip_name
-    animator.current_frame_idx = 0
-    animator.timer = 0.0
-    animator.is_finished = false
-}
+                        animator.current_clip_name = clip_name
+                        animator.current_frame_idx = 0
+                        animator.timer = 0.0
+                        animator.is_finished = false
+                    }
 
-fn update_animator(animator: SpriteAnimator, dt: Float) {
-    if animator.current_clip_name == "" or not animator.clips.has(animator.current_clip_name) {
-        return
-    }
+                    fn update_animator(animator: SpriteAnimator, dt: Float) {
+                        if animator.current_clip_name == "" or not animator.clips.has(animator.current_clip_name) {
+                            return
+                        }
 
-    let clip = animator.clips[animator.current_clip_name]
-    let total_frames = clip.frame_indices.len()
-    if total_frames <= 0 {
-        return
-    }
+                        let clip = animator.clips[animator.current_clip_name]
+                        let total_frames = clip.frame_indices.len()
+                        if total_frames <= 0 {
+                            return
+                        }
 
-    if animator.is_finished and not clip.is_looping {
-        return
-    }
+                        if animator.is_finished and not clip.is_looping {
+                            return
+                        }
 
-    animator.timer = animator.timer + dt
-    let frame_duration = 1.0 / clip.fps
+                        animator.timer = animator.timer + dt
+                        let frame_duration = 1.0 / clip.fps
 
-    while animator.timer >= frame_duration {
-        animator.timer = animator.timer - frame_duration
-        let next_idx = animator.current_frame_idx + 1
+                        while animator.timer >= frame_duration {
+                            animator.timer = animator.timer - frame_duration
+                            let next_idx = animator.current_frame_idx + 1
 
-        if next_idx >= total_frames {
-            if clip.is_looping {
-                animator.current_frame_idx = 0
-            } else {
-                animator.current_frame_idx = total_frames - 1
-                animator.is_finished = true
-                break
-            }
-        } else {
-            animator.current_frame_idx = next_idx
-        }
-    }
-}
+                            if next_idx >= total_frames {
+                                if clip.is_looping {
+                                    animator.current_frame_idx = 0
+                                } else {
+                                    animator.current_frame_idx = total_frames - 1
+                                    animator.is_finished = true
+                                    break
+                                }
+                            } else {
+                                animator.current_frame_idx = next_idx
+                            }
+                        }
+                    }
 
-fn draw_animator(
-    animator: SpriteAnimator,
-    x: Float,
-    y: Float,
-    width: Float,
-    height: Float,
-    rotation: Float,
-    flip_x: Bool
-) {
-    if animator.current_clip_name == "" or not animator.clips.has(animator.current_clip_name) {
-        return
-    }
+                    fn draw_animator(
+                            animator: SpriteAnimator,
+                            x: Float,
+                            y: Float,
+                            width: Float,
+                            height: Float,
+                            rotation: Float,
+                            flip_x: Bool
+                        ) {
+                            if animator.current_clip_name == "" or not animator.clips.has(animator.current_clip_name) {
+                                return
+                            }
 
-    let clip = animator.clips[animator.current_clip_name]
-    let total_frames = clip.frame_indices.len()
-    if total_frames <= 0 {
-        return
-    }
+                            let clip = animator.clips[animator.current_clip_name]
+                            let total_frames = clip.frame_indices.len()
+                            if total_frames <= 0 {
+                                return
+                            }
 
-    let frame_idx = clip.frame_indices[animator.current_frame_idx]
-    let t_cols = clip.tileset_cols
+                            let frame_idx = clip.frame_indices[animator.current_frame_idx]
+                            let t_cols = clip.tileset_cols
 
-    let col = frame_idx % t_cols
-    let row = frame_idx // t_cols
+                            let col = frame_idx % t_cols
+                            let row = frame_idx // t_cols
 
-    let sx = Float(col) * clip.tile_w
-    let sy = Float(row) * clip.tile_h
-    let sw = clip.tile_w
-    let sh = clip.tile_h
+                            let sx = Float(col) * clip.tile_w
+                            let sy = Float(row) * clip.tile_h
+                            let sw = clip.tile_w
+                            let sh = clip.tile_h
 
-    host_draw_sprite_subrect(
-        animator.texture_id,
-        sx, sy, sw, sh,
-        x, y, width, height,
-        flip_x
-    )
-}
+                            host_draw_sprite_subrect(
+                                animator.texture_id,
+                                sx, sy, sw, sh,
+                                x, y, width, height,
+                                flip_x
+                            )
+                        }
 
-fn get_current_frame(animator: SpriteAnimator) -> Int {
-    return animator.current_frame_idx
-}
+                        fn get_current_frame(animator: SpriteAnimator) -> Int {
+                            return animator.current_frame_idx
+                        }
 
-fn is_finished(animator: SpriteAnimator) -> Bool {
-    return animator.is_finished
-}
+                        fn is_finished(animator: SpriteAnimator) -> Bool {
+                            return animator.is_finished
+                        }
 
-fn current_clip(animator: SpriteAnimator) -> String {
-    return animator.current_clip_name
-}
+                        fn current_clip(animator: SpriteAnimator) -> String {
+                            return animator.current_clip_name
+                        }
 
-export AnimationClip, create_clip
-export SpriteAnimator, create_animator, add_clip, play_animation, update_animator, draw_animator
-export get_current_frame, is_finished, current_clip
+                        export AnimationClip, create_clip
+                        export SpriteAnimator, create_animator, add_clip, play_animation, update_animator, draw_animator
+                        export get_current_frame, is_finished, current_clip

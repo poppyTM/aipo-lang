@@ -10,7 +10,7 @@ struct Behavior {
 
 # TopDown Movement Behavior (WASD / Arrows)
 fn TopDown(speed: Float, diagonal: Bool) -> Behavior {
-    let update = fn(actor, dt) {
+    let update = fn (actor, dt) {
         let ax = input.axis_x()
         let ay = input.axis_y()
 
@@ -30,7 +30,7 @@ fn TopDown(speed: Float, diagonal: Bool) -> Behavior {
 
 # Platformer 2D Physics Behavior
 fn Platformer(speed: Float, jump_force: Float, gravity: Float) -> Behavior {
-    let update = fn(actor, dt) {
+    let update = fn (actor, dt) {
         let ax = input.axis_x()
         actor.vx = ax * speed
 
@@ -62,7 +62,7 @@ fn Platformer(speed: Float, jump_force: Float, gravity: Float) -> Behavior {
 
 # Linear Directional Bullet Behavior
 fn Bullet(speed: Float, angle: Float) -> Behavior {
-    let update = fn(actor, dt) {
+    let update = fn (actor, dt) {
         # angle in degrees, -90 is up, 90 is down, 0 is right, 180 is left
         if angle == -90.0 {
             actor.y -= speed * dt
@@ -84,7 +84,7 @@ fn Bullet(speed: Float, angle: Float) -> Behavior {
 
 # Solid Collider Behavior (Obstacle for Platformer/TopDown)
 fn Solid() -> Behavior {
-    let update = fn(actor, dt) {
+    let update = fn (actor, dt) {
         # Marker behavior for spatial collision solver
     }
 
@@ -97,7 +97,7 @@ fn Solid() -> Behavior {
 
 # Wrap Around Screen Edges
 fn WrapScreen(margin: Float) -> Behavior {
-    let update = fn(actor, dt) {
+    let update = fn (actor, dt) {
         # Screen bounds wrap
         if actor.x < -margin {
             actor.x = 800.0 + margin
@@ -121,7 +121,7 @@ fn WrapScreen(margin: Float) -> Behavior {
 
 # Keep Within Screen Bounds
 fn KeepInScreen(margin: Float) -> Behavior {
-    let update = fn(actor, dt) {
+    let update = fn (actor, dt) {
         if actor.x < margin {
             actor.x = margin
         } elif actor.x > 800.0 - margin {
@@ -144,7 +144,7 @@ fn KeepInScreen(margin: Float) -> Behavior {
 
 # Auto Destroy Outside Screen
 fn DestroyOutsideScreen(margin: Float) -> Behavior {
-    let update = fn(actor, dt) {
+    let update = fn (actor, dt) {
         if actor.x < -margin or actor.x > 800.0 + margin or actor.y < -margin or actor.y > 600.0 + margin {
             actor.is_alive = false
         }

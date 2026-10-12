@@ -1,11 +1,11 @@
 # Aipo — Referência Canônica de Sintaxe
 
-**Status:** normative — alvo da linguagem, **ainda não implementado**
+**Status:** normative — sintaxe canônica da Aipo V1
 **Norma:** [`docs/decisions/adr-001-canonical-syntax.md`](docs/decisions/adr-001-canonical-syntax.md)
 **Escopo:** superfície sintática da Aipo V1 conforme o ADR-001
-**Estado do compilador:** a gramática atual ainda aceita `end`, `div`, `impl`,
-`satisfy` e `self!`. Este documento descreve o **alvo**. A tabela de divergência
-está em [§16](#16-divergência-com-o-compilador-atual).
+**Estado do compilador:** implementado. As formas antigas (`end`, `div`, `self!`) foram removidas.
+`Tipo:nome`, binding em lote `Tipo::[...]`, diretivas `#!satisfies`, `#!test` e `enum` estão plenamente integrados.
+A tabela de evolução e compatibilidade está em [§16](#16-divergência-com-o-compilador-atual).
 
 Aipo é projetada para leitura, escrita e manutenção por pessoas neurodivergentes
 (TDAH, dislexia, sobrecarga cognitiva). Quatro regras governam toda a superfície:
@@ -216,7 +216,7 @@ struct Servidor {
 
 - Anotação de tipo no campo é **opcional**.
 - Bare `x` = imutável sem default; `var x` = mutável sem default; `x = v` / `var x = v` = com default.
-- Reatribuir campo imutável após construção → `AIPO_SEM_IMMUTABLE_FIELD_REASSIGN`.
+- Reatribuir campo imutável após construção → `AIPO_SEM_FIXED_REASSIGN`.
 - `struct` contém **só dados**. Comportamento fica em `Tipo:nome`.
 
 ### 5.1 Construção
@@ -613,8 +613,7 @@ falhar pelo motivo errado também falha.
 
 ## 16. Divergência com o compilador atual
 
-O compilador ainda aceita as formas antigas. Cada item abaixo é trabalho
-pendente, e o par **precisa** ser feito junto para não haver conflito.
+Histórico e estado de transição da gramática legada para a sintaxe canônica ADR-001:
 
 | Forma antiga / Item | Status atual | Alvo / Realizado |
 |---|---|---|

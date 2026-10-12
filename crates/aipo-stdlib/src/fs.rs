@@ -1,8 +1,9 @@
 //! Capability-aware filesystem operations for Aipo hosts.
 //!
-//! This module exposes only `fs.read_text` and `fs.roots`. `read_text` is asynchronous and
-//! returns a VM-managed task; `roots` is synchronous. Both consult the provider installed in the
-//! current VM's [`HostContext`](aipo_vm::HostContext) and require separate capabilities.
+//! This module exposes `fs.read_text`, `fs.write_text`, and `fs.roots`. `read_text` and
+//! `write_text` are asynchronous and return a VM-managed task; `roots` is synchronous. All three
+//! consult the provider installed in the current VM's [`HostContext`](aipo_vm::HostContext) and
+//! require separate capabilities: `filesystem.read`, `filesystem.write`, and `filesystem.roots`.
 
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
@@ -261,6 +262,18 @@ impl FilesystemSource for MapFilesystemSource {
         self.read_text_impl(path)
     }
 
+    fn write_text(&mut self, path: &str, content: &str) -> Result<(), FilesystemError> {
+        self.insert(path, content)
+            .map(|_| ())
+            .map_err(|error| match error {
+                FilesystemError::Provider { message, .. } => FilesystemError::Provider {
+                    operation: "write_text".to_string(),
+                    message,
+                },
+                other => other,
+            })
+    }
+
     fn roots(&self) -> Result<Vec<String>, FilesystemError> {
         self.validate_roots()
     }
@@ -327,6 +340,37 @@ fn read_path(args: &[Value], operation: &str) -> Result<String, VmError> {
     }
 }
 
+fn write_args(args: &[Value], operation: &str) -> Result<(String, String), VmError> {
+    if args.len() != 2 {
+        return Err(VmFault::TypeMismatch {
+            expected: format!("2 arguments for {operation}"),
+            actual: format!("{} arguments", args.len()),
+        }
+        .into());
+    }
+    let path = match &args[0] {
+        Value::String(path) => path.as_str().to_string(),
+        other => {
+            return Err(VmFault::TypeMismatch {
+                expected: format!("String path for {operation}"),
+                actual: other.type_name().to_string(),
+            }
+            .into());
+        }
+    };
+    let content = match &args[1] {
+        Value::String(text) => text.as_str().to_string(),
+        other => {
+            return Err(VmFault::TypeMismatch {
+                expected: format!("String content for {operation}"),
+                actual: other.type_name().to_string(),
+            }
+            .into());
+        }
+    };
+    Ok((path, content))
+}
+
 fn failure(message: impl Into<String>) -> Value {
     Value::Failure(Rc::new(FailureValue::new(message.into())))
 }
@@ -371,6 +415,41 @@ pub fn read_text_task(vm: &mut Vm, args: &[Value]) -> Result<Value, VmError> {
         }
         Err(error @ FilesystemError::Provider { .. }) => Ok(provider_failure(&error)),
         Err(error) => Err(provider_contract_fault(&error, "fs.read_text")),
+    }
+}
+
+/// Starts an asynchronous `fs.write_text(path, content)` call.
+///
+/// The returned task owns copies of the path and content. Provider access and the write happen
+/// only when the scheduler drives the task.
+pub fn write_text(vm: &mut Vm, args: &[Value]) -> Result<Value, VmError> {
+    let (path, content) = write_args(args, "fs.write_text")?;
+    require_capability(vm, Capability::FILESYSTEM_WRITE, "fs.write_text")?;
+    vm.create_host_task(
+        write_text_task,
+        vec![
+            Value::String(Rc::new(path)),
+            Value::String(Rc::new(content)),
+        ],
+    )
+}
+
+/// Executes the hosted `fs.write_text` operation.
+pub fn write_text_task(vm: &mut Vm, args: &[Value]) -> Result<Value, VmError> {
+    let (path, content) = write_args(args, "fs.write_text")?;
+    require_provider(vm, Capability::FILESYSTEM_WRITE, "fs.write_text")?;
+    let Some(source) = vm.host_context().filesystem_source_mut() else {
+        return Err(VmFault::CapabilityDenied {
+            capability: Capability::FILESYSTEM_WRITE.to_string(),
+            operation: "fs.write_text".to_string(),
+        }
+        .into());
+    };
+    match source.write_text(&path, &content) {
+        Ok(()) => Ok(Value::None),
+        Err(error @ FilesystemError::Provider { .. })
+        | Err(error @ FilesystemError::NotFound { .. }) => Ok(provider_failure(&error)),
+        Err(error) => Err(provider_contract_fault(&error, "fs.write_text")),
     }
 }
 
@@ -427,6 +506,10 @@ pub fn create_module() -> Value {
             Value::native("fs.read_text", 1, unavailable),
         ),
         (
+            Value::String(Rc::new("write_text".to_string())),
+            Value::native("fs.write_text", 2, unavailable),
+        ),
+        (
             Value::String(Rc::new("roots".to_string())),
             Value::native("fs.roots", 0, unavailable),
         ),
@@ -437,6 +520,7 @@ pub fn create_module() -> Value {
 /// Registers the VM callbacks for the filesystem module.
 pub fn register_natives(vm: &mut Vm) {
     vm.register_host_native("fs.read_text", 1, read_text);
+    vm.register_host_native("fs.write_text", 2, write_text);
     vm.register_host_native("fs.roots", 0, roots);
 }
 
@@ -451,6 +535,16 @@ pub fn register_metadata(registry: &mut NativeRegistry) {
         )
         .with_async()
         .with_capabilities([Capability::FILESYSTEM_READ]),
+    );
+    registry.register(
+        NativeFunctionMeta::new(
+            "write_text",
+            2,
+            Some("fs"),
+            "Asynchronously writes text to a file inside an exposed filesystem root.",
+        )
+        .with_async()
+        .with_capabilities([Capability::FILESYSTEM_WRITE]),
     );
     registry.register(
         NativeFunctionMeta::new(
@@ -472,7 +566,8 @@ pub fn schema() -> HostSchema {
         modules: vec![ModuleSchema {
             name: "fs".to_string(),
             docs: Some(
-                "Host-only asynchronous text reads and synchronous root discovery.".to_string(),
+                "Host-only asynchronous text reads and writes plus synchronous root discovery."
+                    .to_string(),
             ),
             capabilities: Vec::new(),
             types: Vec::new(),
@@ -493,6 +588,32 @@ pub fn schema() -> HostSchema {
                     is_async: true,
                     mutates_receiver: false,
                     capabilities: vec![Capability::FILESYSTEM_READ.to_string()],
+                    subject: None,
+                    deprecated: None,
+                },
+                FunctionSchema {
+                    name: "write_text".to_string(),
+                    docs: Some("Writes text to a file and returns a Task[Unit].".to_string()),
+                    params: vec![
+                        ParamSchema {
+                            name: "path".to_string(),
+                            ty: type_ref("String"),
+                            is_mut: false,
+                            is_optional: false,
+                            docs: Some("Provider-owned root-qualified path.".to_string()),
+                        },
+                        ParamSchema {
+                            name: "content".to_string(),
+                            ty: type_ref("String"),
+                            is_mut: false,
+                            is_optional: false,
+                            docs: Some("Text to write to the path.".to_string()),
+                        },
+                    ],
+                    returns: Some(type_ref("Task")),
+                    is_async: true,
+                    mutates_receiver: false,
+                    capabilities: vec![Capability::FILESYSTEM_WRITE.to_string()],
                     subject: None,
                     deprecated: None,
                 },
@@ -937,6 +1058,14 @@ mod tests {
             read_meta.capabilities,
             vec![Capability::FILESYSTEM_READ.to_string()]
         );
+        let write_meta = registry
+            .get(Some("fs"), "write_text")
+            .expect("write metadata");
+        assert!(write_meta.is_async);
+        assert_eq!(
+            write_meta.capabilities,
+            vec![Capability::FILESYSTEM_WRITE.to_string()]
+        );
         let roots_meta = registry.get(Some("fs"), "roots").expect("roots metadata");
         assert!(!roots_meta.is_async);
         assert_eq!(
@@ -952,13 +1081,19 @@ mod tests {
                 .expect("read schema")
                 .is_async
         );
+        assert!(
+            schema
+                .function("fs", "write_text")
+                .expect("write schema")
+                .is_async
+        );
         assert_eq!(
             schema
                 .declared_capabilities()
                 .iter()
                 .map(|capability| capability.name())
                 .collect::<Vec<_>>(),
-            vec!["filesystem.read", "filesystem.roots"]
+            vec!["filesystem.read", "filesystem.roots", "filesystem.write"]
         );
     }
 
@@ -982,6 +1117,132 @@ mod tests {
         let error = read_text(&mut vm, &[Value::Int(1)]).expect_err("path must be String");
         assert!(matches!(
             error,
+            VmError::Fault(VmFault::TypeMismatch { .. })
+        ));
+    }
+
+    #[test]
+    fn test_write_text_writes_and_resolves_to_none() {
+        let (mut vm, _registry) = make_vm();
+        install_filesystem_source(&mut vm, source());
+        grant(&mut vm, Capability::FILESYSTEM_WRITE);
+        grant(&mut vm, Capability::FILESYSTEM_READ);
+
+        let task = write_text(&mut vm, &[string("/workspace/new.txt"), string("hello")])
+            .expect("write call returns a task");
+        assert!(matches!(task, Value::Task(_)));
+
+        let result = write_text_task(&mut vm, &[string("/workspace/new.txt"), string("hello")])
+            .expect("write succeeds");
+        assert_eq!(result, Value::None);
+
+        let written = read_text_task(&mut vm, &[string("/workspace/new.txt")])
+            .expect("written file is readable");
+        assert_eq!(written, string("hello"));
+    }
+
+    #[test]
+    fn test_write_text_overwrites_existing_file() {
+        let (mut vm, _registry) = make_vm();
+        install_filesystem_source(&mut vm, source());
+        grant(&mut vm, Capability::FILESYSTEM_WRITE);
+        grant(&mut vm, Capability::FILESYSTEM_READ);
+
+        write_text_task(
+            &mut vm,
+            &[string("/workspace/config.txt"), string("changed")],
+        )
+        .expect("overwrite succeeds");
+        assert_eq!(
+            read_text_task(&mut vm, &[string("/workspace/config.txt")]).expect("read back"),
+            string("changed")
+        );
+    }
+
+    #[test]
+    fn test_write_text_requires_its_own_capability() {
+        let (mut vm, _registry) = make_vm();
+        install_filesystem_source(&mut vm, source());
+        grant(&mut vm, Capability::FILESYSTEM_READ);
+
+        let error = write_text(&mut vm, &[string("/workspace/x"), string("y")])
+            .expect_err("write requires filesystem.write");
+        assert_eq!(
+            error.diagnostic_code(),
+            DiagnosticCode::AIPO_RT_CAPABILITY_DENIED
+        );
+    }
+
+    #[test]
+    fn test_write_text_missing_provider_is_denied_after_task_creation() {
+        let (mut vm, _registry) = make_vm();
+        grant(&mut vm, Capability::FILESYSTEM_WRITE);
+
+        let task = write_text(&mut vm, &[string("/workspace/x"), string("y")])
+            .expect("capability check happens at call time");
+        assert!(matches!(task, Value::Task(_)));
+        let error = write_text_task(&mut vm, &[string("/workspace/x"), string("y")])
+            .expect_err("provider is required by the hosted callback");
+        assert_eq!(
+            error.diagnostic_code(),
+            DiagnosticCode::AIPO_RT_CAPABILITY_DENIED
+        );
+    }
+
+    #[test]
+    fn test_write_text_readonly_provider_is_a_recoverable_failure() {
+        let (mut vm, _registry) = make_vm();
+        install_filesystem_source(
+            &mut vm,
+            FailingSource {
+                error: FilesystemError::NotFound {
+                    path: "unused".to_string(),
+                },
+            },
+        );
+        grant(&mut vm, Capability::FILESYSTEM_WRITE);
+
+        let result = write_text_task(&mut vm, &[string("/workspace/x"), string("y")])
+            .expect("a read-only provider reports a recoverable failure");
+        assert!(matches!(result, Value::Failure(_)));
+    }
+
+    #[test]
+    fn test_write_text_outside_root_is_a_contract_fault() {
+        let (mut vm, _registry) = make_vm();
+        install_filesystem_source(&mut vm, source());
+        grant(&mut vm, Capability::FILESYSTEM_WRITE);
+
+        let error = write_text_task(&mut vm, &[string("/etc/passwd"), string("x")])
+            .expect_err("paths outside the roots are not writable");
+        assert!(matches!(
+            error,
+            VmError::Fault(VmFault::TypeMismatch { .. })
+        ));
+    }
+
+    #[test]
+    fn test_write_text_type_error_is_a_fault() {
+        let (mut vm, _registry) = make_vm();
+        install_filesystem_source(&mut vm, source());
+        grant(&mut vm, Capability::FILESYSTEM_WRITE);
+
+        let bad_path =
+            write_text(&mut vm, &[Value::Int(1), string("y")]).expect_err("path must be String");
+        assert!(matches!(
+            bad_path,
+            VmError::Fault(VmFault::TypeMismatch { .. })
+        ));
+        let bad_content = write_text(&mut vm, &[string("/workspace/x"), Value::Int(1)])
+            .expect_err("content must be String");
+        assert!(matches!(
+            bad_content,
+            VmError::Fault(VmFault::TypeMismatch { .. })
+        ));
+        let bad_arity = write_text(&mut vm, &[string("/workspace/x")])
+            .expect_err("write_text needs two arguments");
+        assert!(matches!(
+            bad_arity,
             VmError::Fault(VmFault::TypeMismatch { .. })
         ));
     }

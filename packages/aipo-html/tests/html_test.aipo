@@ -58,12 +58,12 @@ test("ssr render_to_string serialization with escaping") do {
     }
     let html = h.render_to_string(doc)
 
-    expect.true(html.contains("<div class=\"card\">"))
-    expect.true(html.contains("&lt;script&gt; &amp; &quot;quotes&quot;"))
-    expect.true(html.contains("Texto seguro &amp; auditado."))
-    expect.true(html.contains("<img src=\"test.png\" alt=\"A &amp; B\" />"))
-    expect.true(html.contains("<input disabled type=\"text\" />"))
-    expect.true(html.contains("</div>"))
+    expect.true (html.contains("<div class=\"card\">"))
+    expect.true (html.contains("&lt;script&gt; &amp; &quot;quotes&quot;"))
+    expect.true (html.contains("Texto seguro &amp; auditado."))
+    expect.true (html.contains("<img src=\"test.png\" alt=\"A &amp; B\" />"))
+    expect.true (html.contains("<input disabled type=\"text\" />"))
+    expect.true (html.contains("</div>"))
 }
 test("fragment rendering without container wrapper") do {
     let frag = h.fragment do {
@@ -78,28 +78,28 @@ test("css-in-aipo scoped styles and media queries") do {
     h.clear_css_registry()
 
     let btn_style = h.css({
-        "padding": 12,
-        "background": "#6366f1",
-        "border_radius": 8,
-        "hover": {
-            "background": "#4f46e5"
-        },
-        "media": {
-            "(min-width: 768px)": {
-                "padding": 20
+            "padding": 12,
+            "background": "#6366f1",
+            "border_radius": 8,
+            "hover": {
+                "background": "#4f46e5"
+            },
+            "media": {
+                "(min-width: 768px)": {
+                    "padding": 20
+                }
             }
-        }
-    })
+        })
 
-    expect.true(btn_style.starts_with("aipo-s"))
+    expect.true (btn_style.starts_with("aipo-s"))
 
     let injected = h.get_injected_css()
-    expect.true(injected.contains(f".{btn_style} {{"))
-    expect.true(injected.contains("padding: 12px;"))
-    expect.true(injected.contains("background: #6366f1;"))
-    expect.true(injected.contains(f".{btn_style}:hover {{"))
-    expect.true(injected.contains("background: #4f46e5;"))
-    expect.true(injected.contains("@media (min-width: 768px) {"))
+    expect.true (injected.contains(f".{btn_style} {{"))
+    expect.true (injected.contains("padding: 12px;"))
+    expect.true (injected.contains("background: #6366f1;"))
+    expect.true (injected.contains(f".{btn_style}:hover {{"))
+    expect.true (injected.contains("background: #4f46e5;"))
+    expect.true (injected.contains("@media (min-width: 768px) {"))
 }
 struct Model {
     count

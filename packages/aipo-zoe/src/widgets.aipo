@@ -46,9 +46,9 @@ fn tokenize_aipo_line(line: String) -> List {
         # 1. Comment till end of line
         if ch == "#" {
             tokens.add({
-                "text": line.slice(i, len),
-                "color": color_mod.overlay_0
-            })
+                    "text": line.slice(i, len),
+                    "color": color_mod.overlay_0
+                })
             break
         }
 
@@ -66,9 +66,9 @@ fn tokenize_aipo_line(line: String) -> List {
                 j += 1
             }
             tokens.add({
-                "text": line.slice(i, j),
-                "color": color_mod.green
-            })
+                    "text": line.slice(i, j),
+                    "color": color_mod.green
+                })
             i = j
             continue
         }
@@ -80,9 +80,9 @@ fn tokenize_aipo_line(line: String) -> List {
                 j += 1
             }
             tokens.add({
-                "text": line.slice(i, j),
-                "color": color_mod.peach
-            })
+                    "text": line.slice(i, j),
+                    "color": color_mod.peach
+                })
             i = j
             continue
         }
@@ -128,9 +128,9 @@ fn tokenize_aipo_line(line: String) -> List {
             }
 
             tokens.add({
-                "text": word,
-                "color": token_clr
-            })
+                    "text": word,
+                    "color": token_clr
+                })
             i = j
             continue
         }
@@ -138,340 +138,340 @@ fn tokenize_aipo_line(line: String) -> List {
         # 5. Operators, symbols, and whitespace
         let is_ws = (ch == " " or ch == "\t")
         let sym_clr = if is_ws then color_mod.text else color_mod.lavender
-        tokens.add({
-            "text": ch,
-            "color": sym_clr
-        })
-        i += 1
-    }
-    return tokens
-}
-
-fn make_code_editor(props: Dict = {}) {
-    let code_prop = if props.has("code") then props["code"] else ""
-    let is_sig = hooks_mod.is_signal(code_prop)
-    let raw_code = if is_sig then (code_prop.get() + "") else (code_prop + "")
-
-    let lines = raw_code.split("\n")
-    let line_count = lines.len()
-
-    let font_size = if props.has("font_size") then (props["font_size"] + 0.0) else 13.0
-    let line_height = if props.has("line_height") then (props["line_height"] + 0.0) else 20.0
-    let width_val = if props.has("width") then props["width"] else "100%"
-    let height_val = if props.has("height") then props["height"] else 260.0
-    let show_gutter = if props.has("show_gutter") then props["show_gutter"] else true
-
-    let cur_line = if props.has("cursor_line") then (props["cursor_line"] + 0) else 0
-    let cur_col = if props.has("cursor_col") then (props["cursor_col"] + 0) else 0
-
-    let on_custom_draw = fn(node) {
-        if node == none or node.layout == none {
-            return
-        }
-        let r = node.layout
-
-        # Calculate gutter width based on total line count
-        let digits = f"{line_count}".len()
-        let gutter_w = if show_gutter then ((digits + 0.0) * 8.5 + 26.0) else 0.0
-
-        # Background
-        host_draw_sdf_rect(
-            r.x, r.y, r.width, r.height,
-            6.0,
-            1.0, color_mod.surface_1.r, color_mod.surface_1.g, color_mod.surface_1.b, 1.0,
-            0.0,
-            color_mod.crust.r, color_mod.crust.g, color_mod.crust.b, 1.0
-        )
-
-        host_push_clip_rect(r.x, r.y, r.width, r.height)
-
-        # Gutter background
-        if show_gutter {
-            host_draw_rect(r.x, r.y, gutter_w, r.height, color_mod.mantle.r, color_mod.mantle.g, color_mod.mantle.b, 1.0)
-            host_draw_line(r.x + gutter_w, r.y, r.x + gutter_w, r.y + r.height, 1.0, color_mod.surface_1.r, color_mod.surface_1.g, color_mod.surface_1.b, 1.0)
-        }
-
-        # Font metrics for baseline vertical alignment
-        let fm = host_font_metrics(font_size)
-        let ascent = fm["ascent"]
-
-        var idx = 0
-        while idx < line_count {
-            let line_y = r.y + 8.0 + (idx + 0.0) * line_height
-
-            # Vertical culling
-            if line_y + line_height >= r.y and line_y <= (r.y + r.height) {
-                # 1. Active line highlight
-                if idx == cur_line {
-                    host_draw_rect(
-                        r.x + gutter_w + 1.0,
-                        line_y,
-                        r.width - gutter_w - 2.0,
-                        line_height,
-                        color_mod.surface_0.r, color_mod.surface_0.g, color_mod.surface_0.b, 0.45
-                    )
-                }
-
-                # 2. Gutter line number
-                if show_gutter {
-                    let num_str = f"{idx + 1}"
-                    let num_w = host_measure_text(num_str, font_size - 1.0)
-                    let num_x = r.x + gutter_w - 10.0 - num_w
-                    let num_clr = if idx == cur_line then color_mod.text else color_mod.overlay_0
-                    let text_baseline = line_y + (line_height - font_size) / 2.0 + ascent
-                    host_draw_text(num_str, num_x, text_baseline, font_size - 1.0, num_clr.r, num_clr.g, num_clr.b)
-                }
-
-                # 3. Syntax highlighted tokens
-                let line_str = lines[idx]
-                let tokens = tokenize_aipo_line(line_str)
-                var tx = r.x + gutter_w + 12.0
-                let text_baseline = line_y + (line_height - font_size) / 2.0 + ascent
-
-                each tok in tokens {
-                    let tok_text = tok["text"]
-                    let tok_clr = tok["color"]
-                    host_draw_text(tok_text, tx, text_baseline, font_size, tok_clr.r, tok_clr.g, tok_clr.b)
-                    tx += host_measure_text(tok_text, font_size)
-                }
-
-                # 4. Cursor rendering
-                if idx == cur_line {
-                    let col_clamp = if cur_col > line_str.len() then line_str.len() else cur_col
-                    let prefix = line_str.slice(0, col_clamp)
-                    let cursor_x = r.x + gutter_w + 12.0 + host_measure_text(prefix, font_size)
-                    host_draw_rect(cursor_x, line_y + 2.0, 2.0, line_height - 4.0, color_mod.blue.r, color_mod.blue.g, color_mod.blue.b, 0.95)
-                }
+                tokens.add({
+                        "text": ch,
+                        "color": sym_clr
+                    })
+                i += 1
             }
-            idx += 1
+            return tokens
         }
 
-        host_pop_clip_rect()
-    }
+        fn make_code_editor(props: Dict = {}) {
+            let code_prop = if props.has("code") then props["code"] else ""
+                    let is_sig = hooks_mod.is_signal(code_prop)
+                    let raw_code = if is_sig then (code_prop.get() + "") else (code_prop + "")
 
-    return elements_mod.make_rect(
-        {
-            "tag": "code_editor",
-            "direction": "column",
-            "width": width_val,
-            "height": height_val,
-            "clip": true,
-            "on_custom_draw": on_custom_draw
-        },
-        []
-    )
-}
+                            let lines = raw_code.split("\n")
+                            let line_count = lines.len()
 
-# =========================================================================
-# 2. SHADER / LOGIC NODE GRAPH CANVAS
-# =========================================================================
+                            let font_size = if props.has("font_size") then (props["font_size"] + 0.0) else 13.0
+                                    let line_height = if props.has("line_height") then (props["line_height"] + 0.0) else 20.0
+                                            let width_val = if props.has("width") then props["width"] else "100%"
+                                                    let height_val = if props.has("height") then props["height"] else 260.0
+                                                            let show_gutter = if props.has("show_gutter") then props["show_gutter"] else true
 
-fn make_node_graph(props: Dict = {}) {
-    let nodes = if props.has("nodes") then props["nodes"] else []
-    let connections = if props.has("connections") then props["connections"] else []
-    let width_val = if props.has("width") then props["width"] else "100%"
-    let height_val = if props.has("height") then props["height"] else 380.0
+                                                                    let cur_line = if props.has("cursor_line") then (props["cursor_line"] + 0) else 0
+                                                                            let cur_col = if props.has("cursor_col") then (props["cursor_col"] + 0) else 0
 
-    let on_custom_draw = fn(container_node) {
-        if container_node == none or container_node.layout == none {
-            return
-        }
-        let r = container_node.layout
+                                                                                    let on_custom_draw = fn (node) {
+                                                                                        if node == none or node.layout == none {
+                                                                                            return
+                                                                                        }
+                                                                                        let r = node.layout
 
-        # Background
-        host_draw_sdf_rect(
-            r.x, r.y, r.width, r.height,
-            8.0,
-            1.0, color_mod.surface_1.r, color_mod.surface_1.g, color_mod.surface_1.b, 1.0,
-            0.0,
-            color_mod.crust.r, color_mod.crust.g, color_mod.crust.b, 1.0
-        )
+                                                                                        # Calculate gutter width based on total line count
+                                                                                        let digits = f"{line_count}".len()
+                                                                                        let gutter_w = if show_gutter then ((digits + 0.0) * 8.5 + 26.0) else 0.0
 
-        host_push_clip_rect(r.x, r.y, r.width, r.height)
+                                                                                                # Background
+                                                                                                host_draw_sdf_rect(
+                                                                                                    r.x, r.y, r.width, r.height,
+                                                                                                    6.0,
+                                                                                                    1.0, color_mod.surface_1.r, color_mod.surface_1.g, color_mod.surface_1.b, 1.0,
+                                                                                                    0.0,
+                                                                                                    color_mod.crust.r, color_mod.crust.g, color_mod.crust.b, 1.0
+                                                                                                )
 
-        # 1. Subtle grid background pattern
-        let grid_step = 28.0
-        var gx = r.x
-        while gx < (r.x + r.width) {
-            host_draw_line(gx, r.y, gx, r.y + r.height, 1.0, color_mod.surface_0.r, color_mod.surface_0.g, color_mod.surface_0.b, 0.22)
-            gx += grid_step
-        }
-        var gy = r.y
-        while gy < (r.y + r.height) {
-            host_draw_line(r.x, gy, r.x + r.width, gy, 1.0, color_mod.surface_0.r, color_mod.surface_0.g, color_mod.surface_0.b, 0.22)
-            gy += grid_step
-        }
+                                                                                                host_push_clip_rect(r.x, r.y, r.width, r.height)
 
-        # 2. Map nodes by ID for fast socket lookup
-        var node_map = {}
-        each nd in nodes {
-            if nd.has("id") {
-                node_map[nd["id"]] = nd
-            }
-        }
+                                                                                                # Gutter background
+                                                                                                if show_gutter {
+                                                                                                    host_draw_rect(r.x, r.y, gutter_w, r.height, color_mod.mantle.r, color_mod.mantle.g, color_mod.mantle.b, 1.0)
+                                                                                                    host_draw_line(r.x + gutter_w, r.y, r.x + gutter_w, r.y + r.height, 1.0, color_mod.surface_1.r, color_mod.surface_1.g, color_mod.surface_1.b, 1.0)
+                                                                                                }
 
-        # 3. Draw Bézier connection cables
-        each conn in connections {
-            let from_id = conn["from_node"]
-            let to_id = conn["to_node"]
+                                                                                                # Font metrics for baseline vertical alignment
+                                                                                                let fm = host_font_metrics(font_size)
+                                                                                                let ascent = fm["ascent"]
 
-            if node_map.has(from_id) and node_map.has(to_id) {
-                let src_node = node_map[from_id]
-                let dst_node = node_map[to_id]
+                                                                                                var idx = 0
+                                                                                                while idx < line_count {
+                                                                                                    let line_y = r.y + 8.0 + (idx + 0.0) * line_height
 
-                let src_x = r.x + (src_node["x"] + 0.0)
-                let src_y = r.y + (src_node["y"] + 0.0)
-                let src_w = if src_node.has("width") then (src_node["width"] + 0.0) else 170.0
+                                                                                                    # Vertical culling
+                                                                                                    if line_y + line_height >= r.y and line_y <= (r.y + r.height) {
+                                                                                                        # 1. Active line highlight
+                                                                                                        if idx == cur_line {
+                                                                                                            host_draw_rect(
+                                                                                                                r.x + gutter_w + 1.0,
+                                                                                                                line_y,
+                                                                                                                r.width - gutter_w - 2.0,
+                                                                                                                line_height,
+                                                                                                                color_mod.surface_0.r, color_mod.surface_0.g, color_mod.surface_0.b, 0.45
+                                                                                                            )
+                                                                                                        }
 
-                let dst_x = r.x + (dst_node["x"] + 0.0)
-                let dst_y = r.y + (dst_node["y"] + 0.0)
+                                                                                                        # 2. Gutter line number
+                                                                                                        if show_gutter {
+                                                                                                            let num_str = f"{idx + 1}"
+                                                                                                            let num_w = host_measure_text(num_str, font_size - 1.0)
+                                                                                                            let num_x = r.x + gutter_w - 10.0 - num_w
+                                                                                                            let num_clr = if idx == cur_line then color_mod.text else color_mod.overlay_0
+                                                                                                                    let text_baseline = line_y + (line_height - font_size) / 2.0 + ascent
+                                                                                                                    host_draw_text(num_str, num_x, text_baseline, font_size - 1.0, num_clr.r, num_clr.g, num_clr.b)
+                                                                                                                }
 
-                # Find socket index
-                var from_idx = 0
-                if src_node.has("outputs") {
-                    var s_i = 0
-                    each out_sock in src_node["outputs"] {
-                        if out_sock["name"] == conn["from_socket"] {
-                            from_idx = s_i
-                        }
-                        s_i += 1
-                    }
-                }
+                                                                                                                # 3. Syntax highlighted tokens
+                                                                                                                let line_str = lines[idx]
+                                                                                                                let tokens = tokenize_aipo_line(line_str)
+                                                                                                                var tx = r.x + gutter_w + 12.0
+                                                                                                                let text_baseline = line_y + (line_height - font_size) / 2.0 + ascent
 
-                var to_idx = 0
-                if dst_node.has("inputs") {
-                    var s_i = 0
-                    each in_sock in dst_node["inputs"] {
-                        if in_sock["name"] == conn["to_socket"] {
-                            to_idx = s_i
-                        }
-                        s_i += 1
-                    }
-                }
+                                                                                                                each tok in tokens {
+                                                                                                                    let tok_text = tok["text"]
+                                                                                                                    let tok_clr = tok["color"]
+                                                                                                                    host_draw_text(tok_text, tx, text_baseline, font_size, tok_clr.r, tok_clr.g, tok_clr.b)
+                                                                                                                    tx += host_measure_text(tok_text, font_size)
+                                                                                                                }
 
-                let x1 = src_x + src_w
-                let y1 = src_y + 40.0 + (from_idx + 0.0) * 22.0
-                let x2 = dst_x
-                let y2 = dst_y + 40.0 + (to_idx + 0.0) * 22.0
+                                                                                                                # 4. Cursor rendering
+                                                                                                                if idx == cur_line {
+                                                                                                                    let col_clamp = if cur_col > line_str.len() then line_str.len() else cur_col
+                                                                                                                            let prefix = line_str.slice(0, col_clamp)
+                                                                                                                            let cursor_x = r.x + gutter_w + 12.0 + host_measure_text(prefix, font_size)
+                                                                                                                            host_draw_rect(cursor_x, line_y + 2.0, 2.0, line_height - 4.0, color_mod.blue.r, color_mod.blue.g, color_mod.blue.b, 0.95)
+                                                                                                                        }
+                                                                                                                    }
+                                                                                                                    idx += 1
+                                                                                                                }
 
-                let dx = x2 - x1
-                let abs_dx = if dx < 0.0 then 0.0 - dx else dx
-                let curvature = if abs_dx * 0.5 < 60.0 then 60.0 else abs_dx * 0.5
-                let cx1 = x1 + curvature
-                let cy1 = y1
-                let cx2 = x2 - curvature
-                let cy2 = y2
+                                                                                                                host_pop_clip_rect()
+                                                                                                            }
 
-                let wire_clr = if conn.has("color") then conn["color"] else color_mod.blue
+                                                                                                            return elements_mod.make_rect(
+                                                                                                                {
+                                                                                                                    "tag": "code_editor",
+                                                                                                                    "direction": "column",
+                                                                                                                    "width": width_val,
+                                                                                                                    "height": height_val,
+                                                                                                                    "clip": true,
+                                                                                                                    "on_custom_draw": on_custom_draw
+                                                                                                                },
+                                                                                                                []
+                                                                                                            )
+                                                                                                        }
 
-                # Outer soft glow cable
-                host_draw_bezier(x1, y1, cx1, cy1, cx2, cy2, x2, y2, 5.0, wire_clr.r, wire_clr.g, wire_clr.b, 0.3)
-                # Sharp core cable
-                host_draw_bezier(x1, y1, cx1, cy1, cx2, cy2, x2, y2, 2.0, wire_clr.r, wire_clr.g, wire_clr.b, 0.95)
-            }
-        }
+                                                                                                        # =========================================================================
+                                                                                                        # 2. SHADER / LOGIC NODE GRAPH CANVAS
+                                                                                                        # =========================================================================
 
-        # 4. Draw each node card
-        each nd in nodes {
-            let nx = r.x + (nd["x"] + 0.0)
-            let ny = r.y + (nd["y"] + 0.0)
-            let nw = if nd.has("width") then (nd["width"] + 0.0) else 170.0
-            let in_count = if nd.has("inputs") then nd["inputs"].len() else 0
-            let out_count = if nd.has("outputs") then nd["outputs"].len() else 0
-            let max_socks = if in_count > out_count then in_count else out_count
-            let nh = 46.0 + (max_socks + 0.0) * 22.0 + 8.0
+                                                                                                        fn make_node_graph(props: Dict = {}) {
+                                                                                                            let nodes = if props.has("nodes") then props["nodes"] else []
+                                                                                                                    let connections = if props.has("connections") then props["connections"] else []
+                                                                                                                            let width_val = if props.has("width") then props["width"] else "100%"
+                                                                                                                                    let height_val = if props.has("height") then props["height"] else 380.0
 
-            let header_clr = if nd.has("color") then nd["color"] else color_mod.blue
+                                                                                                                                            let on_custom_draw = fn (container_node) {
+                                                                                                                                                if container_node == none or container_node.layout == none {
+                                                                                                                                                    return
+                                                                                                                                                }
+                                                                                                                                                let r = container_node.layout
 
-            # Card drop shadow
-            host_draw_rect(nx + 3.0, ny + 4.0, nw, nh, 0.0, 0.0, 0.0, 0.35)
+                                                                                                                                                # Background
+                                                                                                                                                host_draw_sdf_rect(
+                                                                                                                                                    r.x, r.y, r.width, r.height,
+                                                                                                                                                    8.0,
+                                                                                                                                                    1.0, color_mod.surface_1.r, color_mod.surface_1.g, color_mod.surface_1.b, 1.0,
+                                                                                                                                                    0.0,
+                                                                                                                                                    color_mod.crust.r, color_mod.crust.g, color_mod.crust.b, 1.0
+                                                                                                                                                )
 
-            # Node card body
-            host_draw_sdf_rect(
-                nx, ny, nw, nh,
-                7.0,
-                1.0, color_mod.surface_2.r, color_mod.surface_2.g, color_mod.surface_2.b, 0.8,
-                0.0,
-                color_mod.mantle.r, color_mod.mantle.g, color_mod.mantle.b, 0.98
-            )
+                                                                                                                                                host_push_clip_rect(r.x, r.y, r.width, r.height)
 
-            # Node header accent strip
-            host_draw_sdf_rect(
-                nx, ny, nw, 28.0,
-                7.0,
-                0.0, 0.0, 0.0, 0.0, 0.0,
-                1.0,
-                header_clr.r * 0.45, header_clr.g * 0.45, header_clr.b * 0.45, 0.95
-            )
-            # 2px top color bar
-            host_draw_rect(nx + 6.0, ny + 1.0, nw - 12.0, 2.0, header_clr.r, header_clr.g, header_clr.b, 1.0)
+                                                                                                                                                # 1. Subtle grid background pattern
+                                                                                                                                                let grid_step = 28.0
+                                                                                                                                                var gx = r.x
+                                                                                                                                                while gx < (r.x + r.width) {
+                                                                                                                                                    host_draw_line(gx, r.y, gx, r.y + r.height, 1.0, color_mod.surface_0.r, color_mod.surface_0.g, color_mod.surface_0.b, 0.22)
+                                                                                                                                                    gx += grid_step
+                                                                                                                                                }
+                                                                                                                                                var gy = r.y
+                                                                                                                                                while gy < (r.y + r.height) {
+                                                                                                                                                    host_draw_line(r.x, gy, r.x + r.width, gy, 1.0, color_mod.surface_0.r, color_mod.surface_0.g, color_mod.surface_0.b, 0.22)
+                                                                                                                                                    gy += grid_step
+                                                                                                                                                }
 
-            # Node Title
-            let title = if nd.has("title") then nd["title"] else "Node"
-            host_draw_text(title, nx + 10.0, ny + 19.0, 12.0, color_mod.text.r, color_mod.text.g, color_mod.text.b)
+                                                                                                                                                # 2. Map nodes by ID for fast socket lookup
+                                                                                                                                                var node_map = {}
+                                                                                                                                                each nd in nodes {
+                                                                                                                                                    if nd.has("id") {
+                                                                                                                                                        node_map[nd["id"]] = nd
+                                                                                                                                                    }
+                                                                                                                                                }
 
-            # Input sockets on left
-            if nd.has("inputs") {
-                var si = 0
-                each in_sock in nd["inputs"] {
-                    let sy = ny + 40.0 + (si + 0.0) * 22.0
-                    let s_clr = if in_sock.has("color") then in_sock["color"] else color_mod.peach
-                    # Socket port circle
-                    host_draw_circle(nx, sy, 4.5, s_clr.r, s_clr.g, s_clr.b, 1.0)
-                    host_draw_circle(nx, sy, 2.0, color_mod.mantle.r, color_mod.mantle.g, color_mod.mantle.b, 1.0)
-                    # Label
-                    let s_label = in_sock["name"]
-                    host_draw_text(s_label, nx + 10.0, sy + 4.0, 11.0, color_mod.text.r, color_mod.text.g, color_mod.text.b)
-                    si += 1
-                }
-            }
+                                                                                                                                                # 3. Draw Bézier connection cables
+                                                                                                                                                each conn in connections {
+                                                                                                                                                    let from_id = conn["from_node"]
+                                                                                                                                                    let to_id = conn["to_node"]
 
-            # Output sockets on right
-            if nd.has("outputs") {
-                var si = 0
-                each out_sock in nd["outputs"] {
-                    let sy = ny + 40.0 + (si + 0.0) * 22.0
-                    let s_clr = if out_sock.has("color") then out_sock["color"] else color_mod.green
-                    # Socket port circle
-                    host_draw_circle(nx + nw, sy, 4.5, s_clr.r, s_clr.g, s_clr.b, 1.0)
-                    host_draw_circle(nx + nw, sy, 2.0, color_mod.mantle.r, color_mod.mantle.g, color_mod.mantle.b, 1.0)
-                    # Label (right-aligned)
-                    let s_label = out_sock["name"]
-                    let s_w = host_measure_text(s_label, 11.0)
-                    host_draw_text(s_label, nx + nw - 10.0 - s_w, sy + 4.0, 11.0, color_mod.text.r, color_mod.text.g, color_mod.text.b)
-                    si += 1
-                }
-            }
-        }
+                                                                                                                                                    if node_map.has(from_id) and node_map.has(to_id) {
+                                                                                                                                                        let src_node = node_map[from_id]
+                                                                                                                                                        let dst_node = node_map[to_id]
 
-        host_pop_clip_rect()
-    }
+                                                                                                                                                        let src_x = r.x + (src_node["x"] + 0.0)
+                                                                                                                                                        let src_y = r.y + (src_node["y"] + 0.0)
+                                                                                                                                                        let src_w = if src_node.has("width") then (src_node["width"] + 0.0) else 170.0
 
-    return elements_mod.make_rect(
-        {
-            "tag": "node_graph",
-            "direction": "column",
-            "width": width_val,
-            "height": height_val,
-            "clip": true,
-            "on_custom_draw": on_custom_draw
-        },
-        []
-    )
-}
+                                                                                                                                                                let dst_x = r.x + (dst_node["x"] + 0.0)
+                                                                                                                                                                let dst_y = r.y + (dst_node["y"] + 0.0)
 
-# =========================================================================
-# 3. MODAL DIALOG EXTENSION
-# =========================================================================
+                                                                                                                                                                # Find socket index
+                                                                                                                                                                var from_idx = 0
+                                                                                                                                                                if src_node.has("outputs") {
+                                                                                                                                                                    var s_i = 0
+                                                                                                                                                                    each out_sock in src_node["outputs"] {
+                                                                                                                                                                        if out_sock["name"] == conn["from_socket"] {
+                                                                                                                                                                            from_idx = s_i
+                                                                                                                                                                        }
+                                                                                                                                                                        s_i += 1
+                                                                                                                                                                    }
+                                                                                                                                                                }
 
-fn make_modal_dialog(title: String, content_children: List, on_confirm = none, on_cancel = none, props: Dict = {}) {
-    return components_mod.make_dialog(title, content_children, on_confirm, on_cancel, props)
-}
+                                                                                                                                                                var to_idx = 0
+                                                                                                                                                                if dst_node.has("inputs") {
+                                                                                                                                                                    var s_i = 0
+                                                                                                                                                                    each in_sock in dst_node["inputs"] {
+                                                                                                                                                                        if in_sock["name"] == conn["to_socket"] {
+                                                                                                                                                                            to_idx = s_i
+                                                                                                                                                                        }
+                                                                                                                                                                        s_i += 1
+                                                                                                                                                                    }
+                                                                                                                                                                }
 
-fn open_modal_dialog(title: String, content_children: List, on_confirm = none, on_cancel = none, props: Dict = {}) -> Int {
-    let dlg = make_modal_dialog(title, content_children, on_confirm, on_cancel, props)
-    let dismissible = if props.has("dismissible") then props["dismissible"] else true
-    return overlay_mod.overlay_push(dlg, { "scrim": true, "dismissible": dismissible, "on_dismiss": on_cancel })
-}
+                                                                                                                                                                let x1 = src_x + src_w
+                                                                                                                                                                let y1 = src_y + 40.0 + (from_idx + 0.0) * 22.0
+                                                                                                                                                                let x2 = dst_x
+                                                                                                                                                                let y2 = dst_y + 40.0 + (to_idx + 0.0) * 22.0
 
-export tokenize_aipo_line, make_code_editor, make_node_graph, make_modal_dialog, open_modal_dialog
+                                                                                                                                                                let dx = x2 - x1
+                                                                                                                                                                let abs_dx = if dx < 0.0 then 0.0 - dx else dx
+                                                                                                                                                                        let curvature = if abs_dx * 0.5 < 60.0 then 60.0 else abs_dx * 0.5
+                                                                                                                                                                                let cx1 = x1 + curvature
+                                                                                                                                                                                let cy1 = y1
+                                                                                                                                                                                let cx2 = x2 - curvature
+                                                                                                                                                                                let cy2 = y2
+
+                                                                                                                                                                                let wire_clr = if conn.has("color") then conn["color"] else color_mod.blue
+
+                                                                                                                                                                                        # Outer soft glow cable
+                                                                                                                                                                                        host_draw_bezier(x1, y1, cx1, cy1, cx2, cy2, x2, y2, 5.0, wire_clr.r, wire_clr.g, wire_clr.b, 0.3)
+                                                                                                                                                                                        # Sharp core cable
+                                                                                                                                                                                        host_draw_bezier(x1, y1, cx1, cy1, cx2, cy2, x2, y2, 2.0, wire_clr.r, wire_clr.g, wire_clr.b, 0.95)
+                                                                                                                                                                                    }
+                                                                                                                                                                                }
+
+                                                                                                                                                                                # 4. Draw each node card
+                                                                                                                                                                                each nd in nodes {
+                                                                                                                                                                                    let nx = r.x + (nd["x"] + 0.0)
+                                                                                                                                                                                    let ny = r.y + (nd["y"] + 0.0)
+                                                                                                                                                                                    let nw = if nd.has("width") then (nd["width"] + 0.0) else 170.0
+                                                                                                                                                                                            let in_count = if nd.has("inputs") then nd["inputs"].len() else 0
+                                                                                                                                                                                                    let out_count = if nd.has("outputs") then nd["outputs"].len() else 0
+                                                                                                                                                                                                            let max_socks = if in_count > out_count then in_count else out_count
+                                                                                                                                                                                                                    let nh = 46.0 + (max_socks + 0.0) * 22.0 + 8.0
+
+                                                                                                                                                                                                                    let header_clr = if nd.has("color") then nd["color"] else color_mod.blue
+
+                                                                                                                                                                                                                            # Card drop shadow
+                                                                                                                                                                                                                            host_draw_rect(nx + 3.0, ny + 4.0, nw, nh, 0.0, 0.0, 0.0, 0.35)
+
+                                                                                                                                                                                                                            # Node card body
+                                                                                                                                                                                                                            host_draw_sdf_rect(
+                                                                                                                                                                                                                                nx, ny, nw, nh,
+                                                                                                                                                                                                                                7.0,
+                                                                                                                                                                                                                                1.0, color_mod.surface_2.r, color_mod.surface_2.g, color_mod.surface_2.b, 0.8,
+                                                                                                                                                                                                                                0.0,
+                                                                                                                                                                                                                                color_mod.mantle.r, color_mod.mantle.g, color_mod.mantle.b, 0.98
+                                                                                                                                                                                                                            )
+
+                                                                                                                                                                                                                            # Node header accent strip
+                                                                                                                                                                                                                            host_draw_sdf_rect(
+                                                                                                                                                                                                                                nx, ny, nw, 28.0,
+                                                                                                                                                                                                                                7.0,
+                                                                                                                                                                                                                                0.0, 0.0, 0.0, 0.0, 0.0,
+                                                                                                                                                                                                                                1.0,
+                                                                                                                                                                                                                                header_clr.r * 0.45, header_clr.g * 0.45, header_clr.b * 0.45, 0.95
+                                                                                                                                                                                                                            )
+                                                                                                                                                                                                                            # 2px top color bar
+                                                                                                                                                                                                                            host_draw_rect(nx + 6.0, ny + 1.0, nw - 12.0, 2.0, header_clr.r, header_clr.g, header_clr.b, 1.0)
+
+                                                                                                                                                                                                                            # Node Title
+                                                                                                                                                                                                                            let title = if nd.has("title") then nd["title"] else "Node"
+                                                                                                                                                                                                                                    host_draw_text(title, nx + 10.0, ny + 19.0, 12.0, color_mod.text.r, color_mod.text.g, color_mod.text.b)
+
+                                                                                                                                                                                                                                    # Input sockets on left
+                                                                                                                                                                                                                                    if nd.has("inputs") {
+                                                                                                                                                                                                                                        var si = 0
+                                                                                                                                                                                                                                        each in_sock in nd["inputs"] {
+                                                                                                                                                                                                                                            let sy = ny + 40.0 + (si + 0.0) * 22.0
+                                                                                                                                                                                                                                            let s_clr = if in_sock.has("color") then in_sock["color"] else color_mod.peach
+                                                                                                                                                                                                                                                    # Socket port circle
+                                                                                                                                                                                                                                                    host_draw_circle(nx, sy, 4.5, s_clr.r, s_clr.g, s_clr.b, 1.0)
+                                                                                                                                                                                                                                                    host_draw_circle(nx, sy, 2.0, color_mod.mantle.r, color_mod.mantle.g, color_mod.mantle.b, 1.0)
+                                                                                                                                                                                                                                                    # Label
+                                                                                                                                                                                                                                                    let s_label = in_sock["name"]
+                                                                                                                                                                                                                                                    host_draw_text(s_label, nx + 10.0, sy + 4.0, 11.0, color_mod.text.r, color_mod.text.g, color_mod.text.b)
+                                                                                                                                                                                                                                                    si += 1
+                                                                                                                                                                                                                                                }
+                                                                                                                                                                                                                                            }
+
+                                                                                                                                                                                                                                            # Output sockets on right
+                                                                                                                                                                                                                                            if nd.has("outputs") {
+                                                                                                                                                                                                                                                var si = 0
+                                                                                                                                                                                                                                                each out_sock in nd["outputs"] {
+                                                                                                                                                                                                                                                    let sy = ny + 40.0 + (si + 0.0) * 22.0
+                                                                                                                                                                                                                                                    let s_clr = if out_sock.has("color") then out_sock["color"] else color_mod.green
+                                                                                                                                                                                                                                                            # Socket port circle
+                                                                                                                                                                                                                                                            host_draw_circle(nx + nw, sy, 4.5, s_clr.r, s_clr.g, s_clr.b, 1.0)
+                                                                                                                                                                                                                                                            host_draw_circle(nx + nw, sy, 2.0, color_mod.mantle.r, color_mod.mantle.g, color_mod.mantle.b, 1.0)
+                                                                                                                                                                                                                                                            # Label (right-aligned)
+                                                                                                                                                                                                                                                            let s_label = out_sock["name"]
+                                                                                                                                                                                                                                                            let s_w = host_measure_text(s_label, 11.0)
+                                                                                                                                                                                                                                                            host_draw_text(s_label, nx + nw - 10.0 - s_w, sy + 4.0, 11.0, color_mod.text.r, color_mod.text.g, color_mod.text.b)
+                                                                                                                                                                                                                                                            si += 1
+                                                                                                                                                                                                                                                        }
+                                                                                                                                                                                                                                                    }
+                                                                                                                                                                                                                                                }
+
+                                                                                                                                                                                                                                                host_pop_clip_rect()
+                                                                                                                                                                                                                                            }
+
+                                                                                                                                                                                                                                            return elements_mod.make_rect(
+                                                                                                                                                                                                                                                {
+                                                                                                                                                                                                                                                    "tag": "node_graph",
+                                                                                                                                                                                                                                                    "direction": "column",
+                                                                                                                                                                                                                                                    "width": width_val,
+                                                                                                                                                                                                                                                    "height": height_val,
+                                                                                                                                                                                                                                                    "clip": true,
+                                                                                                                                                                                                                                                    "on_custom_draw": on_custom_draw
+                                                                                                                                                                                                                                                },
+                                                                                                                                                                                                                                                []
+                                                                                                                                                                                                                                            )
+                                                                                                                                                                                                                                        }
+
+                                                                                                                                                                                                                                        # =========================================================================
+                                                                                                                                                                                                                                        # 3. MODAL DIALOG EXTENSION
+                                                                                                                                                                                                                                        # =========================================================================
+
+                                                                                                                                                                                                                                        fn make_modal_dialog(title: String, content_children: List, on_confirm = none, on_cancel = none, props: Dict = {}) {
+                                                                                                                                                                                                                                            return components_mod.make_dialog(title, content_children, on_confirm, on_cancel, props)
+                                                                                                                                                                                                                                        }
+
+                                                                                                                                                                                                                                        fn open_modal_dialog(title: String, content_children: List, on_confirm = none, on_cancel = none, props: Dict = {}) -> Int {
+                                                                                                                                                                                                                                            let dlg = make_modal_dialog(title, content_children, on_confirm, on_cancel, props)
+                                                                                                                                                                                                                                            let dismissible = if props.has("dismissible") then props["dismissible"] else true
+                                                                                                                                                                                                                                                    return overlay_mod.overlay_push(dlg, { "scrim": true, "dismissible": dismissible, "on_dismiss": on_cancel })
+                                                                                                                                                                                                                                                }
+
+                                                                                                                                                                                                                                                export tokenize_aipo_line, make_code_editor, make_node_graph, make_modal_dialog, open_modal_dialog

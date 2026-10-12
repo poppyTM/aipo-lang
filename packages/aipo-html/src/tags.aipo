@@ -49,7 +49,7 @@ fn container_tag(tag_name: String, arg1 = none, arg2 = none) -> VNode {
         }
     }
 
-    let node = VNode{
+    let node = VNode {
         id: next_node_id(),
         tag: tag_name,
         attrs: attrs,
@@ -96,7 +96,7 @@ fn text_or_leaf_tag(tag_name: String, arg1 = none, arg2 = none, arg3 = none) -> 
         body = arg1
     }
 
-    let node = VNode{
+    let node = VNode {
         id: next_node_id(),
         tag: tag_name,
         attrs: attrs,
@@ -108,7 +108,7 @@ fn text_or_leaf_tag(tag_name: String, arg1 = none, arg2 = none, arg3 = none) -> 
     register_child(node)
 
     if content != "" {
-        let text_child = VNode{
+        let text_child = VNode {
             id: next_node_id(),
             tag: "#text",
             attrs: {},

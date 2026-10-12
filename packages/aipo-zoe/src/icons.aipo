@@ -65,38 +65,38 @@ fn icons_get_icon_path(name: String) -> String {
 # Creates a declarative Zoe icon element
 fn icons_make_icon(name: String, props: Dict = {}) {
     let size = if props.has("size") then (props["size"] + 0.0) else 16.0
-    let stroke_width = if props.has("stroke_width") then (props["stroke_width"] + 0.0) else 1.8
-    let color_val = if props.has("color") then props["color"] else color_mod.text
+            let stroke_width = if props.has("stroke_width") then (props["stroke_width"] + 0.0) else 1.8
+                    let color_val = if props.has("color") then props["color"] else color_mod.text
 
-    let path_data = icons_get_icon_path(name)
+                            let path_data = icons_get_icon_path(name)
 
-    let draw_icon_fn = fn(node) {
-        if node == none or node.layout == none {
-            return
-        }
-        let rx = node.layout.x + 0.0
-        let ry = node.layout.y + 0.0
-        let r = color_val.r + 0.0
-        let g = color_val.g + 0.0
-        let b = color_val.b + 0.0
-        let a = color_val.a + 0.0
-        host_draw_icon_path(path_data, rx, ry, size, stroke_width, r, g, b, a)
-    }
+                            let draw_icon_fn = fn (node) {
+                                if node == none or node.layout == none {
+                                    return
+                                }
+                                let rx = node.layout.x + 0.0
+                                let ry = node.layout.y + 0.0
+                                let r = color_val.r + 0.0
+                                let g = color_val.g + 0.0
+                                let b = color_val.b + 0.0
+                                let a = color_val.a + 0.0
+                                host_draw_icon_path(path_data, rx, ry, size, stroke_width, r, g, b, a)
+                            }
 
-    var node_props = {
-        "tag": "icon",
-        "width": size,
-        "height": size,
-        "on_custom_draw": draw_icon_fn
-    }
-    if props.has("on_click") {
-        node_props["on_click"] = props["on_click"]
-    }
-    if props.has("tooltip") {
-        node_props["tooltip"] = props["tooltip"]
-    }
+                            var node_props = {
+                                "tag": "icon",
+                                "width": size,
+                                "height": size,
+                                "on_custom_draw": draw_icon_fn
+                            }
+                            if props.has("on_click") {
+                                node_props["on_click"] = props["on_click"]
+                            }
+                            if props.has("tooltip") {
+                                node_props["tooltip"] = props["tooltip"]
+                            }
 
-    return elements_mod.make_rect(node_props, [])
-}
+                            return elements_mod.make_rect(node_props, [])
+                        }
 
-export icons_register_icon, icons_get_icon_path, icons_make_icon
+                        export icons_register_icon, icons_get_icon_path, icons_make_icon

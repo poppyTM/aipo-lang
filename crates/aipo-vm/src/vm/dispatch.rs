@@ -31,18 +31,31 @@ impl Vm {
         if self.metrics_enabled || self.max_instructions.is_some() {
             self.metrics.instructions = self.metrics.instructions.saturating_add(1);
         }
-        if let Some(limit) = self.max_instructions
-            && self.metrics.instructions > limit
-        {
-            return Err(VmFault::Overflow {
-                details: format!("execution budget exceeded: instruction limit of {limit} reached"),
+        if let Some(limit) = self.max_instructions {
+            let interval = self.meter_interval.min(limit.max(1));
+            if self.metrics.instructions % interval == 0 && self.metrics.instructions > limit {
+                return Err(VmFault::Overflow {
+                    details: format!(
+                        "execution budget exceeded: instruction limit of {limit} reached"
+                    ),
+                }
+                .into());
             }
-            .into());
         }
         if self.host_task.is_some() {
             return self.drive_host_task();
         }
         if self.ip >= module.code.len() || self.halted_with.is_some() {
+            if let Some(limit) = self.max_instructions {
+                if self.metrics.instructions > limit {
+                    return Err(VmFault::Overflow {
+                        details: format!(
+                            "execution budget exceeded: instruction limit of {limit} reached"
+                        ),
+                    }
+                    .into());
+                }
+            }
             return Ok(self.finish_current());
         }
 

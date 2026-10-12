@@ -195,9 +195,16 @@ impl Collector {
                 BlockFlow::FallsThrough
             }
             HirStmt::Attempt(attempt) => {
-                self.visit_block(&attempt.body);
-                self.visit_block(&attempt.handler);
-                BlockFlow::FallsThrough
+                let body_flow = self.visit_block(&attempt.body);
+                let handler_flow = self.visit_block(&attempt.handler);
+                // Reaching the end of the body falls through to the statement after
+                // the `attempt`; only a body *and* a handler that both diverge make
+                // the whole statement diverge, exactly like an `if`/`else`.
+                if body_flow == BlockFlow::Diverges && handler_flow == BlockFlow::Diverges {
+                    BlockFlow::Diverges
+                } else {
+                    BlockFlow::FallsThrough
+                }
             }
             HirStmt::AwaitDo(body, _) => self.visit_block(body),
             HirStmt::FnDecl(declaration) => {

@@ -31,7 +31,7 @@ fn combine_path(prefix: String, path: String) -> String {
 }
 
 fn create_app(prefix: String = "") -> App {
-    return App{
+    return App {
         router: router_mod.router_create(),
         middlewares: [],
         prefix: prefix,
@@ -88,7 +88,7 @@ fn app_group(app: App, prefix: String) -> App {
         inherited_group_mws.add(m)
     }
 
-    return App{
+    return App {
         router: app.router,
         middlewares: app.middlewares,
         prefix: sub_prefix,
@@ -98,65 +98,65 @@ fn app_group(app: App, prefix: String) -> App {
 
 fn app_handle_request(app: App, req_dict: Dict) -> Dict {
     let method = if req_dict.has("method") then req_dict["method"] else "GET"
-    let path = if req_dict.has("path") then req_dict["path"] else "/"
-    let headers = if req_dict.has("headers") then req_dict["headers"] else {}
-    let body = if req_dict.has("body") then req_dict["body"] else ""
+            let path = if req_dict.has("path") then req_dict["path"] else "/"
+                    let headers = if req_dict.has("headers") then req_dict["headers"] else {}
+                    let body = if req_dict.has("body") then req_dict["body"] else ""
 
-    let ctx = context_mod.make_context(method, path, headers, body)
+                            let ctx = context_mod.make_context(method, path, headers, body)
 
-    let final_dispatcher = fn (c) {
-        let match_res = router_mod.router_match_route(app.router, c.req_method, c.req_path)
-        if match_res["matched"] {
-            c.params = match_res["params"]
-            let h = match_res["handler"]
-            h(c)
-        } else {
-            context_mod.ctx_status(c, 404)
-            context_mod.ctx_set_header(c, "content-type", "application/json")
-            c.res_body = "{\"error\": \"Not Found\", \"code\": 404}"
-            c.is_handled = true
-        }
-    }
+                            let final_dispatcher = fn (c) {
+                                let match_res = router_mod.router_match_route(app.router, c.req_method, c.req_path)
+                                if match_res["matched"] {
+                                    c.params = match_res["params"]
+                                    let h = match_res["handler"]
+                                    h(c)
+                                } else {
+                                    context_mod.ctx_status(c, 404)
+                                    context_mod.ctx_set_header(c, "content-type", "application/json")
+                                    c.res_body = "{\"error\": \"Not Found\", \"code\": 404}"
+                                    c.is_handled = true
+                                }
+                            }
 
-    middleware_mod.run_middleware_chain(ctx, app.middlewares, 0, final_dispatcher)
+                            middleware_mod.run_middleware_chain(ctx, app.middlewares, 0, final_dispatcher)
 
-    return {
-        "status": ctx.status_code,
-        "headers": ctx.res_headers,
-        "body": ctx.res_body
-    }
-}
+                            return {
+                                "status": ctx.status_code,
+                                "headers": ctx.res_headers,
+                                "body": ctx.res_body
+                            }
+                        }
 
-App:use(self, mw) {
-    app_use(self, mw)
-}
+                        App:use(self, mw) {
+                            app_use(self, mw)
+                        }
 
-App:get(self, path: String, handler) {
-    app_get(self, path, handler)
-}
+                        App:get(self, path:String, handler) {
+                            app_get(self, path, handler)
+                        }
 
-App:post(self, path: String, handler) {
-    app_post(self, path, handler)
-}
+                        App:post(self, path:String, handler) {
+                            app_post(self, path, handler)
+                        }
 
-App:put(self, path: String, handler) {
-    app_put(self, path, handler)
-}
+                        App:put(self, path:String, handler) {
+                            app_put(self, path, handler)
+                        }
 
-App:delete(self, path: String, handler) {
-    app_delete(self, path, handler)
-}
+                        App:delete(self, path:String, handler) {
+                            app_delete(self, path, handler)
+                        }
 
-App:patch(self, path: String, handler) {
-    app_patch(self, path, handler)
-}
+                        App:patch(self, path:String, handler) {
+                            app_patch(self, path, handler)
+                        }
 
-App:group(self, prefix: String) -> App {
-    return app_group(self, prefix)
-}
+                        App:group(self, prefix:String) -> App {
+                            return app_group(self, prefix)
+                        }
 
-App:handle_request(self, req_dict: Dict) -> Dict {
-    return app_handle_request(self, req_dict)
-}
+                        App:handle_request(self, req_dict:Dict) -> Dict {
+                            return app_handle_request(self, req_dict)
+                        }
 
-export App, create_app, app_use, app_get, app_post, app_put, app_delete, app_patch, app_group, app_handle_request, combine_path
+                        export App, create_app, app_use, app_get, app_post, app_put, app_delete, app_patch, app_group, app_handle_request, combine_path

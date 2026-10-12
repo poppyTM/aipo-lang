@@ -22,7 +22,7 @@ pub use emitter::BytecodeEmitter;
 pub use instruction::{RegInstruction, RegOpCode};
 pub use module::{AIBC_MAGIC, AIBC_VERSION, BytecodeModule, FunctionInfo, StructInfo};
 pub use opcode::{Constant, OpCode};
-pub use reg_emitter::{RegCompiledFunction, RegCompiledModule, RegEmitter};
+pub use reg_emitter::{RegCompiledFunction, RegCompiledModule, RegContract, RegEmitter};
 pub use reg_verifier::RegVerifier;
 pub use verifier::BytecodeVerifier;
 

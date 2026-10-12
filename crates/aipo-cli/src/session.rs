@@ -57,8 +57,23 @@ impl Session {
         out: &mut dyn Write,
         err: &mut dyn Write,
     ) -> u8 {
+        let catalog_declared: std::collections::HashSet<String> = self
+            .catalog
+            .iter()
+            .filter_map(|item| match item {
+                aipo_hir::HirItem::Fn(f) => Some(f.name.clone()),
+                aipo_hir::HirItem::Struct(s) => Some(s.name.clone()),
+                aipo_hir::HirItem::Enum(e) => Some(e.name.clone()),
+                aipo_hir::HirItem::Interface(i) => Some(i.name.clone()),
+                _ => None,
+            })
+            .collect();
+
         let mut surface = PreludeSurface::new();
         for (name, value) in &self.vm.globals {
+            if catalog_declared.contains(name) {
+                continue;
+            }
             match value {
                 Value::Function { arity, .. } => {
                     surface.add_function(name, *arity as usize, *arity as usize)

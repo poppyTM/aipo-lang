@@ -41,6 +41,12 @@ Modelos de linguagem treinados em C, JS, Python e Rust sofrem de fortes vieses p
 | `&&`, `||`, `!` | **FATAL** | `and`, `or`, `not` |
 | `;` no fim de statement | **FATAL** | Quebra de linha termina statement |
 | `c ? a : b` | **FATAL** | `if c then a else b` |
+| `import io` / `import math` / `import task` | **FATAL** | Módulos de prelude já estão visíveis: `import io` é `AIPO_SEM_UNKNOWN_MODULE` |
+| `sys.args()` / `sys.exit()` / `sys.env()` | **FATAL** | Módulo `sys` não existe. Ambiente é `env.get` / `env.has` (por capability) |
+| `fn main() { … }` como ponto de entrada na VM | **FATAL** | Não existe `main` implícito no VM: o **topo do módulo** é o script (só o runner WebAssembly usa `main` quando existe) |
+| `return match e { … }` | **FATAL** | `match` é statement: atribua a uma variável e retorne-a |
+| `await do { … }` como inicializador | **FATAL** | `await do { … }` é statement (o `return` dentro dele sai da função externa) |
+| `f(var x)` no argumento da chamada | **FATAL** | `var` é forma de parâmetro na *declaration*; no argumento passe o valor direto |
 
 ---
 
@@ -89,14 +95,26 @@ enum EstadoConexao {
     Erro(motivo: String),
 }
 
+# 'match' é STATEMENT, nunca expressão: os braços atribuem/corpo próprio.
+# `return match …` NÃO existe (ver §17.3 do SYNTAX.md).
 # Match exaustivo: sem 'else' exige cobrir todas as variantes
 fn avaliar(e: EstadoConexao) -> String {
-    return match e {
-        when EstadoConexao.Desconectado { "offline" }
-        when EstadoConexao.Tentando(t) { f"tentativa #{t}" }
-        when EstadoConexao.Conectado { ip, ping_ms } { f"{ip}:{ping_ms}" }
-        when EstadoConexao.Erro(m) { m }
+    var rotulo = "desconhecido"
+    match e {
+        when EstadoConexao.Desconectado {
+            rotulo = "offline"
+        }
+        when EstadoConexao.Tentando(tentativa) {
+            rotulo = f"tentativa #{tentativa}"
+        }
+        when EstadoConexao.Conectado { ip, ping_ms } {
+            rotulo = f"{ip}:{ping_ms}"
+        }
+        when EstadoConexao.Erro(motivo) {
+            rotulo = motivo
+        }
     }
+    return rotulo
 }
 ```
 
@@ -159,3 +177,4 @@ Ao gerar ou editar código Aipo:
 3. **Checar Métodos:** Confirmar que `Tipo:nome` não possui `fn` e que receptores mutáveis usam `var self`.
 4. **Checar Laços:** Confirmar que listas usam `each` e contagens usam `repeat`.
 5. **Checar Saída com o Linter:** Se o ambiente permitir execução de comandos, rodar `python skills/lang-aipo/scripts/lint_aipo.py <arquivo>`.
+6. **Checar Saída com o Compilador:** O linter é apenas lexical — ele **não** valida gramática nem biblioteca padrão. Quando o compilador estiver disponível, rode `aipo check <arquivo>` (e `aipo test`/`aipo run`). `AIPO_BIN=<caminho> bash scripts/verify.sh` roda linter + compilador em todos os exemplos canônicos.

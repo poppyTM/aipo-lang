@@ -870,6 +870,7 @@ export function convBytes(v) {
   return vBytes(new Uint8Array(v.v));
 }
 export function convSet(v) {
+  if (v === undefined || v === null || (v && v.t === 'none')) return vSet([]);
   if (isFailure(v)) return v;
   if (v.t === 'list' || v.t === 'set') return vSet(v.items);
   return typeMismatch('List or Set', typeName(v));
@@ -1655,6 +1656,7 @@ function makeGlobals() {
     ['deg', nat('math.deg', 1, a => std_math_deg(a[0]))],
     ['pi', checkFiniteFloat(Math.PI)],
     ['e', checkFiniteFloat(Math.E)],
+    ['tau', checkFiniteFloat(2 * Math.PI)],
   ];
   g.set('math', vDict(mathEntries.map(([k, v]) => [vStr(k), v])));
   // string module
@@ -3288,6 +3290,7 @@ function doGetField(m, target, field) {
 }
 
 function convertViaType(tag, args) {
+  if (tag === 'Set' && args.length === 0) return vSet([]);
   if (args.length !== 1) return typeMismatch('1 argument', `${args.length} arguments`);
   const a = args[0];
   switch (tag) {

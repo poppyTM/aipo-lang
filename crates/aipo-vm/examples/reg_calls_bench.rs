@@ -22,6 +22,7 @@ fn main() {
         num_registers: 1,
         instructions: vec![load, I::encode_abc(O::Return, 0, 0, 0)],
         constants,
+        contracts: vec![],
     };
     let instructions = vec![
         I::encode_asbx(O::LoadInt, 1, 0),
@@ -42,6 +43,7 @@ fn main() {
             num_registers: 5,
             instructions,
             constants: vec![],
+            contracts: vec![],
         },
         functions: vec![function],
         constants: vec![],

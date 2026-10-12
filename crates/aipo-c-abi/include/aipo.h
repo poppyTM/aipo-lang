@@ -109,10 +109,12 @@ typedef struct aipo_value_t {
     aipo_handle_t handle_val;
 } aipo_value_t;
 
-/**
- * \brief Opaque pointer representing an Aipo runtime instance.
- */
 typedef struct aipo_runtime_t aipo_runtime_t;
+
+/**
+ * \brief Opaque pointer representing an Aipo register machine instance.
+ */
+typedef struct aipo_reg_vm_t aipo_reg_vm_t;
 
 /**
  * \brief Callback signature for host native functions callable from Aipo.
@@ -331,25 +333,270 @@ uint64_t aipo_runtime_instruction_count(const aipo_runtime_t *rt);
  */
 aipo_status_t aipo_runtime_reset_instruction_count(aipo_runtime_t *rt);
 
-/* Cooperative execution: callback/native work is outside the quantum limit. */
-aipo_status_t aipo_runtime_begin(aipo_runtime_t *rt, const char *module, const char *function, const aipo_value_t *args, size_t argc);
-aipo_status_t aipo_runtime_pump(aipo_runtime_t *rt, size_t steps, bool *completed, aipo_value_t *out);
-/* Cancel cooperative execution; completed state changes and I/O remain. */
+/**
+ * \brief Creates a new virtual register machine instance.
+ *
+ * \return Pointer to a newly created register machine, or NULL on allocation failure.
+ */
+aipo_reg_vm_t *aipo_reg_vm_create(void);
+
+/**
+ * \brief Destroys a virtual register machine instance.
+ *
+ * \param vm Pointer returned by aipo_reg_vm_create, or NULL.
+ */
+void aipo_reg_vm_destroy(aipo_reg_vm_t *vm);
+
+/**
+ * \brief Sets an integer value into a specific register.
+ *
+ * \param vm Register machine pointer.
+ * \param reg Register index (0..255).
+ * \param val Integer value to set.
+ * \return AIPO_OK on success, or error status code.
+ */
+aipo_status_t aipo_reg_vm_set_reg_int(
+    aipo_reg_vm_t *vm,
+    uint8_t reg,
+    int64_t val
+);
+
+/**
+ * \brief Reads an integer value from a specific register.
+ *
+ * \param vm Register machine pointer.
+ * \param reg Register index (0..255).
+ * \param out_val Out-pointer to receive the integer value.
+ * \return AIPO_OK on success, or error status code.
+ */
+aipo_status_t aipo_reg_vm_get_reg_int(
+    const aipo_reg_vm_t *vm,
+    uint8_t reg,
+    int64_t *out_val
+);
+
+/**
+ * \brief Executes a buffer of 32-bit register instructions.
+ *
+ * \param vm Register machine pointer.
+ * \param instructions Pointer to array of 32-bit register instructions.
+ * \param count Number of instruction words in the array.
+ * \param out_int Optional out-pointer to receive the integer return value (can be NULL).
+ * \return AIPO_OK on success, or error status code.
+ */
+aipo_status_t aipo_reg_vm_run(
+    aipo_reg_vm_t *vm,
+    const uint32_t *instructions,
+    size_t count,
+    int64_t *out_int
+);
+
+/**
+ * \brief Configures instruction budget limit on the register machine.
+ *
+ * \param vm Register machine pointer.
+ * \param limit Maximum instructions allowed, or 0 to disable.
+ * \return AIPO_OK on success, or error status code.
+ */
+aipo_status_t aipo_reg_vm_set_instruction_budget(aipo_reg_vm_t *vm, uint64_t limit);
+
+/**
+ * \brief Returns the number of instructions executed by the register machine.
+ *
+ * \param vm Register machine pointer.
+ * \return Cumulative executed instruction count.
+ */
+uint64_t aipo_reg_vm_instruction_count(const aipo_reg_vm_t *vm);
+
+/**
+ * \brief Resets the instruction execution counter of the register machine.
+ *
+ * \param vm Register machine pointer.
+ * \return AIPO_OK on success, or error status code.
+ */
+aipo_status_t aipo_reg_vm_reset_instruction_count(aipo_reg_vm_t *vm);
+
+/**
+ * \brief Copies the last error message from the register machine into the provided buffer.
+ *
+ * \param vm Register machine pointer.
+ * \param buffer Buffer to receive null-terminated error string, or NULL to query required length.
+ * \param capacity Size of buffer in bytes.
+ * \return Required byte count including null terminator.
+ */
+size_t aipo_reg_vm_copy_last_error(const aipo_reg_vm_t *vm, char *buffer, size_t capacity);
+
+/**
+ * \brief Starts a function as the cooperative main computation.
+ *
+ * \param rt Runtime pointer.
+ * \param module Module name containing the function.
+ * \param function Function name to invoke.
+ * \param args Array of argument values.
+ * \param argc Number of argument values in args.
+ * \return AIPO_OK on success, or error status code.
+ */
+aipo_status_t aipo_runtime_begin(
+    aipo_runtime_t *rt,
+    const char *module,
+    const char *function,
+    const aipo_value_t *args,
+    size_t argc
+);
+
+/**
+ * \brief Pumps up to `steps` cooperative execution quanta.
+ *
+ * \param rt Runtime pointer.
+ * \param steps Maximum quanta steps to run.
+ * \param completed Out-pointer set to true if execution finished, false if pending.
+ * \param out Out-pointer to receive completion value when completed is true.
+ * \return AIPO_OK on success, or error status code.
+ */
+aipo_status_t aipo_runtime_pump(
+    aipo_runtime_t *rt,
+    size_t steps,
+    bool *completed,
+    aipo_value_t *out
+);
+
+/**
+ * \brief Cancels the active cooperative computation.
+ *
+ * \param rt Runtime pointer.
+ * \return AIPO_OK on success, or error status code.
+ */
 aipo_status_t aipo_runtime_abort(aipo_runtime_t *rt);
 
-/* Native register execution handle (thread-confined, non-reentrant). */
-typedef struct aipo_reg_vm_t aipo_reg_vm_t;
-aipo_reg_vm_t *aipo_reg_vm_create(void);
-void aipo_reg_vm_destroy(aipo_reg_vm_t *vm);
-aipo_status_t aipo_reg_vm_set_reg_int(aipo_reg_vm_t *vm, uint8_t reg, int64_t value);
-aipo_status_t aipo_reg_vm_get_reg_int(const aipo_reg_vm_t *vm, uint8_t reg, int64_t *out);
-aipo_status_t aipo_reg_vm_run(aipo_reg_vm_t *vm, const uint32_t *instructions, size_t count, int64_t *out);
-/* Budgets are cumulative; zero disables. Native work is not metered. */
-aipo_status_t aipo_reg_vm_set_instruction_budget(aipo_reg_vm_t *vm, uint64_t limit);
-uint64_t aipo_reg_vm_instruction_count(const aipo_reg_vm_t *vm);
-aipo_status_t aipo_reg_vm_reset_instruction_count(aipo_reg_vm_t *vm);
-/* Required bytes include NUL; query with NULL, 0 before allocating. */
-size_t aipo_reg_vm_copy_last_error(const aipo_reg_vm_t *vm, char *buffer, size_t capacity);
+/**
+ * \brief Loads and initializes an Aipo module from precompiled bytecode (.aibc).
+ *
+ * \param rt Runtime pointer.
+ * \param name Null-terminated C string identifying the module name.
+ * \param bytecode Pointer to binary bytecode bytes.
+ * \param len Length of the bytecode buffer in bytes.
+ * \return AIPO_OK on success, or error status code.
+ */
+aipo_status_t aipo_runtime_load_bytecode(
+    aipo_runtime_t *rt,
+    const char *name,
+    const uint8_t *bytecode,
+    size_t len
+);
+
+/**
+ * \brief Compiles Aipo source code to serialized binary bytecode (.aibc).
+ *
+ * Allocates a buffer containing the compiled bytecode. The caller is responsible
+ * for freeing the buffer using \ref aipo_bytecode_free.
+ *
+ * \param source Pointer to UTF-8 source code bytes.
+ * \param source_len Length of source in bytes (or 0 if null-terminated).
+ * \param out_bytes Out-pointer to receive the allocated bytecode buffer.
+ * \param out_len Out-pointer to receive the size of the allocated bytecode buffer.
+ * \return AIPO_OK on success, or error status code.
+ */
+aipo_status_t aipo_compile_to_bytecode(
+    const char *source,
+    size_t source_len,
+    uint8_t **out_bytes,
+    size_t *out_len
+);
+
+/**
+ * \brief Frees a bytecode buffer previously allocated by \ref aipo_compile_to_bytecode.
+ *
+ * \param bytes Pointer returned by aipo_compile_to_bytecode (or NULL).
+ * \param len Length of the bytecode buffer in bytes.
+ */
+void aipo_bytecode_free(uint8_t *bytes, size_t len);
+
+/**
+ * \brief Prepares a loaded module for execution or stepping from instruction 0.
+ *
+ * \param rt Runtime pointer.
+ * \param module_name Null-terminated C string identifying the loaded module name.
+ * \return AIPO_OK on success, or error status code.
+ */
+aipo_status_t aipo_runtime_prepare_module(
+    aipo_runtime_t *rt,
+    const char *module_name
+);
+
+/**
+ * \brief Advances execution by a single instruction on the specified or last loaded module.
+ *
+ * \param rt Runtime pointer.
+ * \param module_name Null-terminated C string with module name, or NULL for last loaded module.
+ * \param out_done Out-pointer to receive boolean: true if execution finished, false if more steps remain.
+ * \return AIPO_OK on success, or error status code.
+ */
+aipo_status_t aipo_runtime_step(
+    aipo_runtime_t *rt,
+    const char *module_name,
+    bool *out_done
+);
+
+/**
+ * \brief Executes instructions on the specified or last loaded module until completion or hitting max_steps.
+ *
+ * If `max_steps == 0`, execution proceeds without a step limit until completion or suspension.
+ *
+ * \param rt Runtime pointer.
+ * \param module_name Null-terminated C string with module name, or NULL for last loaded module.
+ * \param max_steps Maximum instructions to execute, or 0 for unlimited.
+ * \param out_done Out-pointer to receive boolean: true if finished, false if hit max_steps or suspended.
+ * \return AIPO_OK on success, or error status code.
+ */
+aipo_status_t aipo_runtime_run_until_idle(
+    aipo_runtime_t *rt,
+    const char *module_name,
+    uint64_t max_steps,
+    bool *out_done
+);
+
+/**
+ * \brief Compiles Aipo source code to standalone WebAssembly binary (.wasm).
+ *
+ * Allocates a buffer containing the compiled WebAssembly binary. The caller is responsible
+ * for freeing the buffer using \ref aipo_wasm_free.
+ *
+ * \param source Pointer to UTF-8 source code bytes.
+ * \param source_len Length of source in bytes (or 0 if null-terminated).
+ * \param out_wasm Out-pointer to receive the allocated WebAssembly buffer.
+ * \param out_len Out-pointer to receive the size of the allocated WebAssembly buffer.
+ * \return AIPO_OK on success, or error status code.
+ */
+aipo_status_t aipo_wasm_compile(
+    const char *source,
+    size_t source_len,
+    uint8_t **out_wasm,
+    size_t *out_len
+);
+
+/**
+ * \brief Frees a WebAssembly buffer previously allocated by \ref aipo_wasm_compile.
+ *
+ * \param wasm_bytes Pointer returned by aipo_wasm_compile (or NULL).
+ * \param len Length of the WebAssembly buffer in bytes.
+ */
+void aipo_wasm_free(uint8_t *wasm_bytes, size_t len);
+
+/**
+ * \brief Executes precompiled WebAssembly bytecode using Wasmtime JIT.
+ *
+ * \param wasm_bytes Pointer to WebAssembly binary bytes.
+ * \param len Length of WebAssembly buffer in bytes.
+ * \param fuel Maximum fuel budget allowed, or 0 for unlimited execution.
+ * \param out_result Optional out-pointer to receive 64-bit integer return value (can be NULL).
+ * \return AIPO_OK on success, or error status code.
+ */
+aipo_status_t aipo_wasm_run(
+    const uint8_t *wasm_bytes,
+    size_t len,
+    uint64_t fuel,
+    int64_t *out_result
+);
 
 #ifdef __cplusplus
 }

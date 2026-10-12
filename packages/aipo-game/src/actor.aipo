@@ -49,63 +49,63 @@ fn make_actor(name: String, config: Dict) -> ActorType {
 fn create_instance(blueprint: ActorType, x: Float, y: Float) -> Actor {
     let cfg = blueprint.config
     let w = if cfg.has("width") then cfg["width"] else 32.0
-    let h = if cfg.has("height") then cfg["height"] else 32.0
-    let sp = if cfg.has("sprite") then cfg["sprite"] else ""
-    let tg = if cfg.has("tags") then cfg["tags"] else []
-    let bh = if cfg.has("behaviors") then cfg["behaviors"] else []
-    let oc = if cfg.has("on_create") then cfg["on_create"] else none
-    let ou = if cfg.has("on_update") then cfg["on_update"] else none
-    let col = if cfg.has("on_collision") then cfg["on_collision"] else none
-    let od = if cfg.has("on_destroy") then cfg["on_destroy"] else none
+            let h = if cfg.has("height") then cfg["height"] else 32.0
+                    let sp = if cfg.has("sprite") then cfg["sprite"] else ""
+                            let tg = if cfg.has("tags") then cfg["tags"] else []
+                                    let bh = if cfg.has("behaviors") then cfg["behaviors"] else []
+                                            let oc = if cfg.has("on_create") then cfg["on_create"] else none
+                                                    let ou = if cfg.has("on_update") then cfg["on_update"] else none
+                                                            let col = if cfg.has("on_collision") then cfg["on_collision"] else none
+                                                                    let od = if cfg.has("on_destroy") then cfg["on_destroy"] else none
 
-    let inst = Actor {
-        id: next_actor_id(),
-        type_name: blueprint.name,
-        x: x,
-        y: y,
-        vx: 0.0,
-        vy: 0.0,
-        width: w,
-        height: h,
-        rotation: 0.0,
-        scale_x: 1.0,
-        scale_y: 1.0,
-        sprite: sp,
-        is_alive: true,
-        is_on_ground: false,
-        tags: tg,
-        behaviors: bh,
-        on_create_fn: oc,
-        on_update_fn: ou,
-        on_collision_fn: col,
-        on_destroy_fn: od,
-        custom: {}
-    }
+                                                                            let inst = Actor {
+                                                                                id: next_actor_id(),
+                                                                                type_name: blueprint.name,
+                                                                                x: x,
+                                                                                y: y,
+                                                                                vx: 0.0,
+                                                                                vy: 0.0,
+                                                                                width: w,
+                                                                                height: h,
+                                                                                rotation: 0.0,
+                                                                                scale_x: 1.0,
+                                                                                scale_y: 1.0,
+                                                                                sprite: sp,
+                                                                                is_alive: true,
+                                                                                is_on_ground: false,
+                                                                                tags: tg,
+                                                                                behaviors: bh,
+                                                                                on_create_fn: oc,
+                                                                                on_update_fn: ou,
+                                                                                on_collision_fn: col,
+                                                                                on_destroy_fn: od,
+                                                                                custom: {}
+                                                                            }
 
-    if inst.on_create_fn != none {
-        (inst.on_create_fn)(inst)
-    }
+                                                                            if inst.on_create_fn != none {
+                                                                                (inst.on_create_fn)(inst)
+                                                                            }
 
-    return inst
-}
+                                                                            return inst
+                                                                        }
 
-# AABB Collision Detection
-fn check_overlap(a: Actor, b: Actor) -> Bool {
-    if not a.is_alive or not b.is_alive or a.id == b.id {
-        return false
-    }
+                                                                        # AABB Collision Detection
+                                                                        fn check_overlap(a: Actor, b: Actor) -> Bool {
+                                                                            if not a.is_alive or not b.is_alive or a.id == b.id {
+                                                                                return false
+                                                                            }
 
-    let a_left = a.x - (a.width / 2.0)
-    let a_right = a.x + (a.width / 2.0)
-    let a_top = a.y - (a.height / 2.0)
-    let a_bottom = a.y + (a.height / 2.0)
+                                                                            let a_left = a.x - (a.width / 2.0)
+                                                                            let a_right = a.x + (a.width / 2.0)
+                                                                            let a_top = a.y - (a.height / 2.0)
+                                                                            let a_bottom = a.y + (a.height / 2.0)
 
-    let b_left = b.x - (b.width / 2.0)
-    let b_right = b.x + (b.width / 2.0)
-    let b_top = b.y - (b.height / 2.0)
-    let b_bottom = b.y + (b.height / 2.0)
+                                                                            let b_left = b.x - (b.width / 2.0)
+                                                                            let b_right = b.x + (b.width / 2.0)
+                                                                            let b_top = b.y - (b.height / 2.0)
+                                                                            let b_bottom = b.y + (b.height / 2.0)
 
-    return (a_left < b_right) and (a_right > b_left) and (a_top < b_bottom) and (a_bottom > b_top)
-}
+                                                                            return (a_left < b_right) and (a_right > b_left) and (a_top < b_bottom) and (a_bottom > b_top)
+                                                                        }
 
-export ActorType, Actor, make_actor, create_instance, check_overlap, next_actor_id
+                                                                        export ActorType, Actor, make_actor, create_instance, check_overlap, next_actor_id

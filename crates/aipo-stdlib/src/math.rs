@@ -13,6 +13,7 @@
 //! - `clamp`: constrains a number to an inclusive interval
 //! - `pi`: constant Archimedes ratio
 //! - `e`: constant Euler's number
+//! - `tau`: constant circle ratio (2 * pi)
 
 use aipo_vm::{
     DictMap, FailureValue, MAX_SAFE_INT, MIN_SAFE_INT, Value, VmFault, check_finite_float,
@@ -851,6 +852,10 @@ pub fn create_module() -> Value {
         (
             Value::String(Rc::new("e".to_string())),
             Value::Float(std::f64::consts::E),
+        ),
+        (
+            Value::String(Rc::new("tau".to_string())),
+            Value::Float(std::f64::consts::TAU),
         ),
     ];
 

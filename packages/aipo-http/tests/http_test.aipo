@@ -6,16 +6,16 @@ test("basic routing and context responses (text, json, html)") do {
     let app = http.create()
 
     app.get("/", fn (c) {
-        c.text("Hello, Aipo HTTP!")
-    })
+            c.text("Hello, Aipo HTTP!")
+        })
 
     app.get("/api/health", fn (c) {
-        c.json({ "status": "ok", "uptime": 120 })
-    })
+            c.json({ "status": "ok", "uptime": 120 })
+        })
 
     app.get("/welcome", fn (c) {
-        c.html("<h1>Bem-vindo!</h1>")
-    })
+            c.html("<h1>Bem-vindo!</h1>")
+        })
 
     # Test root text response
     let res1 = app.handle_request({ "method": "GET", "path": "/" })
@@ -26,8 +26,8 @@ test("basic routing and context responses (text, json, html)") do {
     # Test health JSON response
     let res2 = app.handle_request({ "method": "GET", "path": "/api/health" })
     expect.equal(res2["status"], 200)
-    expect.true(res2["body"].contains("\"status\": \"ok\""))
-    expect.true(res2["body"].contains("\"uptime\": 120"))
+    expect.true (res2["body"].contains("\"status\": \"ok\""))
+    expect.true (res2["body"].contains("\"uptime\": 120"))
     expect.equal(res2["headers"]["content-type"], "application/json")
 
     # Test HTML response
@@ -40,25 +40,25 @@ test("route parameters and wildcards") do {
     let app = http.create()
 
     app.get("/users/:id", fn (c) {
-        let user_id = c.param("id")
-        c.json({ "id": user_id, "name": "Dev Aipo" })
-    })
+            let user_id = c.param("id")
+            c.json({ "id": user_id, "name": "Dev Aipo" })
+        })
 
     app.get("/orgs/:org/repos/:repo", fn (c) {
-        let org_val = c.param("org")
-        let repo_val = c.param("repo")
-        c.text(f"{org_val}/{repo_val}")
-    })
+            let org_val = c.param("org")
+            let repo_val = c.param("repo")
+            c.text(f"{org_val}/{repo_val}")
+        })
 
     app.get("/static/*filepath", fn (c) {
-        let file = c.param("filepath")
-        c.text(f"serving: {file}")
-    })
+            let file = c.param("filepath")
+            c.text(f"serving: {file}")
+        })
 
     # Single param
     let res1 = app.handle_request({ "method": "GET", "path": "/users/99" })
     expect.equal(res1["status"], 200)
-    expect.true(res1["body"].contains("\"id\": \"99\""))
+    expect.true (res1["body"].contains("\"id\": \"99\""))
 
     # Multi param
     let res2 = app.handle_request({ "method": "GET", "path": "/orgs/poppy-team/repos/aipo-lang" })
@@ -74,39 +74,39 @@ test("query parameters and json body parsing") do {
     let app = http.create()
 
     app.get("/search", fn (c) {
-        let q = c.query_param("q")
-        let page = c.query_param("page")
-        c.json({ "query": q, "page": page })
-    })
+            let q = c.query_param("q")
+            let page = c.query_param("page")
+            c.json({ "query": q, "page": page })
+        })
 
     app.post("/users", fn (c) {
-        let payload = c.body_json()
-        c.status(201)
-        c.set_header("x-created-by", "aipo-engine")
-        c.json({
-            "created": true,
-            "username": payload["username"],
-            "email": payload["email"]
+            let payload = c.body_json()
+            c.status(201)
+            c.set_header("x-created-by", "aipo-engine")
+            c.json({
+                "created": true,
+                "username": payload["username"],
+                "email": payload["email"]
+            })
         })
-    })
 
     # Query string extraction
     let res1 = app.handle_request({ "method": "GET", "path": "/search?q=compiler&page=2" })
     expect.equal(res1["status"], 200)
-    expect.true(res1["body"].contains("\"query\": \"compiler\""))
-    expect.true(res1["body"].contains("\"page\": \"2\""))
+    expect.true (res1["body"].contains("\"query\": \"compiler\""))
+    expect.true (res1["body"].contains("\"page\": \"2\""))
 
     # POST body parsing
     let post_body = "{\"username\":\"alice\",\"email\":\"alice@aipo.dev\"}"
     let res2 = app.handle_request({
-        "method": "POST",
-        "path": "/users",
-        "body": post_body
-    })
+            "method": "POST",
+            "path": "/users",
+            "body": post_body
+        })
     expect.equal(res2["status"], 201)
     expect.equal(res2["headers"]["x-created-by"], "aipo-engine")
-    expect.true(res2["body"].contains("\"username\": \"alice\""))
-    expect.true(res2["body"].contains("\"created\": true"))
+    expect.true (res2["body"].contains("\"username\": \"alice\""))
+    expect.true (res2["body"].contains("\"created\": true"))
 }
 test("onion middleware pipeline execution and short-circuit") do {
     let app = http.create()
@@ -114,25 +114,25 @@ test("onion middleware pipeline execution and short-circuit") do {
 
     # Middleware 1: tracks before & after
     app.use(fn (c, next) {
-        order_log.add("m1_start")
-        let res = next()
-        order_log.add("m1_end")
-        return res
-    })
+            order_log.add("m1_start")
+            let res = next()
+            order_log.add("m1_end")
+            return res
+        })
 
     # Middleware 2: adds custom header
     app.use(fn (c, next) {
-        order_log.add("m2_start")
-        c.set_header("x-trace-id", "trace-12345")
-        let res = next()
-        order_log.add("m2_end")
-        return res
-    })
+            order_log.add("m2_start")
+            c.set_header("x-trace-id", "trace-12345")
+            let res = next()
+            order_log.add("m2_end")
+            return res
+        })
 
     app.get("/flow", fn (c) {
-        order_log.add("handler")
-        c.text("flow complete")
-    })
+            order_log.add("handler")
+            c.text("flow complete")
+        })
 
     let res = app.handle_request({ "method": "GET", "path": "/flow" })
     expect.equal(res["status"], 200)
@@ -147,30 +147,30 @@ test("onion middleware pipeline execution and short-circuit") do {
     # Short-circuit authentication middleware test
     let auth_app = http.create()
     auth_app.use(fn (c, next) {
-        let auth = c.header("Authorization")
-        if auth != "Bearer secret-token" {
-            c.status(401)
-            c.json({ "error": "Unauthorized" })
-            return none
-        }
-        return next()
-    })
+            let auth = c.header("Authorization")
+            if auth != "Bearer secret-token" {
+                c.status(401)
+                c.json({ "error": "Unauthorized" })
+                return none
+            }
+            return next()
+        })
 
     auth_app.get("/secret", fn (c) {
-        c.text("top secret data")
-    })
+            c.text("top secret data")
+        })
 
     # Unauthorized request (short circuits)
     let denied = auth_app.handle_request({ "method": "GET", "path": "/secret" })
     expect.equal(denied["status"], 401)
-    expect.true(denied["body"].contains("\"Unauthorized\""))
+    expect.true (denied["body"].contains("\"Unauthorized\""))
 
     # Authorized request
     let allowed = auth_app.handle_request({
-        "method": "GET",
-        "path": "/secret",
-        "headers": { "Authorization": "Bearer secret-token" }
-    })
+            "method": "GET",
+            "path": "/secret",
+            "headers": { "Authorization": "Bearer secret-token" }
+        })
     expect.equal(allowed["status"], 200)
     expect.equal(allowed["body"], "top secret data")
 }
@@ -178,13 +178,13 @@ test("built-in middlewares: cors and recover") do {
     # 1. CORS middleware
     let app = http.create()
     app.use(http.cors({
-        "origin": "https://aipo.dev",
-        "methods": "GET, POST"
-    }))
+            "origin": "https://aipo.dev",
+            "methods": "GET, POST"
+        }))
 
     app.get("/cors-test", fn (c) {
-        c.text("cors ok")
-    })
+            c.text("cors ok")
+        })
 
     # Preflight OPTIONS request
     let preflight = app.handle_request({ "method": "OPTIONS", "path": "/cors-test" })
@@ -202,12 +202,12 @@ test("built-in middlewares: cors and recover") do {
     err_app.use(http.recover())
 
     err_app.get("/crash", fn (c) {
-        fail "divisao por zero simulada"
-    })
+            fail "divisao por zero simulada"
+        })
 
     let crashed_res = err_app.handle_request({ "method": "GET", "path": "/crash" })
     expect.equal(crashed_res["status"], 500)
-    expect.true(crashed_res["body"].contains("Internal Server Error"))
+    expect.true (crashed_res["body"].contains("Internal Server Error"))
 }
 test("route grouping and 404 handling") do {
     let app = http.create()
@@ -215,22 +215,22 @@ test("route grouping and 404 handling") do {
     # Route group /api/v1
     let v1 = app.group("/api/v1")
     v1.get("/status", fn (c) {
-        c.json({ "version": "v1.0.0" })
-    })
+            c.json({ "version": "v1.0.0" })
+        })
     v1.get("/products", fn (c) {
-        c.json([{ "id": 1, "title": "Aipo Book" }])
-    })
+            c.json([{ "id": 1, "title": "Aipo Book" }])
+        })
 
     let res1 = app.handle_request({ "method": "GET", "path": "/api/v1/status" })
     expect.equal(res1["status"], 200)
-    expect.true(res1["body"].contains("\"version\": \"v1.0.0\""))
+    expect.true (res1["body"].contains("\"version\": \"v1.0.0\""))
 
     let res2 = app.handle_request({ "method": "GET", "path": "/api/v1/products" })
     expect.equal(res2["status"], 200)
-    expect.true(res2["body"].contains("\"title\": \"Aipo Book\""))
+    expect.true (res2["body"].contains("\"title\": \"Aipo Book\""))
 
     # 404 for unknown route
     let not_found = app.handle_request({ "method": "GET", "path": "/api/v1/unknown" })
     expect.equal(not_found["status"], 404)
-    expect.true(not_found["body"].contains("Not Found"))
+    expect.true (not_found["body"].contains("Not Found"))
 }

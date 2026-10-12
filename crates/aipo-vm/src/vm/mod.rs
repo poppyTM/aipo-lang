@@ -14,7 +14,7 @@ mod call;
 mod contract;
 mod dispatch;
 mod failure;
-mod helpers;
+pub(crate) mod helpers;
 mod journal;
 mod method;
 mod task;
@@ -70,7 +70,7 @@ pub enum TestMode {
 
 /// Methods that structurally mutate their receiver, so the VM can enforce the
 /// canonical `MutationDuringIteration` fault.
-const MUTATING_METHODS: [&str; 6] = [
+pub(crate) const MUTATING_METHODS: [&str; 6] = [
     "add",
     "insert",
     "remove",
@@ -220,7 +220,12 @@ pub struct Vm {
     pub test_mode: TestMode,
     /// Maximum allowed instructions before execution faults with budget overflow.
     pub max_instructions: Option<u64>,
+    /// Interval in instructions between fuel budget checks (default: 64).
+    pub meter_interval: u64,
 }
+
+/// Default periodic instruction metering interval (64 instructions).
+pub const DEFAULT_METER_INTERVAL: u64 = 64;
 
 /// Snapshot of VM global environment and type definitions, enabling atomic rollback on load failure.
 #[derive(Clone, Debug)]
@@ -305,6 +310,7 @@ impl Vm {
             call_inst_len: 2,
             test_mode: TestMode::Disabled,
             max_instructions: None,
+            meter_interval: DEFAULT_METER_INTERVAL,
         }
     }
 
@@ -360,7 +366,18 @@ impl Vm {
         self.max_instructions = limit;
     }
 
-    /// Returns consumed instructions; budgeted runs retain consumption until explicitly reset.
+    /// Configures the periodic instruction metering interval (default: 64).
+    pub fn set_meter_interval(&mut self, interval: u64) {
+        self.meter_interval = interval.max(1);
+    }
+
+    /// Returns the current periodic instruction metering interval.
+    #[must_use]
+    pub fn meter_interval(&self) -> u64 {
+        self.meter_interval
+    }
+
+    /// Returns the number of instructions executed since the last reset or run; budgeted runs retain consumption until explicitly reset.
     #[must_use]
     pub fn instruction_count(&self) -> u64 {
         self.metrics.instructions
@@ -711,6 +728,11 @@ impl Vm {
     }
 
     /// Looks up a struct method by type name and method name.
+    ///
+    /// A payload variant is stored as a struct named `Enum.Variant`, but canon
+    /// declares its methods on the enum (`Enum:metodo`), so a variant receiver
+    /// falls back to the parent type. This mirrors `TypeIs` and the written
+    /// contract check, which both accept a variant where the enum is named.
     #[inline]
     #[must_use]
     pub fn lookup_struct_method(
@@ -718,8 +740,16 @@ impl Vm {
         type_name: &str,
         method: &str,
     ) -> Option<(usize, usize, bool)> {
+        if let Some(found) = self
+            .struct_methods_by_type
+            .get(type_name)
+            .and_then(|methods| methods.get(method))
+        {
+            return Some(*found);
+        }
+        let parent = type_name.split_once('.')?.0;
         self.struct_methods_by_type
-            .get(type_name)?
+            .get(parent)?
             .get(method)
             .copied()
     }

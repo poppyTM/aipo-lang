@@ -34,6 +34,16 @@ fn test_set_creation_and_deduplication() {
 }
 
 #[test]
+fn test_empty_set_creation() {
+    let set_val = convert::convert_set(&[]).expect("Empty Set() should succeed");
+    if let Value::Set(items) = &set_val {
+        assert_eq!(items.borrow().len(), 0);
+    } else {
+        panic!("expected Value::Set, got {set_val:?}");
+    }
+}
+
+#[test]
 fn test_set_methods() {
     let set_val = Value::Set(Rc::new(RefCell::new(
         (vec![Value::Int(10), Value::Int(20)]).into(),

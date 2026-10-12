@@ -1900,7 +1900,10 @@ impl<'a> SemanticAnalyzer<'a> {
             .filter(|param| !param.optional)
             .count();
         let max_args = function.params.len();
-        if positional > max_args
+        // An open-ended function states only the checked prefix of its parameters,
+        // so extra positional arguments are expected rather than an error.
+        let too_many = positional > max_args && !function.variadic;
+        if too_many
             || function
                 .params
                 .iter()
@@ -2436,10 +2439,19 @@ impl<'a> SemanticAnalyzer<'a> {
                                     SymbolKind::Struct { fields } => fields.contains_key(member),
                                     _ => false,
                                 });
+                        // Methods declared as `Tipo:nome` live under the declared type
+                        // name. An enum payload variant is a struct named `Enum.Variant`,
+                        // but its methods are declared on the enum (`Enum:nome`), so fall
+                        // back to the parent type before reporting the member as unknown.
                         let has_method = self
                             .impl_methods
                             .get(st)
-                            .is_some_and(|methods| methods.contains_key(member));
+                            .is_some_and(|methods| methods.contains_key(member))
+                            || st.split_once('.').is_some_and(|(parent, _)| {
+                                self.impl_methods
+                                    .get(parent)
+                                    .is_some_and(|methods| methods.contains_key(member))
+                            });
                         if !has_field && !has_method {
                             self.diagnostics.push(
                                 Diagnostic::error(

@@ -9,9 +9,18 @@ rust-version.workspace = true
 description = "Shared deterministic test harnesses for Aipo: RNG, corpus helpers, pipeline and JS runners, program generator"
 publish = false
 
-[lints]
-workspace = true
+[lints.rust]
+unsafe_code = "allow"
+missing_docs = "warn"
+unreachable_pub = "warn"
 
+[lints.clippy]
+all = { level = "deny", priority = -1 }
+correctness = { level = "deny", priority = -1 }
+suspicious = { level = "deny", priority = -1 }
+complexity = { level = "deny", priority = -1 }
+perf = { level = "deny", priority = -1 }
+style = { level = "deny", priority = -1 }
 [dependencies]
 aipo-source = { path = "../aipo-source" }
 aipo-diagnostics = { path = "../aipo-diagnostics" }
@@ -26,3 +35,5 @@ aipo-vm = { path = "../aipo-vm" }
 aipo-runtime = { path = "../aipo-runtime" }
 aipo-stdlib = { path = "../aipo-stdlib" }
 aipo-js = { path = "../aipo-js" }
+aipo-host = { path = "../aipo-host" }
+aipo-wasm = { path = "../aipo-wasm" }

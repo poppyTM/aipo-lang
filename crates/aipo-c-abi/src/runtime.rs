@@ -94,6 +94,8 @@ pub struct AipoRuntime {
     pub capabilities: CapabilitySet,
     /// Loaded bytecode modules by module name.
     pub modules: HashMap<String, Arc<BytecodeModule>>,
+    /// Name of the last module loaded on this runtime.
+    pub last_loaded_module: Option<String>,
     linked: BytecodeModule,
     module_offsets: HashMap<String, usize>,
     active_execution: Option<Arc<BytecodeModule>>,
@@ -124,6 +126,7 @@ impl AipoRuntime {
             vm,
             capabilities: CapabilitySet::none(),
             modules: HashMap::new(),
+            last_loaded_module: None,
             linked: BytecodeModule::new(),
             module_offsets: HashMap::new(),
             active_execution: None,
@@ -202,66 +205,12 @@ impl AipoRuntime {
         Ok(())
     }
 
-    /// Compiles and loads an Aipo module from source text.
-    pub fn load_module(
+    /// Internal helper that registers definitions and executes top-level code of a compiled module.
+    pub fn load_module_internal(
         &mut self,
         name: &str,
-        source_text: &str,
+        module: BytecodeModule,
     ) -> Result<(), (aipo_status_t, String)> {
-        if self.active_execution.is_some() {
-            return Err((
-                aipo_status_t::AIPO_ERR_USAGE,
-                "runtime is executing; finish pumping before loading".into(),
-            ));
-        }
-        let source = Source::new(SourceId::next(), name, source_text);
-        let (program, diagnostics) = aipo_syntax::parse(&source);
-        if diagnostics.iter().any(|d| d.severity == Severity::Error) {
-            let details = diagnostics
-                .iter()
-                .filter(|d| d.severity == Severity::Error)
-                .map(|d| d.message.clone())
-                .collect::<Vec<_>>()
-                .join("; ");
-            let msg = format!("parse error in module '{name}': {details}");
-            self.last_error = Some(msg.clone());
-            return Err((aipo_status_t::AIPO_ERR_DIAGNOSTIC, msg));
-        }
-
-        let hir = aipo_hir::lower(program);
-        let mut surface = PreludeSurface::fundamental();
-        for global in self.vm.globals.keys() {
-            surface.add_variable(global);
-        }
-        for host_fn in self.host_functions.keys() {
-            surface.add_variable(host_fn);
-        }
-        for mod_name in self.modules.keys() {
-            surface.add_variable(mod_name);
-        }
-
-        let (_, sema_diagnostics) = aipo_sema::check_with_prelude(&source, &hir, &surface);
-        if sema_diagnostics
-            .iter()
-            .any(|d| d.severity == Severity::Error)
-        {
-            let details = sema_diagnostics
-                .iter()
-                .filter(|d| d.severity == Severity::Error)
-                .map(|d| d.message.clone())
-                .collect::<Vec<_>>()
-                .join("; ");
-            let msg = format!("semantic error in module '{name}': {details}");
-            self.last_error = Some(msg.clone());
-            return Err((aipo_status_t::AIPO_ERR_DIAGNOSTIC, msg));
-        }
-
-        let ir = aipo_ir::lower_to_ir(&hir);
-        let module = aipo_bytecode::compile(&ir).map_err(|errors| {
-            let msg = format!("compilation error: {:?}", errors);
-            (aipo_status_t::AIPO_ERR_DIAGNOSTIC, msg)
-        })?;
-
         let mut candidate = self.linked.clone();
         let offset = aipo_bytecode::append_unit(&mut candidate, &module)
             .map_err(|errors| (aipo_status_t::AIPO_ERR_DIAGNOSTIC, errors.join("; ")))?;
@@ -309,7 +258,7 @@ impl AipoRuntime {
         }
 
         // Register structs and methods on VM
-        for decl in &module.structs {
+        for decl in &catalog.structs {
             let fields: Vec<(&str, bool)> = decl
                 .fields
                 .iter()
@@ -350,9 +299,263 @@ impl AipoRuntime {
 
         self.linked = candidate;
         self.module_offsets.insert(name.to_string(), offset);
+        self.last_loaded_module = Some(name.to_string());
         self.last_error = None;
         self.modules.insert(name.to_string(), Arc::new(module));
         Ok(())
+    }
+
+    /// Compiles and loads an Aipo module from source text.
+    pub fn load_module(
+        &mut self,
+        name: &str,
+        source_text: &str,
+    ) -> Result<(), (aipo_status_t, String)> {
+        if self.active_execution.is_some() {
+            return Err((
+                aipo_status_t::AIPO_ERR_USAGE,
+                "runtime is executing; finish pumping before loading".into(),
+            ));
+        }
+        let source = Source::new(SourceId::next(), name, source_text);
+        let (program, diagnostics) = aipo_syntax::parse(&source);
+        if diagnostics.iter().any(|d| d.severity == Severity::Error) {
+            let details = diagnostics
+                .iter()
+                .filter(|d| d.severity == Severity::Error)
+                .map(|d| d.message.clone())
+                .collect::<Vec<_>>()
+                .join("; ");
+            let msg = format!("parse error in module '{name}': {details}");
+            self.last_error = Some(msg.clone());
+            return Err((aipo_status_t::AIPO_ERR_DIAGNOSTIC, msg));
+        }
+
+        let hir = aipo_hir::lower(program);
+        let mut surface = PreludeSurface::fundamental();
+        for host_fn in self.host_functions.keys() {
+            surface.add_variable(host_fn);
+        }
+        for mod_name in self.modules.keys() {
+            surface.add_variable(mod_name);
+        }
+
+        let (_, sema_diagnostics) = aipo_sema::check_with_prelude(&source, &hir, &surface);
+        if sema_diagnostics
+            .iter()
+            .any(|d| d.severity == Severity::Error)
+        {
+            let details = sema_diagnostics
+                .iter()
+                .filter(|d| d.severity == Severity::Error)
+                .map(|d| d.message.clone())
+                .collect::<Vec<_>>()
+                .join("; ");
+            let msg = format!("semantic error in module '{name}': {details}");
+            self.last_error = Some(msg.clone());
+            return Err((aipo_status_t::AIPO_ERR_DIAGNOSTIC, msg));
+        }
+
+        let ir = aipo_ir::lower_to_ir(&hir);
+        let module = aipo_bytecode::compile(&ir).map_err(|errors| {
+            let msg = format!("compilation error: {:?}", errors);
+            (aipo_status_t::AIPO_ERR_DIAGNOSTIC, msg)
+        })?;
+
+        self.load_module_internal(name, module)
+    }
+
+
+    /// Loads and initializes an Aipo module from precompiled bytecode (.aibc).
+    pub fn load_bytecode(
+        &mut self,
+        name: &str,
+        bytes: &[u8],
+    ) -> Result<(), (aipo_status_t, String)> {
+        let module = BytecodeModule::from_bytes(bytes).map_err(|err| {
+            let msg = format!("failed to decode bytecode for '{name}': {err}");
+            self.last_error = Some(msg.clone());
+            (aipo_status_t::AIPO_ERR_USAGE, msg)
+        })?;
+
+        aipo_bytecode::BytecodeVerifier::verify(&module).map_err(|errors| {
+            let msg = format!("bytecode verification failed for '{name}': {errors:?}");
+            self.last_error = Some(msg.clone());
+            (aipo_status_t::AIPO_ERR_DIAGNOSTIC, msg)
+        })?;
+
+        self.load_module_internal(name, module)
+    }
+
+    /// Compiles Aipo source text into a serialized `.aibc` binary module.
+    pub fn compile_bytecode(source_text: &str) -> Result<Vec<u8>, (aipo_status_t, String)> {
+        let source = Source::new(SourceId::next(), "compile_bytecode.aipo", source_text);
+        let (program, diagnostics) = aipo_syntax::parse(&source);
+        if diagnostics.iter().any(|d| d.severity == Severity::Error) {
+            let details = diagnostics
+                .iter()
+                .filter(|d| d.severity == Severity::Error)
+                .map(|d| d.message.clone())
+                .collect::<Vec<_>>()
+                .join("; ");
+            return Err((
+                aipo_status_t::AIPO_ERR_DIAGNOSTIC,
+                format!("parse error: {details}"),
+            ));
+        }
+
+        let hir = aipo_hir::lower(program);
+        let surface = PreludeSurface::fundamental();
+        let (_, sema_diagnostics) = aipo_sema::check_with_prelude(&source, &hir, &surface);
+        if sema_diagnostics
+            .iter()
+            .any(|d| d.severity == Severity::Error)
+        {
+            let details = sema_diagnostics
+                .iter()
+                .filter(|d| d.severity == Severity::Error)
+                .map(|d| d.message.clone())
+                .collect::<Vec<_>>()
+                .join("; ");
+            return Err((
+                aipo_status_t::AIPO_ERR_DIAGNOSTIC,
+                format!("semantic error: {details}"),
+            ));
+        }
+
+        let ir = aipo_ir::lower_to_ir(&hir);
+        let module = aipo_bytecode::compile(&ir).map_err(|errors| {
+            (
+                aipo_status_t::AIPO_ERR_DIAGNOSTIC,
+                format!("compilation error: {errors:?}"),
+            )
+        })?;
+
+        Ok(module.to_bytes())
+    }
+
+    /// Compiles Aipo source text into a WebAssembly binary module (.wasm).
+    pub fn compile_wasm(source_text: &str) -> Result<Vec<u8>, (aipo_status_t, String)> {
+        let source = Source::new(SourceId::next(), "compile_wasm.aipo", source_text);
+        let (program, diagnostics) = aipo_syntax::parse(&source);
+        if diagnostics.iter().any(|d| d.severity == Severity::Error) {
+            let details = diagnostics
+                .iter()
+                .filter(|d| d.severity == Severity::Error)
+                .map(|d| d.message.clone())
+                .collect::<Vec<_>>()
+                .join("; ");
+            return Err((
+                aipo_status_t::AIPO_ERR_DIAGNOSTIC,
+                format!("parse error: {details}"),
+            ));
+        }
+
+        let hir = aipo_hir::lower(program);
+        let surface = PreludeSurface::fundamental();
+        let (_, sema_diagnostics) = aipo_sema::check_with_prelude(&source, &hir, &surface);
+        if sema_diagnostics
+            .iter()
+            .any(|d| d.severity == Severity::Error)
+        {
+            let details = sema_diagnostics
+                .iter()
+                .filter(|d| d.severity == Severity::Error)
+                .map(|d| d.message.clone())
+                .collect::<Vec<_>>()
+                .join("; ");
+            return Err((
+                aipo_status_t::AIPO_ERR_DIAGNOSTIC,
+                format!("semantic error: {details}"),
+            ));
+        }
+
+        aipo_wasm::compile_hir(&hir).map_err(|err| {
+            (
+                aipo_status_t::AIPO_ERR_DIAGNOSTIC,
+                format!("wasm compilation error: {err}"),
+            )
+        })
+    }
+
+    /// Prepares a loaded module for execution or stepping from instruction 0.
+    pub fn prepare_module(&mut self, name: &str) -> Result<(), (aipo_status_t, String)> {
+        let module = self.modules.get(name).cloned().ok_or_else(|| {
+            let msg = format!("module '{name}' is not loaded");
+            self.last_error = Some(msg.clone());
+            (aipo_status_t::AIPO_ERR_USAGE, msg)
+        })?;
+
+        self.vm.prepare_module_execution(&module).map_err(|err| {
+            let msg = format!("failed to prepare module '{name}': {err}");
+            self.last_error = Some(msg.clone());
+            (aipo_status_t::AIPO_ERR_FAULT, msg)
+        })?;
+        self.vm.ip = 0;
+        self.vm.stack.clear();
+        self.vm.frames.clear();
+        self.last_loaded_module = Some(name.to_string());
+        Ok(())
+    }
+
+    /// Steps execution by a single instruction on the specified or last loaded module.
+    ///
+    /// Returns `Ok(true)` if execution completed, or `Ok(false)` if more instructions remain.
+    pub fn step(&mut self, module_name: Option<&str>) -> Result<bool, (aipo_status_t, String)> {
+        let name: String = match module_name {
+            Some(n) => n.to_string(),
+            None => match self.last_loaded_module.as_deref() {
+                Some(n) => n.to_string(),
+                None => {
+                    let msg = "no module loaded or specified to step".to_string();
+                    self.last_error = Some(msg.clone());
+                    return Err((aipo_status_t::AIPO_ERR_USAGE, msg));
+                }
+            },
+        };
+
+        let module = self.modules.get(&name).cloned().ok_or_else(|| {
+            let msg = format!("module '{name}' is not loaded");
+            self.last_error = Some(msg.clone());
+            (aipo_status_t::AIPO_ERR_USAGE, msg)
+        })?;
+
+        let _guard = CurrentRuntimeGuard::new(self as *mut AipoRuntime);
+        match self.vm.step(&module) {
+            Ok(done) => Ok(done),
+            Err(VmError::Suspended) => Ok(false),
+            Err(err) => {
+                let msg = format!("runtime error stepping module '{name}': {err}");
+                self.last_error = Some(msg.clone());
+                let status = match err {
+                    VmError::UncaughtFailure(_) => aipo_status_t::AIPO_ERR_UNCAUGHT_FAILURE,
+                    _ => aipo_status_t::AIPO_ERR_FAULT,
+                };
+                Err((status, msg))
+            }
+        }
+    }
+
+    /// Executes instructions on the specified (or last loaded) module until it finishes or hits `max_steps`.
+    ///
+    /// If `max_steps == 0`, execution proceeds without a step limit until completion or suspension.
+    /// Returns `Ok(true)` if execution completed, or `Ok(false)` if it hit `max_steps` or suspended.
+    pub fn run_until_idle(
+        &mut self,
+        module_name: Option<&str>,
+        max_steps: u64,
+    ) -> Result<bool, (aipo_status_t, String)> {
+        let mut steps = 0u64;
+        loop {
+            let done = self.step(module_name)?;
+            if done {
+                return Ok(true);
+            }
+            steps = steps.saturating_add(1);
+            if max_steps > 0 && steps >= max_steps {
+                return Ok(false);
+            }
+        }
     }
 
     /// Starts a function as the cooperative main computation; never executes guest code here.

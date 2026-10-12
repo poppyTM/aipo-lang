@@ -24,6 +24,7 @@ aipo-source = { path = "../aipo-source" }
 aipo-stdlib = { path = "../aipo-stdlib" }
 aipo-syntax = { path = "../aipo-syntax" }
 aipo-vm = { path = "../aipo-vm" }
+aipo-wasm = { path = "../aipo-wasm" }
 unicode-normalization.workspace = true
 
 [lints.rust]

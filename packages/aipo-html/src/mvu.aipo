@@ -15,7 +15,7 @@ fn make_cmd_msg(msg) -> Cmd {
 }
 
 fn make_cmd_task(async_fn, on_success, on_error = none) -> Cmd {
-    return Cmd{
+    return Cmd {
         action: "task",
         payload: {
             "task": async_fn,
@@ -78,7 +78,7 @@ fn make_mount(selector: String, initial_model, update, view) -> ReactiveApp {
 
     let initial_tree = (view)(state, run_dispatch)
 
-    let app = ReactiveApp{
+    let app = ReactiveApp {
         selector: selector,
         current_model: state,
         update_fn: update,

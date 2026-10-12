@@ -2,7 +2,7 @@
 //! `docs/reference/cli.md`:
 //!
 //! ```text
-//! aipo run <path> [--wasm] [--engine=<vm|reg>] [--package-cache <dir>] [--ahs=<file>] [--host=headless-test] [--message-format=<human|jsonl>]
+//! aipo run <path> [--wasm] [--engine=<vm|reg>] [--budget=<N>] [--max-instructions=<N>] [--package-cache <dir>] [--ahs=<file>] [--host=headless-test] [--message-format=<human|jsonl>]
 //! aipo test [path] [--filter <pattern>] [--package-cache <dir>] [--message-format=<human|jsonl>]
 //! aipo check <path> [--wasm] [--package-cache <dir>] [--ahs=<file>] [--host=headless-test] [--message-format=<human|jsonl>]
 //! aipo build <path> [--target <js|wasm>] [--out <dir>] [--package-cache <dir>] [--message-format=<human|jsonl>]
@@ -44,10 +44,10 @@ use aipo_package::{
     resolve_github_package_graph,
 };
 use aipo_runtime::NativeRegistry;
-use aipo_sema::PreludeSurface;
+use aipo_sema::{HostFunction, HostParameter, PreludeSurface};
 use aipo_source::{Source, SourceId, SourceMap};
 use aipo_vm::{RegVm, Vm, VmError};
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
 use std::fs::OpenOptions;
 use std::io::{ErrorKind, Write};
 use std::path::{Path, PathBuf};
@@ -87,7 +87,7 @@ pub const USAGE: &str = "\
 aipo — Aipo language toolchain
 
 USAGE:
-    aipo run <path> [--wasm] [--engine=<vm|reg>] [--package-cache <dir>] [--message-format=<human|jsonl>] [--ahs=<file>] [--host=headless-test]
+    aipo run <path> [--wasm] [--engine=<vm|reg>] [--budget=<N>] [--max-instructions=<N>] [--package-cache <dir>] [--message-format=<human|jsonl>] [--ahs=<file>] [--host=headless-test]
     aipo test [path] [--filter <pattern>] [--package-cache <dir>] [--message-format=<human|jsonl>]
     aipo check <path> [--wasm] [--package-cache <dir>] [--message-format=<human|jsonl>] [--ahs=<file>] [--host=headless-test]
     aipo build <path> [--target <js|wasm>] [--out <dir>] [--package-cache <dir>] [--message-format=<human|jsonl>]
@@ -120,6 +120,7 @@ FLAGS:
     --ahs=<file>   Host surface description (AHS) the run may reach, as data
     --host=headless-test   Opt-in VM conformance host (no capabilities granted)
     --engine=<vm|reg>   Execution engine for `run`: stack VM (default) or register VM
+    --max-instructions=<N>   Maximum instruction or Wasm fuel budget (alias: --budget)
 
 EXIT CODES:
     0  success
@@ -184,6 +185,7 @@ pub fn run_with(args: &[String], out: &mut dyn Write, err: &mut dyn Write) -> u8
             reg,
             ahs,
             host,
+            budget,
         } => {
             let surface = match execution_surface(ahs.as_deref(), host) {
                 Ok(surface) => surface,
@@ -204,6 +206,7 @@ pub fn run_with(args: &[String], out: &mut dyn Write, err: &mut dyn Write) -> u8
                     reg,
                     surface: surface.as_ref(),
                     host,
+                    budget,
                 },
             )
         }
@@ -247,6 +250,7 @@ pub fn run_with(args: &[String], out: &mut dyn Write, err: &mut dyn Write) -> u8
                     reg: false,
                     surface: surface.as_ref(),
                     host,
+                    budget: None,
                 },
             )
         }
@@ -380,7 +384,7 @@ pub fn eval_source_reg(source_text: &str, out: &mut dyn Write, err: &mut dyn Wri
         return EXIT_LANGUAGE_FAILURE;
     };
 
-    match execute_plan_with_host(&reg_module, None) {
+    match execute_plan_with_host(&reg_module, None, None) {
         Ok(_) => EXIT_SUCCESS,
         Err(error) => {
             let diagnostic = runtime_diagnostic(&source, &error);
@@ -420,6 +424,8 @@ enum Command {
         /// Host surface described as data (`--ahs=<file>`), when one was given.
         ahs: Option<PathBuf>,
         host: Option<HostProfile>,
+        /// Execution budget (maximum instructions or Wasm fuel).
+        budget: Option<u64>,
     },
     Test {
         path: Option<PathBuf>,
@@ -521,6 +527,7 @@ impl Command {
                 let mut engine_seen = false;
                 let mut ahs = None;
                 let mut host = None;
+                let mut budget = None;
                 let rest = &args[1..];
                 let mut index = 0;
                 while index < rest.len() {
@@ -670,6 +677,37 @@ impl Command {
                                 ));
                             }
                         });
+                    } else if arg == "--budget"
+                        || arg.starts_with("--budget=")
+                        || arg == "--max-instructions"
+                        || arg.starts_with("--max-instructions=")
+                    {
+                        let flag_name = if arg.starts_with("--budget") {
+                            "--budget"
+                        } else {
+                            "--max-instructions"
+                        };
+                        if first != "run" {
+                            return Err(format!("{flag_name} is only supported by run"));
+                        }
+                        if budget.is_some() {
+                            return Err(format!("'{flag_name}' was provided more than once"));
+                        }
+                        let value = if let Some(val) = arg.strip_prefix("--budget=") {
+                            val
+                        } else if let Some(val) = arg.strip_prefix("--max-instructions=") {
+                            val
+                        } else {
+                            index += 1;
+                            let val = rest
+                                .get(index)
+                                .ok_or_else(|| format!("{flag_name} requires a value"))?;
+                            val.as_str()
+                        };
+                        let parsed_budget = value.parse::<u64>().map_err(|_| {
+                            format!("invalid budget '{value}': expected a positive integer")
+                        })?;
+                        budget = Some(parsed_budget);
                     } else if arg.starts_with('-') {
                         return Err(format!("unrecognized flag '{arg}'"));
                     } else if path.is_some() {
@@ -711,6 +749,7 @@ impl Command {
                         reg,
                         ahs,
                         host,
+                        budget,
                     })
                 } else if first == "check" {
                     Ok(Self::Check {
@@ -1237,6 +1276,7 @@ struct ExecutionOptions<'a> {
     reg: bool,
     surface: Option<&'a PreludeSurface>,
     host: Option<HostProfile>,
+    budget: Option<u64>,
 }
 
 fn execution_surface(
@@ -2279,6 +2319,7 @@ fn execute(
         reg,
         surface,
         host,
+        budget,
     } = options;
     if surface.is_some()
         && matches!(
@@ -2298,7 +2339,7 @@ fn execute(
             );
             return EXIT_USAGE;
         }
-        return execute_wasm_file(path, action, out, err);
+        return execute_wasm_file(path, action, budget, out, err);
     }
 
     // Pre-compiled `.aibc` files skip the frontend pipeline entirely.
@@ -2318,7 +2359,7 @@ fn execute(
             let _ = writeln!(err, "error: `check` is not supported for .aibc files");
             return EXIT_USAGE;
         }
-        return execute_bytecode(path, format, out, err);
+        return execute_bytecode(path, format, budget, out, err);
     }
 
     if wasm {
@@ -2350,7 +2391,7 @@ fn execute(
         };
 
         #[cfg(feature = "wasm")]
-        match aipo_wasm::execute_wasm(&bytes, out) {
+        match aipo_wasm::execute_wasm_with_fuel(&bytes, out, budget) {
             Ok(_) => EXIT_SUCCESS,
             Err(error) => {
                 let _ = writeln!(err, "error: {error}");
@@ -2412,7 +2453,7 @@ fn execute(
             let Some(reg_module) = reg_module else {
                 return EXIT_LANGUAGE_FAILURE;
             };
-            return match execute_plan_with_host(&reg_module, host) {
+            return match execute_plan_with_host(&reg_module, host, budget) {
                 Ok(_) => EXIT_SUCCESS,
                 Err(error) => {
                     let diagnostic = runtime_diagnostic(&source, &error);
@@ -2422,7 +2463,7 @@ fn execute(
             };
         }
 
-        match execute_module_with_host(&compiled.module, host) {
+        match execute_module_with_host(&compiled.module, host, budget) {
             Ok(()) => EXIT_SUCCESS,
             Err(error) => {
                 let diagnostic = runtime_diagnostic(&source, &error);
@@ -2435,7 +2476,13 @@ fn execute(
 
 /// Executes or checks a pre-compiled `.wasm` binary module.
 #[cfg(feature = "wasm")]
-fn execute_wasm_file(path: &Path, action: Action, out: &mut dyn Write, err: &mut dyn Write) -> u8 {
+fn execute_wasm_file(
+    path: &Path,
+    action: Action,
+    budget: Option<u64>,
+    out: &mut dyn Write,
+    err: &mut dyn Write,
+) -> u8 {
     let bytes = match std::fs::read(path) {
         Ok(bytes) => bytes,
         Err(error) => {
@@ -2453,7 +2500,7 @@ fn execute_wasm_file(path: &Path, action: Action, out: &mut dyn Write, err: &mut
             }
         }
     } else {
-        match aipo_wasm::execute_wasm(&bytes, out) {
+        match aipo_wasm::execute_wasm_with_fuel(&bytes, out, budget) {
             Ok(_) => EXIT_SUCCESS,
             Err(error) => {
                 let _ = writeln!(err, "error: {error}");
@@ -2467,6 +2514,7 @@ fn execute_wasm_file(path: &Path, action: Action, out: &mut dyn Write, err: &mut
 fn execute_wasm_file(
     _path: &Path,
     _action: Action,
+    _budget: Option<u64>,
     _out: &mut dyn Write,
     err: &mut dyn Write,
 ) -> u8 {
@@ -2481,6 +2529,7 @@ fn execute_wasm_file(
 fn execute_bytecode(
     path: &Path,
     format: MessageFormat,
+    budget: Option<u64>,
     out: &mut dyn Write,
     err: &mut dyn Write,
 ) -> u8 {
@@ -2510,7 +2559,7 @@ fn execute_bytecode(
         return EXIT_LANGUAGE_FAILURE;
     }
 
-    match execute_module(&module) {
+    match execute_module_with_host(&module, None, budget) {
         Ok(()) => EXIT_SUCCESS,
         Err(error) => {
             let source = Source::new(SourceId::next(), path.display().to_string(), "");
@@ -2824,17 +2873,19 @@ pub fn register_module_symbols(vm: &mut Vm, module: &aipo_bytecode::BytecodeModu
 /// # Errors
 /// Returns the runtime error raised by the program.
 fn execute_module(module: &aipo_bytecode::BytecodeModule) -> Result<(), VmError> {
-    execute_module_with_host(module, None)
+    execute_module_with_host(module, None, None)
 }
 
 fn execute_module_with_host(
     module: &aipo_bytecode::BytecodeModule,
     host: Option<HostProfile>,
+    budget: Option<u64>,
 ) -> Result<(), VmError> {
     let (mut vm, _) = standard_environment();
     if let Some(HostProfile::HeadlessTest) = host {
         headless::install(&mut vm);
     }
+    vm.set_max_instructions(budget);
     register_module_symbols(&mut vm, module);
     vm.run(module).map(|_| ())
 }
@@ -2849,6 +2900,7 @@ fn execute_module_with_host(
 fn execute_plan_with_host(
     plan: &aipo_bytecode::ExecutionPlan,
     host: Option<HostProfile>,
+    budget: Option<u64>,
 ) -> Result<aipo_vm::Value, VmError> {
     let (mut stack_vm, _) = standard_environment();
     if let Some(HostProfile::HeadlessTest) = host {
@@ -2856,12 +2908,15 @@ fn execute_plan_with_host(
     }
     match plan {
         aipo_bytecode::ExecutionPlan::Canonical { module, .. } => {
+            stack_vm.set_max_instructions(budget);
             register_module_symbols(&mut stack_vm, module);
             stack_vm.run(module)
         }
         aipo_bytecode::ExecutionPlan::Register(module) => {
             let mut reg_vm = RegVm::new();
             reg_vm.globals = stack_vm.globals.clone();
+            reg_vm.method_natives = stack_vm.method_natives.clone();
+            reg_vm.set_max_instructions(budget);
             let value = reg_vm.run_module(module).map_err(VmError::Fault)?;
             if let aipo_vm::Value::Failure(failure) = &value {
                 return Err(VmError::UncaughtFailure(failure.message.clone()));
@@ -3247,10 +3302,14 @@ fn install_host_services() {
 
 /// Derives the semantic surface from the standard library registration.
 ///
-/// `check` and `run` therefore agree by construction: a name is accepted exactly when
-/// the VM that will execute the program can resolve it. Module names (`math`, `string`,
-/// `io`) become globals, and Prelude natives carry their cataloged arity so member calls
-/// can be arity-checked.
+/// `check` and `run` therefore agree for everything the standard library registers: a
+/// global is accepted exactly when the VM that will execute the program can resolve it,
+/// and each module's members carry their cataloged arity so a call can be checked.
+///
+/// The one class this cannot cover is a name that only [`PreludeSurface::fundamental`]
+/// declares — `Range` is in that surface but is not a runtime global, so it survives
+/// `check` and faults as an undefined global. Closing that gap means either binding
+/// `Range` in the VM or dropping it from the language surface, which is an ADP.
 pub fn prelude_surface() -> PreludeSurface {
     let (vm, registry) = standard_environment();
     let mut surface = PreludeSurface::fundamental();
@@ -3259,6 +3318,45 @@ pub fn prelude_surface() -> PreludeSurface {
         match registry.get(None, name) {
             Some(meta) => surface.add_function(name, meta.arity, meta.arity),
             None => surface.add_variable(name),
+        }
+    }
+
+    // A module global also carries the members of the dictionary the VM exposes.
+    // Without this, `check` accepts *any* `modulo.membro` — a typo like
+    // `math.nope(1.0)` passes the frontend and only faults at runtime with
+    // `AIPO_RT_KEY_NOT_FOUND`, and a member that exists in the documentation but
+    // not in the module is indistinguishable from a real one until execution.
+    //
+    // Arity comes from the same catalog the VM is built from. Parameter types are
+    // not cataloged, so every parameter carries the permissive `Value?` contract:
+    // arity and member existence are checked, argument *types* are not invented.
+    //
+    // An entry whose native leaves arity unchecked (`Value::native(.., usize::MAX, ..)`)
+    // accepts an open tail, so its cataloged arity is a lower bound.
+    for module in registry.list_modules() {
+        let functions: HashMap<String, HostFunction> = registry
+            .list_module(&module)
+            .into_iter()
+            .map(|meta| {
+                let params = (0..meta.arity)
+                    .map(|index| HostParameter {
+                        name: format!("arg{index}"),
+                        ty: "Value".to_string(),
+                        nullable: true,
+                        optional: false,
+                    })
+                    .collect();
+                (
+                    meta.name.clone(),
+                    HostFunction {
+                        params,
+                        variadic: meta.is_variadic,
+                    },
+                )
+            })
+            .collect();
+        if !functions.is_empty() {
+            surface.add_host_module(&module, functions);
         }
     }
 

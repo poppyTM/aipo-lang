@@ -18,7 +18,7 @@ fi
 echo "==> Re-locking local Aipo packages"
 for manifest in packages/*/aipo.toml; do
   pkg_dir="$(dirname "$manifest")"
-  cargo run -q -p aipo-cli -- package lock "$pkg_dir" >/dev/null
+  cargo run -q -p aipo-cli --bin aipo -- package lock "$pkg_dir" >/dev/null
   echo "    locked $pkg_dir"
 done
 
@@ -31,6 +31,13 @@ cargo clippy --all-targets "${SCOPE[@]}" -- -D warnings
 
 echo "==> cargo test"
 cargo test "${SCOPE[@]}"
+
+# The canonical examples of the `lang-aipo` skill are what an assistant copies from,
+# so a drift there propagates into generated code. The skill's own linter is only
+# lexical; this runs the compiler over every example (`check` + `test`/`run`).
+echo "==> skill examples (lang-aipo)"
+cargo build -q -p aipo-cli --bin aipo
+AIPO_BIN="${PWD}/target/debug/aipo" bash skills/lang-aipo/scripts/verify.sh
 
 echo "==> docs build"
 npm run --silent docs:build >/dev/null

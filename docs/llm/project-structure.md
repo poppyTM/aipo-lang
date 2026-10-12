@@ -86,6 +86,16 @@ fn test_criar_tarefa() {
 }
 ```
 
+> **Atenção (drift desta página):** os trechos abaixo ilustram *arquitetura*, não a
+> superfície real da V1. Três construções que aparecem aqui **não existem** no
+> compilador: `io.write_file` / `io.read_file` (o módulo `io` só tem `print` e
+> `println`; arquivos passam por `fs` — `fs.read_text` para leitura e `fs.write_text`
+> para escrita, ambos assíncronos e sujeitos às capabilities `filesystem.read` e
+> `filesystem.write`), `fn main()` como ponto de
+> entrada (não existe `main` implícito: o **topo do módulo** é o script) e
+> `sys.args()` (não existe módulo `sys`). Os blocos foram ajustados onde havia
+> forma canônica equivalente.
+
 **`src/storage.aipo`** (Persistência com journal e transação):
 ```aipo
 import domain: Tarefa
@@ -98,16 +108,19 @@ fn salvar_tarefas(caminho: String, tarefas: List) {
             let status = if t.concluida then "1" else "0"
             buffer += f"{t.id}|{status}|{t.descricao}\n"
         }
-        # Operação de I/O de escrita atômica
-        io.write_file(caminho, buffer)
+        # Escrita real: `await fs.write_text(caminho, buffer)` (assíncrono, exige
+        # capability `filesystem.write`). Escrita *atômica* (tmp+rename) não é
+        # garantida: `fs.write_text` substitui o conteúdo do arquivo.
+        io.println(f"persistir {len(buffer)} bytes em {caminho}")
     } failed err {
         fail f"falha ao persistir tarefas no disco: {err.message}"
     }
 }
 
 fn carregar_tarefas(caminho: String) -> List {
-    let conteudo = io.read_file(caminho) or_else ""
+    # Leitura real: `await fs.read_text(caminho)` (assíncrono, exige capability `filesystem.read`).
     var lista = []
+    io.println(f"carregar {caminho}")
     # Processa linhas e reconstrói estado
     return lista
 }
@@ -118,12 +131,12 @@ fn carregar_tarefas(caminho: String) -> List {
 import domain: Tarefa, criar_tarefa
 import storage: salvar_tarefas, carregar_tarefas
 
-# Função principal de inicialização
-fn main() {
+# Não existe `fn main`: o topo do módulo é o script. Os argumentos chegam como
+# parâmetro — a V1 não expõe argumentos de linha de comando.
+fn executar(args: List) {
     let arquivo = "tarefas.txt"
     var lista = carregar_tarefas(arquivo)
 
-    let args = sys.args()
     if len(args) < 2 {
         io.println("Uso: todo-cli <add|list|done> [argumentos]")
         return
@@ -149,6 +162,8 @@ fn main() {
         }
     }
 }
+
+executar(["todo-cli", "list"])
 ```
 
 ---
@@ -360,7 +375,7 @@ Ideal para testes de integração, testes end-to-end e testes de API pública da
 
 | Aspecto | Aplicação (`app`) | Biblioteca (`lib` / `pkg`) |
 |---|---|---|
-| Ponto de entrada (`entry`) | `src/main.aipo` (com `fn main()`) | `src/lib.aipo` (com re-exports) |
+| Ponto de entrada (`entry`) | `src/main.aipo` (topo do módulo é o script; não há `main` implícito) | `src/lib.aipo` (com re-exports) |
 | Visibilidade pública | Raramente usa `export` no `main.aipo` | Uso extensivo de `export` na fachada `lib.aipo` |
 | Testes principais | Integração em `tests/*_test.aipo` | Unitários `#!test` co-locados + contrato em `tests/` |
 | Dependências | Podem usar caminhos relativos ou pacotes externos | Mínima superfície de dependências externas |

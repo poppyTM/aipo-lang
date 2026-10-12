@@ -203,6 +203,29 @@ impl RegVerifier {
                         return Err(format!("instruction {pc}: invalid handler register"));
                     }
                 }
+                AssertInvariant => {
+                    string_constants.push(inst.bx() as usize);
+                    reads.push(a);
+                }
+                SealStruct | FillSelfCapture | CheckMutations => {
+                    reads.push(a);
+                }
+                MakeClosure => {
+                    if b >= functions {
+                        return Err(format!("instruction {pc}: function outside table"));
+                    }
+                    writes.push(a);
+                }
+                GetUpvalue => {
+                    writes.push(a);
+                }
+                SetUpvalue => {
+                    reads.push(a);
+                }
+                Await => {
+                    reads.push(a);
+                    writes.push(a);
+                }
             }
             for index in string_constants {
                 if !matches!(constants.get(index), Some(Constant::String(_))) {

@@ -55,6 +55,13 @@
       "required": true
     },
     {
+      "id": "aipo-reg",
+      "label": "Aipo RegVM",
+      "kind": "aipo-reg",
+      "script": "aipo/{workload}.aipo",
+      "required": false
+    },
+    {
       "id": "aipo-wasm",
       "label": "Aipo Wasm JIT",
       "kind": "aipo-wasm",
@@ -81,6 +88,15 @@
       "label": "LuaJIT",
       "kind": "script",
       "command": "luajit",
+      "script": "lua/{workload}.lua",
+      "required": false
+    },
+    {
+      "id": "omnilua",
+      "label": "omniLua (pure-Rust)",
+      "kind": "script",
+      "command": "/home/raillen/aipo-refs/omnilua/target/release/omnilua",
+      "command_candidates": ["omnilua", "/home/raillen/aipo-refs/omnilua/target/release/omnilua"],
       "script": "lua/{workload}.lua",
       "required": false
     },

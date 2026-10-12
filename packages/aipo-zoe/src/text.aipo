@@ -165,70 +165,70 @@ fn text_wrap(s: String, max_width: Float, size: Float, weight: Int, max_lines: I
     var current = ""
     each w in words {
         let candidate = if current == "" then w else f"{current} {w}"
-        if text_measure(candidate, size, weight) <= max_width {
-            current = candidate
-        } else {
+                if text_measure(candidate, size, weight) <= max_width {
+                    current = candidate
+                } else {
+                    if current != "" {
+                        lines.add(current)
+                        current = ""
+                    }
+                    # A single word longer than the line must break mid-token.
+                    if text_measure(w, size, weight) > max_width {
+                        var chunk = ""
+                        var ci = 0
+                        while ci < w.len() {
+                            let next = f"{chunk}{w.slice(ci, ci + 1)}"
+                            if text_measure(next, size, weight) > max_width and chunk != "" {
+                                lines.add(chunk)
+                                chunk = w.slice(ci, ci + 1)
+                            } else {
+                                chunk = next
+                            }
+                            ci += 1
+                        }
+                        current = chunk
+                    } else {
+                        current = w
+                    }
+                }
+            }
             if current != "" {
                 lines.add(current)
-                current = ""
             }
-            # A single word longer than the line must break mid-token.
-            if text_measure(w, size, weight) > max_width {
-                var chunk = ""
-                var ci = 0
-                while ci < w.len() {
-                    let next = f"{chunk}{w.slice(ci, ci + 1)}"
-                    if text_measure(next, size, weight) > max_width and chunk != "" {
-                        lines.add(chunk)
-                        chunk = w.slice(ci, ci + 1)
-                    } else {
-                        chunk = next
-                    }
-                    ci += 1
+
+            # Clamp to max_lines, ellipsizing the last kept line if we dropped content.
+            if lines.len() > max_lines {
+                var kept = []
+                var i = 0
+                while i < max_lines {
+                    kept.add(lines[i])
+                    i += 1
                 }
-                current = chunk
-            } else {
-                current = w
+                kept[max_lines - 1] = text_ellipsize(
+                    f"{kept[max_lines - 1]}{lines[max_lines]}",
+                    max_width,
+                    size,
+                    weight
+                )
+                return kept
             }
+            return lines
         }
-    }
-    if current != "" {
-        lines.add(current)
-    }
 
-    # Clamp to max_lines, ellipsizing the last kept line if we dropped content.
-    if lines.len() > max_lines {
-        var kept = []
-        var i = 0
-        while i < max_lines {
-            kept.add(lines[i])
-            i += 1
+        # Resolves a text alignment prop to a horizontal offset inside a box.
+        # `start` and `end` follow the inline axis; `center` and `justify` are absolute.
+        fn text_align_offset(align: String, box_x: Float, box_w: Float, text_w: Float) -> Float {
+            if align == "center" {
+                return box_x + (box_w - text_w) / 2.0
+            }
+            if align == "end" or align == "right" {
+                return box_x + box_w - text_w
+            }
+            return box_x
         }
-        kept[max_lines - 1] = text_ellipsize(
-            f"{kept[max_lines - 1]}{lines[max_lines]}",
-            max_width,
-            size,
-            weight
-        )
-        return kept
-    }
-    return lines
-}
 
-# Resolves a text alignment prop to a horizontal offset inside a box.
-# `start` and `end` follow the inline axis; `center` and `justify` are absolute.
-fn text_align_offset(align: String, box_x: Float, box_w: Float, text_w: Float) -> Float {
-    if align == "center" {
-        return box_x + (box_w - text_w) / 2.0
-    }
-    if align == "end" or align == "right" {
-        return box_x + box_w - text_w
-    }
-    return box_x
-}
-
-export WEIGHT_NAMES, WEIGHT_VALUES
-export text_resolve_weight, text_weight_of, text_size_of
-export text_measure, text_measure_props
-export text_line_height, text_letter_spacing, text_baseline_y
-export text_ellipsize, text_wrap, text_align_offset
+        export WEIGHT_NAMES, WEIGHT_VALUES
+        export text_resolve_weight, text_weight_of, text_size_of
+        export text_measure, text_measure_props
+        export text_line_height, text_letter_spacing, text_baseline_y
+        export text_ellipsize, text_wrap, text_align_offset

@@ -30,7 +30,7 @@ io.println(s.id)     # "srv-1"
 io.println(s.status) # "online"
 ```
 
-Tentar reatribuir um campo imutável após a construção da instância dispara o diagnóstico semântico estático `AIPO_SEM_IMMUTABLE_FIELD_REASSIGN`.
+Tentar reatribuir um campo imutável após a construção da instância dispara o diagnóstico semântico estático `AIPO_SEM_FIXED_REASSIGN`.
 
 ---
 
@@ -198,21 +198,25 @@ A construção de um enum qualifica o tipo diretamente (`EstadoConexao.Desconect
 O `match` sobre enum é verificado por **exaustividade**: se não houver um braço `else`, **todas** as variantes devem ser cobertas obrigatoriamente:
 
 ```aipo
+# `match` é um statement, não uma expressão: cada braço tem corpo próprio e o
+# valor é produzido pelo enunciado de retorno depois dele.
 fn relatar(estado: EstadoConexao) -> String {
-    return match estado {
+    var texto = ""
+    match estado {
         when EstadoConexao.Desconectado {
-            "Sem conexão"
+            texto = "Sem conexão"
         }
-        when EstadoConexao.Tentando(t) {
-            f"Tentativa #{t}"
+        when EstadoConexao.Tentando(tentativa) {
+            texto = f"Tentativa #{tentativa}"
         }
         when EstadoConexao.Conectado { ip, ping_ms } {
-            f"Conectado a {ip} ({ping_ms}ms)"
+            texto = f"Conectado a {ip} ({ping_ms}ms)"
         }
         when EstadoConexao.Erro(motivo) {
-            f"Falha: {motivo}"
+            texto = f"Falha: {motivo}"
         }
     }
+    return texto
 }
 ```
 

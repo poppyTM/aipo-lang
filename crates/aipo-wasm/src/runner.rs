@@ -39,6 +39,13 @@ impl std::fmt::Display for WasmRuntimeError {
                         f,
                         "[AIPO_RT_DIV_ZERO] runtime fault [AIPO_RT_DIV_ZERO]: division by zero"
                     )
+                } else if msg.contains("all fuel consumed by WebAssembly")
+                    || msg.contains("out of fuel")
+                {
+                    write!(
+                        f,
+                        "[AIPO_RT_OVERFLOW] runtime fault [AIPO_RT_OVERFLOW]: execution budget exceeded: fuel limit reached"
+                    )
                 } else {
                     write!(f, "Wasm execution error: {msg}")
                 }
@@ -98,6 +105,30 @@ impl HostState {
 #[cfg(feature = "wasmtime")]
 pub fn execute_wasm(wasm_bytes: &[u8], stdout: &mut dyn Write) -> Result<i64, WasmRuntimeError> {
     execute_wasm_with_options(wasm_bytes, stdout, WasmExecutionOptions::default())
+}
+
+/// Executes a compiled WebAssembly module with optional execution fuel budget (S6 / ADP-003).
+///
+/// If `fuel` is `Some(limit)`, execution consumes fuel on each WebAssembly instruction and
+/// traps with an out-of-fuel error if the budget is exhausted. Passing `None` runs with unlimited fuel.
+///
+/// # Errors
+///
+/// Returns a [`WasmRuntimeError`] if instantiation fails or execution traps.
+#[cfg(feature = "wasmtime")]
+pub fn execute_wasm_with_fuel(
+    wasm_bytes: &[u8],
+    stdout: &mut dyn Write,
+    fuel: Option<u64>,
+) -> Result<i64, WasmRuntimeError> {
+    execute_wasm_with_options(
+        wasm_bytes,
+        stdout,
+        WasmExecutionOptions {
+            fuel,
+            ..Default::default()
+        },
+    )
 }
 
 /// Executes a module with optional instruction fuel and checked output delivery.
@@ -328,6 +359,19 @@ pub fn execute_wasm(_wasm_bytes: &[u8], _stdout: &mut dyn Write) -> Result<i64, 
         "WebAssembly JIT execution is disabled in this build (wasmtime feature not enabled)"
             .to_string(),
     ))
+}
+
+/// Fallback execution function with fuel when `wasmtime` is disabled.
+///
+/// # Errors
+/// Always returns [`WasmRuntimeError::Execution`] indicating that the execution engine is disabled.
+#[cfg(not(feature = "wasmtime"))]
+pub fn execute_wasm_with_fuel(
+    wasm_bytes: &[u8],
+    stdout: &mut dyn Write,
+    _fuel: Option<u64>,
+) -> Result<i64, WasmRuntimeError> {
+    execute_wasm(wasm_bytes, stdout)
 }
 
 /// Fallback for builds without the Wasmtime execution engine.

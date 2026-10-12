@@ -21,6 +21,23 @@ pub struct RegCompiledFunction {
     pub constants: Vec<Constant>,
     /// Number of virtual registers required.
     pub num_registers: usize,
+    /// Signature-contract descriptors referenced by `AssertContract`, in pool order.
+    #[serde(default)]
+    pub contracts: Vec<RegContract>,
+}
+
+/// A signature contract (`name: Type`, `name!: Type`, `-> T`, `T?`) checked at a call
+/// boundary by the register engine's `AssertContract` instruction.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RegContract {
+    /// Declared type or interface name the value must satisfy.
+    pub type_name: String,
+    /// `true` for the canonical `T?` form, which also accepts `none`.
+    pub nullable: bool,
+    /// Where the contract is written (`parameter \`x\``, `return`), for the fault message.
+    pub position: String,
+    /// Operations an interface contract requires, as `(name, declared arity)`.
+    pub operations: Vec<(String, usize)>,
 }
 
 /// A compiled module for the virtual register machine.
@@ -43,6 +60,10 @@ pub struct RegEmitter {
     instructions: Vec<RegInstruction>,
     function_index: HashMap<String, usize>,
     prologue_functions: Vec<(String, usize)>,
+    /// Captured enclosing names of the function being compiled, in upvalue index order.
+    upvalues: HashMap<String, u16>,
+    /// Signature-contract descriptors collected while compiling the current function.
+    contracts: Vec<RegContract>,
     max_reg: usize,
 }
 
@@ -71,6 +92,10 @@ impl RegEmitter {
         }
         for (i, local) in func.locals.iter().enumerate() {
             slot_map.insert(local.clone(), func.params.len() + i);
+        }
+        for (i, upvalue) in func.upvalues.iter().enumerate() {
+            #[allow(clippy::cast_possible_truncation)]
+            self.upvalues.insert(upvalue.clone(), i as u16);
         }
 
         let temp_base = func
@@ -178,41 +203,14 @@ impl RegEmitter {
                 }
                 CoreInst::Load(name, _) => {
                     self.track_reg(top);
-                    if let Some(&slot) = slot_map.get(name) {
-                        self.emit(RegInstruction::encode_abc(
-                            RegOpCode::Move,
-                            top as u8,
-                            slot as u16,
-                            0,
-                        ));
-                    } else {
-                        let c_idx = self.add_const(Constant::String(name.clone()));
-                        self.emit(RegInstruction::encode_abx(
-                            RegOpCode::GetGlobal,
-                            top as u8,
-                            c_idx as u32,
-                        ));
-                    }
+                    self.emit_load(name, top, &slot_map);
+                    top += 1;
                 }
                 CoreInst::Store(name, _) => {
                     if top > temp_base {
                         top -= 1;
                     }
-                    if let Some(&slot) = slot_map.get(name) {
-                        self.emit(RegInstruction::encode_abc(
-                            RegOpCode::Move,
-                            slot as u8,
-                            top as u16,
-                            0,
-                        ));
-                    } else {
-                        let c_idx = self.add_const(Constant::String(name.clone()));
-                        self.emit(RegInstruction::encode_abx(
-                            RegOpCode::SetGlobal,
-                            top as u8,
-                            c_idx as u32,
-                        ));
-                    }
+                    self.emit_store(name, top, &slot_map);
                 }
                 CoreInst::Binary(op, _) => {
                     if top >= 2 {
@@ -428,6 +426,7 @@ impl RegEmitter {
                 CoreInst::BuildStruct {
                     type_name,
                     field_count,
+                    defer_fixed,
                     ..
                 } if top >= *field_count => {
                     let start = top - field_count;
@@ -441,6 +440,18 @@ impl RegEmitter {
                         c_idx as u16,
                         *field_count as u8,
                     ));
+                    // The instance is published as "under construction" so `init` may still
+                    // assign `fixed` fields. It is sealed here unless the builder defers to an
+                    // explicit `SealStruct` after the `init` hook (`defer_fixed`).
+                    if !defer_fixed {
+                        self.emit(RegInstruction::encode_abc(
+                            RegOpCode::SealStruct,
+                            start as u8,
+                            0,
+                            0,
+                        ));
+                    }
+                    top = start + 1;
                 }
                 CoreInst::Range(_) if top >= 2 => {
                     let start = top - 2;
@@ -492,6 +503,12 @@ impl RegEmitter {
                 CoreInst::IterGuard(_) => {
                     if top > temp_base {
                         top -= 1;
+                        self.emit(RegInstruction::encode_abc(
+                            RegOpCode::IterGuard,
+                            top as u8,
+                            0,
+                            0,
+                        ));
                     }
                     self.emit(RegInstruction::encode_abc(
                         RegOpCode::IterGuard,
@@ -590,6 +607,119 @@ impl RegEmitter {
                         0,
                     ));
                 }
+                CoreInst::GetUpvalue(name, _) => {
+                    self.track_reg(top);
+                    if let Some(&idx) = self.upvalues.get(name) {
+                        self.emit(RegInstruction::encode_abx(
+                            RegOpCode::GetUpvalue,
+                            top as u8,
+                            u32::from(idx),
+                        ));
+                    }
+                    top += 1;
+                }
+                CoreInst::SetUpvalue(name, _) => {
+                    if top > temp_base {
+                        top -= 1;
+                        if let Some(&idx) = self.upvalues.get(name) {
+                            self.emit(RegInstruction::encode_abx(
+                                RegOpCode::SetUpvalue,
+                                top as u8,
+                                u32::from(idx),
+                            ));
+                        }
+                    }
+                }
+                CoreInst::MakeClosure {
+                    name,
+                    upvalues,
+                    self_capture,
+                    ..
+                } => {
+                    // Captures occupy one register each, starting at the closure's own slot, so
+                    // `MakeClosure` reads them at `R[A..A+C]` and overwrites `R[A]`.
+                    let start = top;
+                    for capture in upvalues {
+                        self.track_reg(top);
+                        if Some(capture.as_str()) == self_capture.as_deref() {
+                            // The self capture has no value yet: it *is* the closure being
+                            // created, so the sentinel stands in and `FillSelfCapture` rewrites
+                            // the cell afterwards.
+                            self.emit(RegInstruction::encode_abc(
+                                RegOpCode::LoadUnset,
+                                top as u8,
+                                0,
+                                0,
+                            ));
+                        } else {
+                            self.emit_load(capture, top, &slot_map);
+                        }
+                        top += 1;
+                    }
+                    let func_idx = *self
+                        .function_index
+                        .get(name)
+                        .expect("function not found in function_index");
+                    self.track_reg(start);
+                    #[allow(clippy::cast_possible_truncation)]
+                    self.emit(RegInstruction::encode_abc(
+                        RegOpCode::MakeClosure,
+                        start as u8,
+                        func_idx as u16,
+                        upvalues.len() as u8,
+                    ));
+                    top = start + 1;
+                }
+                CoreInst::FillSelfCapture { .. } => {
+                    if top > temp_base {
+                        self.emit(RegInstruction::encode_abc(
+                            RegOpCode::FillSelfCapture,
+                            (top - 1) as u8,
+                            0,
+                            0,
+                        ));
+                    }
+                }
+                CoreInst::Await(_) => {
+                    if top > temp_base {
+                        self.emit(RegInstruction::encode_abc(
+                            RegOpCode::Await,
+                            (top - 1) as u8,
+                            0,
+                            0,
+                        ));
+                    }
+                }
+                CoreInst::SealStruct(_) => {
+                    if top > temp_base {
+                        self.emit(RegInstruction::encode_abc(
+                            RegOpCode::SealStruct,
+                            (top - 1) as u8,
+                            0,
+                            0,
+                        ));
+                    }
+                }
+                CoreInst::AssertInvariant { type_name, .. } => {
+                    if top > temp_base {
+                        let c_idx = self.add_const(Constant::String(type_name.clone()));
+                        self.emit(RegInstruction::encode_abx(
+                            RegOpCode::AssertInvariant,
+                            (top - 1) as u8,
+                            c_idx as u32,
+                        ));
+                        // `AssertInvariant` consumes the predicate result.
+                        top -= 1;
+                    }
+                }
+                CoreInst::CheckMutations(_) => {
+                    self.emit(RegInstruction::encode_abc(
+                        RegOpCode::CheckMutations,
+                        0,
+                        0,
+                        0,
+                    ));
+                }
                 unsupported => return Err(format!("unsupported register IR: {unsupported:?}")),
             }
         }
@@ -621,6 +751,7 @@ impl RegEmitter {
             instructions: self.instructions,
             constants: self.constants,
             num_registers: (self.max_reg + 1).max(1),
+            contracts: self.contracts,
         })
     }
 
@@ -632,12 +763,16 @@ impl RegEmitter {
                 CoreInst::Constant(..)
                 | CoreInst::Load(..)
                 | CoreInst::MakeFunction(..)
-                | CoreInst::PushUnset(..) => (0, 1),
+                | CoreInst::PushUnset(..)
+                | CoreInst::GetUpvalue(..)
+                | CoreInst::MakeClosure { .. } => (0, 1),
                 CoreInst::Store(..)
                 | CoreInst::Pop(..)
                 | CoreInst::IterGuard(..)
                 | CoreInst::JumpIfFalse(..)
-                | CoreInst::Fail(..) => (1, 0),
+                | CoreInst::Fail(..)
+                | CoreInst::SetUpvalue(..)
+                | CoreInst::AssertInvariant { .. } => (1, 0),
                 CoreInst::Binary(op, _) => {
                     if !matches!(
                         op,
@@ -670,7 +805,9 @@ impl RegEmitter {
                 | CoreInst::CloneStruct(..)
                 | CoreInst::IsVariant(..)
                 | CoreInst::Len(..)
-                | CoreInst::PropagateFailure(..) => (1, 1),
+                | CoreInst::PropagateFailure(..)
+                | CoreInst::Await(..)
+                | CoreInst::SealStruct(..) => (1, 1),
                 CoreInst::AssertContract { operations, .. } => {
                     if !operations.is_empty() {
                         return Err("structural interface contracts require --engine=vm".into());
@@ -706,7 +843,9 @@ impl RegEmitter {
                 | CoreInst::JumpIfSetLocal { .. }
                 | CoreInst::PushHandler(..)
                 | CoreInst::PopHandler(..)
-                | CoreInst::IterGuardEnd(..) => (0, 0),
+                | CoreInst::IterGuardEnd(..)
+                | CoreInst::FillSelfCapture { .. }
+                | CoreInst::CheckMutations(..) => (0, 0),
                 unsupported => return Err(format!("unsupported register IR: {unsupported:?}")),
             };
             match inst {
@@ -795,6 +934,68 @@ impl RegEmitter {
         }
     }
 
+    /// Interns a signature-contract descriptor for the current function's pool.
+    fn add_contract(&mut self, contract: RegContract) -> usize {
+        if let Some(pos) = self.contracts.iter().position(|x| x == &contract) {
+            pos
+        } else {
+            let pos = self.contracts.len();
+            self.contracts.push(contract);
+            pos
+        }
+    }
+
+    /// Emits a load of `name` into register `dest`, resolving locals, captured upvalues and
+    /// globals in that order (mirroring the stack emitter's layout).
+    fn emit_load(&mut self, name: &str, dest: usize, slots: &HashMap<String, usize>) {
+        if let Some(&slot) = slots.get(name) {
+            self.emit(RegInstruction::encode_abc(
+                RegOpCode::Move,
+                dest as u8,
+                slot as u16,
+                0,
+            ));
+        } else if let Some(&idx) = self.upvalues.get(name) {
+            self.emit(RegInstruction::encode_abx(
+                RegOpCode::GetUpvalue,
+                dest as u8,
+                u32::from(idx),
+            ));
+        } else {
+            let c_idx = self.add_const(Constant::String(name.to_string()));
+            self.emit(RegInstruction::encode_abx(
+                RegOpCode::GetGlobal,
+                dest as u8,
+                c_idx as u32,
+            ));
+        }
+    }
+
+    /// Emits a store of register `src` into `name`.
+    fn emit_store(&mut self, name: &str, src: usize, slots: &HashMap<String, usize>) {
+        if let Some(&slot) = slots.get(name) {
+            self.emit(RegInstruction::encode_abc(
+                RegOpCode::Move,
+                slot as u8,
+                src as u16,
+                0,
+            ));
+        } else if let Some(&idx) = self.upvalues.get(name) {
+            self.emit(RegInstruction::encode_abx(
+                RegOpCode::SetUpvalue,
+                src as u8,
+                u32::from(idx),
+            ));
+        } else {
+            let c_idx = self.add_const(Constant::String(name.to_string()));
+            self.emit(RegInstruction::encode_abx(
+                RegOpCode::SetGlobal,
+                src as u8,
+                c_idx as u32,
+            ));
+        }
+    }
+
     /// Compiles a CoreModule into a RegCompiledModule.
     ///
     /// # Errors
@@ -821,6 +1022,8 @@ impl RegEmitter {
                 instructions: Vec::new(),
                 function_index: shared_index.clone(),
                 prologue_functions: Vec::new(),
+                upvalues: HashMap::new(),
+                contracts: Vec::new(),
                 max_reg: 0,
             };
             let compiled = emitter.compile_function(func)?;
@@ -843,6 +1046,8 @@ impl RegEmitter {
             instructions: Vec::new(),
             function_index: shared_index,
             prologue_functions,
+            upvalues: HashMap::new(),
+            contracts: Vec::new(),
             max_reg: 0,
         };
         let top_level = top_emitter.compile_function(&module.top_level)?;

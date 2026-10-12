@@ -457,3 +457,171 @@ fn test_reg_vm_c_abi() {
         aipo_reg_vm_destroy(vm);
     }
 }
+
+#[test]
+fn test_bytecode_compilation_and_loading() {
+    let source = CString::new(
+        r#"
+fn multiply(a, b) {
+    return a * b
+}
+"#,
+    )
+    .unwrap();
+
+    let mut bc_ptr: *mut u8 = std::ptr::null_mut();
+    let mut bc_len: usize = 0;
+
+    let status = unsafe {
+        aipo_compile_to_bytecode(
+            source.as_ptr(),
+            0, // null-terminated
+            &mut bc_ptr,
+            &mut bc_len,
+        )
+    };
+    assert_eq!(status, aipo_status_t::AIPO_OK);
+    assert!(!bc_ptr.is_null());
+    assert!(bc_len > 4);
+
+    // Verify AIBC magic
+    let magic = unsafe { std::slice::from_raw_parts(bc_ptr, 4) };
+    assert_eq!(magic, b"AIBC");
+
+    // Load bytecode into runtime
+    let rt = aipo_runtime_create();
+    assert!(!rt.is_null());
+
+    let mod_name = CString::new("calc_mod").unwrap();
+    let status = unsafe { aipo_runtime_load_bytecode(rt, mod_name.as_ptr(), bc_ptr, bc_len) };
+    assert_eq!(status, aipo_status_t::AIPO_OK);
+
+    // Call multiply(6, 7) -> 42
+    let fn_name = CString::new("multiply").unwrap();
+    let args = [aipo_value_t::int_val(6), aipo_value_t::int_val(7)];
+    let mut result = aipo_value_t::none();
+
+    let status = unsafe {
+        aipo_runtime_call(
+            rt,
+            mod_name.as_ptr(),
+            fn_name.as_ptr(),
+            args.as_ptr(),
+            args.len(),
+            &mut result,
+        )
+    };
+    assert_eq!(status, aipo_status_t::AIPO_OK);
+    assert_eq!(result.tag, aipo_val_tag_t::AIPO_VAL_INT);
+    assert_eq!(result.int_val, 42);
+
+    unsafe {
+        aipo_bytecode_free(bc_ptr, bc_len);
+        aipo_runtime_destroy(rt);
+    }
+}
+
+#[test]
+fn test_stepping_and_run_until_idle() {
+    let rt = aipo_runtime_create();
+    assert!(!rt.is_null());
+
+    let mod_name = CString::new("step_mod").unwrap();
+    let source = CString::new(
+        r#"
+var x = 0
+x += 10
+x += 20
+x += 30
+"#,
+    )
+    .unwrap();
+
+    let status = unsafe { aipo_runtime_load_module(rt, mod_name.as_ptr(), source.as_ptr()) };
+    assert_eq!(status, aipo_status_t::AIPO_OK);
+
+    // Prepare module to step from instruction 0
+    let status = unsafe { aipo_runtime_prepare_module(rt, mod_name.as_ptr()) };
+    assert_eq!(status, aipo_status_t::AIPO_OK);
+
+    // Single step
+    let mut done = false;
+    let status = unsafe { aipo_runtime_step(rt, mod_name.as_ptr(), &mut done) };
+    assert_eq!(status, aipo_status_t::AIPO_OK);
+    assert!(!done, "first step should not complete the module");
+
+    // Run until idle with small step limit
+    let status = unsafe { aipo_runtime_run_until_idle(rt, mod_name.as_ptr(), 2, &mut done) };
+    assert_eq!(status, aipo_status_t::AIPO_OK);
+
+    // Run until idle with unlimited steps (0)
+    let status = unsafe { aipo_runtime_run_until_idle(rt, mod_name.as_ptr(), 0, &mut done) };
+    assert_eq!(status, aipo_status_t::AIPO_OK);
+    assert!(done, "module execution should complete");
+
+    // Stepping when already done returns done == true
+    let status = unsafe { aipo_runtime_step(rt, mod_name.as_ptr(), &mut done) };
+    assert_eq!(status, aipo_status_t::AIPO_OK);
+    assert!(done);
+
+    unsafe {
+        aipo_runtime_destroy(rt);
+    }
+}
+
+#[test]
+fn test_wasm_compilation_and_execution() {
+    let source = CString::new(
+        r#"
+fn sum_loop() -> Int {
+    var acc = 0
+    var i = 1
+    while i <= 10 {
+        acc += i
+        i += 1
+    }
+    return acc
+}
+sum_loop()
+"#,
+    )
+    .unwrap();
+
+    let mut wasm_ptr: *mut u8 = std::ptr::null_mut();
+    let mut wasm_len: usize = 0;
+
+    let status = unsafe {
+        aipo_wasm_compile(
+            source.as_ptr(),
+            0, // null-terminated
+            &mut wasm_ptr,
+            &mut wasm_len,
+        )
+    };
+    assert_eq!(status, aipo_status_t::AIPO_OK);
+    assert!(!wasm_ptr.is_null());
+    assert!(wasm_len > 4);
+
+    // Verify Wasm binary magic \0asm
+    let magic = unsafe { std::slice::from_raw_parts(wasm_ptr, 4) };
+    assert_eq!(magic, b"\0asm");
+
+    // Run without fuel limit
+    let mut out_res: i64 = 0;
+    let status = unsafe { aipo_wasm_run(wasm_ptr, wasm_len, 0, &mut out_res) };
+    assert_eq!(status, aipo_status_t::AIPO_OK);
+    assert_eq!(out_res, 55);
+
+    // Run with sufficient fuel budget
+    let status = unsafe { aipo_wasm_run(wasm_ptr, wasm_len, 100_000, &mut out_res) };
+    assert_eq!(status, aipo_status_t::AIPO_OK);
+    assert_eq!(out_res, 55);
+
+    // Run with insufficient fuel budget (1 fuel unit traps / faults)
+    let status = unsafe { aipo_wasm_run(wasm_ptr, wasm_len, 1, &mut out_res) };
+    assert_eq!(status, aipo_status_t::AIPO_ERR_FAULT);
+
+    unsafe {
+        aipo_wasm_free(wasm_ptr, wasm_len);
+    }
+}

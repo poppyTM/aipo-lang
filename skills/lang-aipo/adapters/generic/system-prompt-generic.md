@@ -21,13 +21,17 @@ NEGATIVE SYNTAX RULES (DO NOT GENERATE):
 10. Enums: Supported closed sum type ('enum State { A, B(x: T), C { y: T }, }'). Match over enum without 'else' requires exhaustive coverage.
 11. Compiler directives: Supported '#!satisfies', '#!test', '#!deprecated("msg")', '#!todo("msg")' immediately preceding their target item.
 12. Batch promotion 'TypeName::[fn1, fn2]' strictly requires 'self' (or 'var self') as the first parameter of promoted functions.
+13. Do NOT import prelude modules ('import io', 'import math', 'import task'). 'io', 'math', 'task', 'env', 'log' and 'sh' are already visible; importing them is an unknown-module error.
+14. Do NOT write an entry point. There is NO implicit 'fn main': the top level of the module IS the program, and top-level statements run in textual order.
+15. Do NOT call 'sys.args()', 'sys.exit()' or 'sys.env()'. No 'sys' module exists: environment access is 'env.get(name)' / 'env.has(name)' behind a capability.
+16. Do NOT use 'match' as an expression ('return match x { ... }'). 'match' is a statement: assign the arms to a variable, then return it.
+17. 'await do { ... }' is a statement, never an initializer; a 'return' inside it returns from the enclosing function.
+18. 'var' is a *parameter* form in a declaration ('fn f(var p: T)'). At a call site the value is passed directly, with no 'var'.
 
 POSITIVE CANONICAL SKELETON:
 ```aipo
-# Imports at top
-import io
-import math
-
+# Prelude modules ('io', 'math', 'task', 'env', 'log', 'sh') need no import.
+# Only user modules are imported, e.g. 'import domain: Tarefa'.
 export Entidade, nova_entidade, Status
 
 # Enum (closed sum type)
@@ -69,6 +73,10 @@ fn calcular_dobro(self) -> Float {
     return self.valor * 2.0
 }
 Entidade::[calcular_dobro]   # becomes callable as entidade.calcular_dobro()
+
+# Top level IS the program: this runs as written when the module is executed.
+let entidade = nova_entidade(1)
+io.println(f"valor dobrado: {entidade.calcular_dobro()}")
 ```
 [/AIPO_V1_SPECIFICATION]
 ```

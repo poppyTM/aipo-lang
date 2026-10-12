@@ -21,7 +21,7 @@ fn ease_in_out(t: Float) -> Float {
     if t < 0.5 {
         return 2.0 * t * t
     }
-    return -1.0 + (4.0 - 2.0 * t) * t
+    return - 1.0 + (4.0 - 2.0 * t) * t
 }
 
 fn bounce_out(t: Float) -> Float {
@@ -56,68 +56,68 @@ struct Tween {
 }
 
 fn create_tween(
-    target,
-    prop: String,
-    to_val: Float,
-    duration: Float,
-    ease_fn,
-    on_complete
-) -> Tween {
-    _tween_id_seq += 1
+        target,
+        prop: String,
+        to_val: Float,
+        duration: Float,
+        ease_fn,
+        on_complete
+    ) -> Tween {
+        _tween_id_seq += 1
 
-    var current_val = 0.0
-    if prop == "scale_x" { current_val = target.scale_x }
+        var current_val = 0.0
+        if prop == "scale_x" { current_val = target.scale_x }
     elif prop == "scale_y" { current_val = target.scale_y }
-    elif prop == "x" { current_val = target.x }
-    elif prop == "y" { current_val = target.y }
-    elif prop == "rotation" { current_val = target.rotation }
+elif prop == "x" { current_val = target.x }
+elif prop == "y" { current_val = target.y }
+elif prop == "rotation" { current_val = target.rotation }
 
-    let ease = if ease_fn != none then ease_fn else ease_out
+let ease = if ease_fn != none then ease_fn else ease_out
 
-    let tw = Tween {
-        id: _tween_id_seq,
-        target: target,
-        prop: prop,
-        start_val: current_val,
-        end_val: to_val,
-        duration: duration,
-        elapsed: 0.0,
-        ease_fn: ease,
-        on_complete_fn: on_complete,
-        is_finished: false
-    }
+let tw = Tween {
+    id: _tween_id_seq,
+    target: target,
+    prop: prop,
+    start_val: current_val,
+    end_val: to_val,
+    duration: duration,
+    elapsed: 0.0,
+    ease_fn: ease,
+    on_complete_fn: on_complete,
+    is_finished: false
+}
 
-    _active_tweens.add(tw)
-    return tw
+_active_tweens.add(tw)
+return tw
 }
 
 fn update_tweens(dt: Float) {
-    var ongoing = []
+var ongoing = []
 
-    each tw in _active_tweens {
-        tw.elapsed += dt
-        let progress = if tw.elapsed >= tw.duration then 1.0 else tw.elapsed / tw.duration
-        let eased = (tw.ease_fn)(progress)
-        let current = tw.start_val + (tw.end_val - tw.start_val) * eased
+each tw in _active_tweens {
+    tw.elapsed += dt
+    let progress = if tw.elapsed >= tw.duration then 1.0 else tw.elapsed / tw.duration
+            let eased = (tw.ease_fn)(progress)
+            let current = tw.start_val + (tw.end_val - tw.start_val) * eased
 
-        # Apply interpolated value to target property
-        if tw.prop == "scale_x" { tw.target.scale_x = current }
+            # Apply interpolated value to target property
+            if tw.prop == "scale_x" { tw.target.scale_x = current }
         elif tw.prop == "scale_y" { tw.target.scale_y = current }
-        elif tw.prop == "x" { tw.target.x = current }
-        elif tw.prop == "y" { tw.target.y = current }
-        elif tw.prop == "rotation" { tw.target.rotation = current }
+    elif tw.prop == "x" { tw.target.x = current }
+elif tw.prop == "y" { tw.target.y = current }
+elif tw.prop == "rotation" { tw.target.rotation = current }
 
-        if progress >= 1.0 {
-            tw.is_finished = true
-            if tw.on_complete_fn != none {
-                (tw.on_complete_fn)()
-            }
-        } else {
-            ongoing.add(tw)
-        }
-    }
+if progress >= 1.0 {
+tw.is_finished = true
+if tw.on_complete_fn != none {
+    (tw.on_complete_fn)()
+}
+} else {
+ongoing.add(tw)
+}
+}
 
-    _active_tweens = ongoing
+_active_tweens = ongoing
 }
 
 export linear, ease_in, ease_out, ease_in_out, bounce_out, Tween, create_tween, update_tweens

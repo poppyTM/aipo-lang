@@ -43,7 +43,7 @@ fn make_route_node(segment: String = "") -> RouteNode {
         p_name = segment.slice(1, segment.len())
     }
 
-    return RouteNode{
+    return RouteNode {
         segment: segment,
         is_param: is_p,
         param_name: p_name,
@@ -54,7 +54,7 @@ fn make_route_node(segment: String = "") -> RouteNode {
 }
 
 fn router_create() -> Router {
-    return Router{
+    return Router {
         root: make_route_node("")
     }
 }

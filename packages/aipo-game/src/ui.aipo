@@ -54,91 +54,91 @@ fn button(x: Float, y: Float, w: Float, h: Float, text: String) -> Bool {
 # Generic Progress / Resource Bar
 fn progress_bar(x: Float, y: Float, w: Float, h: Float, current: Float, max_val: Float, r: Float, g: Float, b: Float) {
     let safe_max = if max_val <= 0.0 then 1.0 else max_val
-    let raw_pct = current / safe_max
-    let pct = if raw_pct < 0.0 then 0.0 else if raw_pct > 1.0 then 1.0 else raw_pct
+            let raw_pct = current / safe_max
+            let pct = if raw_pct < 0.0 then 0.0 else if raw_pct > 1.0 then 1.0 else raw_pct
 
-    # Background track
-    host_draw_rect(x, y, w, h, 0.08, 0.09, 0.14, 0.85)
+                            # Background track
+                            host_draw_rect(x, y, w, h, 0.08, 0.09, 0.14, 0.85)
 
-    # Filled portion
-    if pct > 0.0 {
-        let fill_w = (w - 2.0) * pct
-        host_draw_rect(x + 1.0, y + 1.0, fill_w, h - 2.0, r, g, b, 0.95)
-    }
+                            # Filled portion
+                            if pct > 0.0 {
+                                let fill_w = (w - 2.0) * pct
+                                host_draw_rect(x + 1.0, y + 1.0, fill_w, h - 2.0, r, g, b, 0.95)
+                            }
 
-    # Border
-    host_draw_rect_lines(x, y, w, h, 1.0, 0.30, 0.35, 0.48, 0.80)
-}
+                            # Border
+                            host_draw_rect_lines(x, y, w, h, 1.0, 0.30, 0.35, 0.48, 0.80)
+                        }
 
-# Dynamic Health Bar with automatic green/yellow/red color transitions
-fn health_bar(x: Float, y: Float, w: Float, h: Float, current_hp: Float, max_hp: Float) {
-    let safe_max = if max_hp <= 0.0 then 1.0 else max_hp
-    let pct = current_hp / safe_max
+                        # Dynamic Health Bar with automatic green/yellow/red color transitions
+                        fn health_bar(x: Float, y: Float, w: Float, h: Float, current_hp: Float, max_hp: Float) {
+                            let safe_max = if max_hp <= 0.0 then 1.0 else max_hp
+                                    let pct = current_hp / safe_max
 
-    # Color grading
-    var r = 0.20
-    var g = 0.85
-    var b = 0.35
+                                    # Color grading
+                                    var r = 0.20
+                                    var g = 0.85
+                                    var b = 0.35
 
-    if pct < 0.25 {
-        r = 0.95
-        g = 0.22
-        b = 0.25
-    } elif pct < 0.50 {
-        r = 0.95
-        g = 0.82
-        b = 0.20
-    }
+                                    if pct < 0.25 {
+                                        r = 0.95
+                                        g = 0.22
+                                        b = 0.25
+                                    } elif pct < 0.50 {
+                                        r = 0.95
+                                        g = 0.82
+                                        b = 0.20
+                                    }
 
-    progress_bar(x, y, w, h, current_hp, max_hp, r, g, b)
+                                    progress_bar(x, y, w, h, current_hp, max_hp, r, g, b)
 
-    # Status text
-    let hp_int = Int(current_hp)
-    let max_int = Int(max_hp)
-    let hp_txt = f"{hp_int}/{max_int}"
-    let font_size = 12.0
-    let tx = x + w + 8.0
-    let ty = y + h * 0.75
-    host_draw_text(hp_txt, tx, ty, font_size, 0.85, 0.90, 0.95)
-}
+                                    # Status text
+                                    let hp_int = Int(current_hp)
+                                    let max_int = Int(max_hp)
+                                    let hp_txt = f"{hp_int}/{max_int}"
+                                    let font_size = 12.0
+                                    let tx = x + w + 8.0
+                                    let ty = y + h * 0.75
+                                    host_draw_text(hp_txt, tx, ty, font_size, 0.85, 0.90, 0.95)
+                                }
 
-# Window / Dialog Backdrop Panel
-fn panel(x: Float, y: Float, w: Float, h: Float, title: String) {
-    # Main body
-    host_draw_rect(x, y, w, h, 0.06, 0.08, 0.12, 0.92)
-    host_draw_rect_lines(x, y, w, h, 2.0, 0.22, 0.28, 0.40, 0.90)
+                                # Window / Dialog Backdrop Panel
+                                fn panel(x: Float, y: Float, w: Float, h: Float, title: String) {
+                                    # Main body
+                                    host_draw_rect(x, y, w, h, 0.06, 0.08, 0.12, 0.92)
+                                    host_draw_rect_lines(x, y, w, h, 2.0, 0.22, 0.28, 0.40, 0.90)
 
-    # Title header bar
-    let header_h = 28.0
-    host_draw_rect(x, y, w, header_h, 0.12, 0.16, 0.24, 0.95)
-    host_draw_line(x, y + header_h, x + w, y + header_h, 1.5, 0.28, 0.35, 0.50, 1.0)
+                                    # Title header bar
+                                    let header_h = 28.0
+                                    host_draw_rect(x, y, w, header_h, 0.12, 0.16, 0.24, 0.95)
+                                    host_draw_line(x, y + header_h, x + w, y + header_h, 1.5, 0.28, 0.35, 0.50, 1.0)
 
-    # Title text
-    if title.len() > 0 {
-        host_draw_text(title, x + 12.0, y + 20.0, 15.0, 0.80, 0.90, 1.0)
-    }
-}
+                                    # Title text
+                                    if title.len() > 0 {
+                                        host_draw_text(title, x + 12.0, y + 20.0, 15.0, 0.80, 0.90, 1.0)
+                                    }
+                                }
 
-# Text Label with High-Contrast Drop Shadow
-fn label(x: Float, y: Float, text: String, size: Float, r: Float, g: Float, b: Float) {
-    # Shadow
-    host_draw_text(text, x + 1.5, y + 1.5, size, 0.02, 0.02, 0.04)
-    # Foreground
-    host_draw_text(text, x, y, size, r, g, b)
-}
+                                # Text Label with High-Contrast Drop Shadow
+                                fn label(x: Float, y: Float, text: String, size: Float, r: Float, g: Float, b: Float) {
+                                    # Shadow
+                                    host_draw_text(text, x + 1.5, y + 1.5, size, 0.02, 0.02, 0.04)
+                                    # Foreground
+                                    host_draw_text(text, x, y, size, r, g, b)
+                                }
 
-# Notification / Pill Badge
-fn badge(x: Float, y: Float, text: String, r: Float, g: Float, b: Float) {
-    let font_size = 12.0
-    let pad_x = 8.0
-    let pad_y = 4.0
-    let text_w = Float(text.len()) * 7.5
-    let w = text_w + pad_x * 2.0
-    let h = font_size + pad_y * 2.0
+                                # Notification / Pill Badge
+                                fn badge(x: Float, y: Float, text: String, r: Float, g: Float, b: Float) {
+                                    let font_size = 12.0
+                                    let pad_x = 8.0
+                                    let pad_y = 4.0
+                                    let text_w = Float(text.len()) * 7.5
+                                    let w = text_w + pad_x * 2.0
+                                    let h = font_size + pad_y * 2.0
 
-    host_draw_rect(x, y, w, h, r * 0.3, g * 0.3, b * 0.3, 0.85)
-    host_draw_rect_lines(x, y, w, h, 1.0, r, g, b, 0.80)
-    host_draw_text(text, x + pad_x, y + h * 0.72, font_size, r, g, b)
-}
+                                    host_draw_rect(x, y, w, h, r * 0.3, g * 0.3, b * 0.3, 0.85)
+                                    host_draw_rect_lines(x, y, w, h, 1.0, r, g, b, 0.80)
+                                    host_draw_text(text, x + pad_x, y + h * 0.72, font_size, r, g, b)
+                                }
 
-export is_mouse_over, button, progress_bar, health_bar, panel, label, badge
+                                export is_mouse_over, button, progress_bar, health_bar, panel, label, badge

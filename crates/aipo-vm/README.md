@@ -19,4 +19,9 @@
   - `Failure`: Recoverable error value created via `fail(message)` with mandatory `.message` property, automatically propagating across unhandled expressions and calls.
   - Recovery: `attempt { ... } failed err { ... }` blocks register `HandlerFrame` to catch failures; `or_else` provides expression-level fallback.
   - Runtime Faults: Unrecoverable programming/contract violations (`VmFault`) that bypass `attempt` handlers and halt execution.
+- **Safe Rust Embedding Engine (`AipoEngine` & `AipoScope`)**:
+  - `AipoEngineBuilder`: Configures deny-by-default capabilities (`CapabilitySet`) and instruction budgets (`limits`).
+  - `AipoScope`: RAII-bounded execution context. Binds host userdata and generational handles to the scope's lifetime, ensuring automatic invalidation and drop on exit.
+  - Generational UserData (`HandleTable<Box<dyn Any>>`): Host types lent to the VM resolve safely via downcast; attempted access post-scope triggers non-catchable `AIPO_RT_SCOPE_ESCAPE` or `AIPO_RT_STALE_HANDLE`.
 - **Safety**: `#![forbid(unsafe_code)]`. Zero unhandled panics escaping as user-facing errors.
+

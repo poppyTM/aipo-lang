@@ -103,6 +103,7 @@ dependencies = [
  "aipo-stdlib",
  "aipo-syntax",
  "aipo-vm",
+ "aipo-wasm",
  "unicode-normalization",
 ]
 
@@ -354,6 +355,7 @@ dependencies = [
  "aipo-bytecode",
  "aipo-diagnostics",
  "aipo-hir",
+ "aipo-host",
  "aipo-ir",
  "aipo-js",
  "aipo-lexer",
@@ -363,6 +365,7 @@ dependencies = [
  "aipo-stdlib",
  "aipo-syntax",
  "aipo-vm",
+ "aipo-wasm",
 ]
 
 [[package]]

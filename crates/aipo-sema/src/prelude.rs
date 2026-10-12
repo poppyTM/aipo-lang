@@ -23,6 +23,12 @@ pub struct PreludeSurface {
 pub struct HostFunction {
     /// Parameters in declaration order.
     pub params: Vec<HostParameter>,
+    /// Whether the function accepts arguments beyond `params`.
+    ///
+    /// A host surface may describe only the checked prefix of an open-ended
+    /// function (`path.join`, `log.info`), in which case `params.len()` is a
+    /// lower bound and must not be enforced as a maximum.
+    pub variadic: bool,
 }
 
 /// Parameter signature supplied by a host schema.
