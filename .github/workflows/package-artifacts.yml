@@ -27,7 +27,7 @@ jobs:
           CARGO_BUILD_JOBS: 2
           CARGO_INCREMENTAL: 0
         run: python3 scripts/release/package.py --profile '${{ inputs.profile }}'
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         with:
           name: aipo-${{ runner.os }}-${{ inputs.profile }}
           path: target/dist/*
