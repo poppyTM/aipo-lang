@@ -16,7 +16,7 @@ aipo-host = { path = "../aipo-host" }
 aipo-runtime = { path = "../aipo-runtime" }
 aipo-stdlib = { path = "../aipo-stdlib" }
 aipo-vm = { path = "../aipo-vm" }
-egui = { version = "0.36", default-features = false, features = ["default_fonts"] }
+egui = { version = "0.37", default-features = false, features = ["default_fonts"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 
