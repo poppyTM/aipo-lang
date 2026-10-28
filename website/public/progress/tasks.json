@@ -825,6 +825,17 @@
         "crates/aipo-wasm/tests/list_and_each_tests.rs",
         "docs/architecture/backend-support-matrix.md"
       ]
+    },
+    "p09-wasm-list-methods": {
+      "revision": "e49ac20bbaf26e28a7400359d08420aec4a73cd1",
+      "kind": "test-run",
+      "document": "/engineering/backends",
+      "summary": "P09 W1a: Wasm List predicates/access/mutations implemented (is_empty, first, last, contains, insert, remove_last, remove_at, remove, clear, count, find, reverse) with wasmtime tests. 04_collections now stops only at transform/higher-order.",
+      "sourcePaths": [
+        "crates/aipo-wasm/src/compiler.rs",
+        "crates/aipo-wasm/tests/list_and_each_tests.rs",
+        "docs/architecture/backend-support-matrix.md"
+      ]
     }
   },
   "tasks": [
@@ -1485,7 +1496,7 @@
         "/engineering/runtime-and-tooling"
       ],
       "baseline": "Aipo Wasm possui compilador, emissor e runner; P07 registra gates pendentes. P07-G02: Ramo físico de is removido; provas semânticas rejeitam aliases/shadowing; limites/cache Wasm separados.",
-      "next": "Continuar a paridade Wasm por construto; len global ja cobre list/string/dict (16/36 programas, 5/26 exemplos).",
+      "next": "Wasm W1a concluida para List; proximo bloqueio e higher-order (transform/filter/sort_by).",
       "updated": "2026-10-28",
       "status": "IN PROGRESS",
       "checkpoints": [
@@ -2278,6 +2289,7 @@
     "advisories": "pass",
     "release_v0_1_0": "pass",
     "release_url": "https://github.com/poppyTM/aipo-lang/releases/tag/v0.1.0",
-    "wasm_coverage": "16/36 conformance, 5/26 examples after P09 len slice"
+    "wasm_coverage": "16/36 conformance, 5/26 examples after P09 len slice",
+    "wasm_features": "global len + List predicates/access/mutations; higher-order pending"
   }
 }

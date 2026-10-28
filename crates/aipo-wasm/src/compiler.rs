@@ -626,6 +626,143 @@ pub fn compile_hir(program: &HirProgram) -> Result<Vec<u8>, WasmCompileError> {
         (list_add_func_idx, list_add_type_idx, list_add_fn_type),
     );
 
+    // Function 11.6: `__aipo_list_contains(list_ptr: i32, value: i64) -> i32`
+    let list_contains_fn_type =
+        WasmFnType::new(vec![WasmType::I32, WasmType::I64], vec![WasmType::I32]);
+    let list_contains_type_idx = emitter.add_type(list_contains_fn_type.clone());
+    let list_contains_fn = build_list_contains_function();
+    let list_contains_func_idx = emitter.add_function(list_contains_type_idx, list_contains_fn);
+    emitter.export_function("__aipo_list_contains", list_contains_func_idx);
+    functions.insert(
+        "__aipo_list_contains".to_string(),
+        (
+            list_contains_func_idx,
+            list_contains_type_idx,
+            list_contains_fn_type,
+        ),
+    );
+
+    // Function 11.7: `__aipo_list_insert(list_ptr: i32, index: i32, value: i64) -> i64`
+    let list_insert_fn_type = WasmFnType::new(
+        vec![WasmType::I32, WasmType::I32, WasmType::I64],
+        vec![WasmType::I64],
+    );
+    let list_insert_type_idx = emitter.add_type(list_insert_fn_type.clone());
+    let list_insert_fn = build_list_insert_function(
+        list_add_func_idx,
+        list_len_func_idx,
+        list_get_func_idx,
+        list_set_func_idx,
+    );
+    let list_insert_func_idx = emitter.add_function(list_insert_type_idx, list_insert_fn);
+    emitter.export_function("__aipo_list_insert", list_insert_func_idx);
+    functions.insert(
+        "__aipo_list_insert".to_string(),
+        (
+            list_insert_func_idx,
+            list_insert_type_idx,
+            list_insert_fn_type,
+        ),
+    );
+
+    // Function 11.8: `__aipo_list_remove_last(list_ptr: i32) -> i64`
+    let list_remove_last_fn_type = WasmFnType::new(vec![WasmType::I32], vec![WasmType::I64]);
+    let list_remove_last_type_idx = emitter.add_type(list_remove_last_fn_type.clone());
+    let list_remove_last_fn = build_list_remove_last_function();
+    let list_remove_last_func_idx =
+        emitter.add_function(list_remove_last_type_idx, list_remove_last_fn);
+    emitter.export_function("__aipo_list_remove_last", list_remove_last_func_idx);
+    functions.insert(
+        "__aipo_list_remove_last".to_string(),
+        (
+            list_remove_last_func_idx,
+            list_remove_last_type_idx,
+            list_remove_last_fn_type,
+        ),
+    );
+
+    // Function 11.9: `__aipo_list_remove_at(list_ptr: i32, index: i32) -> i64`
+    let list_remove_at_fn_type =
+        WasmFnType::new(vec![WasmType::I32, WasmType::I32], vec![WasmType::I64]);
+    let list_remove_at_type_idx = emitter.add_type(list_remove_at_fn_type.clone());
+    let list_remove_at_fn = build_list_remove_at_function();
+    let list_remove_at_func_idx = emitter.add_function(list_remove_at_type_idx, list_remove_at_fn);
+    emitter.export_function("__aipo_list_remove_at", list_remove_at_func_idx);
+    functions.insert(
+        "__aipo_list_remove_at".to_string(),
+        (
+            list_remove_at_func_idx,
+            list_remove_at_type_idx,
+            list_remove_at_fn_type,
+        ),
+    );
+
+    // Function 11.10: `__aipo_list_remove(list_ptr: i32, value: i64) -> i64`
+    let list_remove_fn_type =
+        WasmFnType::new(vec![WasmType::I32, WasmType::I64], vec![WasmType::I64]);
+    let list_remove_type_idx = emitter.add_type(list_remove_fn_type.clone());
+    let list_remove_fn = build_list_remove_function(list_remove_at_func_idx);
+    let list_remove_func_idx = emitter.add_function(list_remove_type_idx, list_remove_fn);
+    emitter.export_function("__aipo_list_remove", list_remove_func_idx);
+    functions.insert(
+        "__aipo_list_remove".to_string(),
+        (
+            list_remove_func_idx,
+            list_remove_type_idx,
+            list_remove_fn_type,
+        ),
+    );
+
+    // Function 11.11: `__aipo_list_clear(list_ptr: i32) -> i64`
+    let list_clear_fn_type = WasmFnType::new(vec![WasmType::I32], vec![WasmType::I64]);
+    let list_clear_type_idx = emitter.add_type(list_clear_fn_type.clone());
+    let list_clear_fn = build_list_clear_function();
+    let list_clear_func_idx = emitter.add_function(list_clear_type_idx, list_clear_fn);
+    emitter.export_function("__aipo_list_clear", list_clear_func_idx);
+    functions.insert(
+        "__aipo_list_clear".to_string(),
+        (list_clear_func_idx, list_clear_type_idx, list_clear_fn_type),
+    );
+
+    // Function 11.12: `__aipo_list_count(list_ptr: i32, value: i64) -> i64`
+    let list_count_fn_type =
+        WasmFnType::new(vec![WasmType::I32, WasmType::I64], vec![WasmType::I64]);
+    let list_count_type_idx = emitter.add_type(list_count_fn_type.clone());
+    let list_count_fn = build_list_count_function();
+    let list_count_func_idx = emitter.add_function(list_count_type_idx, list_count_fn);
+    emitter.export_function("__aipo_list_count", list_count_func_idx);
+    functions.insert(
+        "__aipo_list_count".to_string(),
+        (list_count_func_idx, list_count_type_idx, list_count_fn_type),
+    );
+
+    // Function 11.13: `__aipo_list_find(list_ptr: i32, value: i64) -> i64`
+    let list_find_fn_type =
+        WasmFnType::new(vec![WasmType::I32, WasmType::I64], vec![WasmType::I64]);
+    let list_find_type_idx = emitter.add_type(list_find_fn_type.clone());
+    let list_find_fn = build_list_find_function();
+    let list_find_func_idx = emitter.add_function(list_find_type_idx, list_find_fn);
+    emitter.export_function("__aipo_list_find", list_find_func_idx);
+    functions.insert(
+        "__aipo_list_find".to_string(),
+        (list_find_func_idx, list_find_type_idx, list_find_fn_type),
+    );
+
+    // Function 11.14: `__aipo_list_reverse(list_ptr: i32) -> i64`
+    let list_reverse_fn_type = WasmFnType::new(vec![WasmType::I32], vec![WasmType::I64]);
+    let list_reverse_type_idx = emitter.add_type(list_reverse_fn_type.clone());
+    let list_reverse_fn = build_list_reverse_function();
+    let list_reverse_func_idx = emitter.add_function(list_reverse_type_idx, list_reverse_fn);
+    emitter.export_function("__aipo_list_reverse", list_reverse_func_idx);
+    functions.insert(
+        "__aipo_list_reverse".to_string(),
+        (
+            list_reverse_func_idx,
+            list_reverse_type_idx,
+            list_reverse_fn_type,
+        ),
+    );
+
     // Function 12: `__aipo_range_get(range_ptr: i32, index: i32) -> i64`
     let range_get_fn_type =
         WasmFnType::new(vec![WasmType::I32, WasmType::I32], vec![WasmType::I64]);
@@ -2588,6 +2725,594 @@ fn build_list_add_function(alloc_func_idx: u32) -> Function {
         memory_index: 0,
     }));
 
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::End);
+    func
+}
+
+/// Builds `__aipo_list_contains(list_ptr: i32, value: i64) -> i32`.
+fn build_list_contains_function() -> Function {
+    let mut func = Function::new([(3, ValType::I32)]);
+    // local 0: handle_ptr
+    // local 1: value
+    // local 2: buf_ptr
+    // local 3: len
+    // local 4: i
+
+    // buf_ptr = i32.load(handle_ptr + 0)
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::I32Load(MemArg {
+        offset: 0,
+        align: 2,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalSet(2));
+
+    // len = i32.load(buf_ptr + 0)
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I32Load(MemArg {
+        offset: 0,
+        align: 2,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalSet(3));
+
+    func.instruction(&Instruction::I32Const(0));
+    func.instruction(&Instruction::LocalSet(4));
+    func.instruction(&Instruction::Block(BlockType::Empty));
+    func.instruction(&Instruction::Loop(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I32GeS);
+    func.instruction(&Instruction::BrIf(1));
+
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I32Const(3));
+    func.instruction(&Instruction::I32Shl);
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::I64Load(MemArg {
+        offset: 8,
+        align: 3,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I64Eq);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    func.instruction(&Instruction::I32Const(1));
+    func.instruction(&Instruction::Return);
+    func.instruction(&Instruction::End);
+
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I32Const(1));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::LocalSet(4));
+    func.instruction(&Instruction::Br(0));
+    func.instruction(&Instruction::End);
+    func.instruction(&Instruction::End);
+
+    func.instruction(&Instruction::I32Const(0));
+    func.instruction(&Instruction::End);
+    func
+}
+
+/// Builds `__aipo_list_insert(list_ptr: i32, index: i32, value: i64) -> i64`.
+fn build_list_insert_function(
+    list_add_idx: u32,
+    list_len_idx: u32,
+    list_get_idx: u32,
+    list_set_idx: u32,
+) -> Function {
+    let mut func = Function::new([(2, ValType::I32)]);
+    // local 0: handle_ptr
+    // local 1: index
+    // local 2: value
+    // local 3: old_len
+    // local 4: i
+
+    // Append a dummy to grow and update len, then shift right.
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::Call(list_add_idx));
+    func.instruction(&Instruction::Drop);
+
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::Call(list_len_idx));
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::I32Const(1));
+    func.instruction(&Instruction::I32Sub);
+    func.instruction(&Instruction::LocalSet(3));
+
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I32Const(0));
+    func.instruction(&Instruction::I32LtS);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    func.instruction(&Instruction::Unreachable);
+    func.instruction(&Instruction::End);
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I32GtS);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    func.instruction(&Instruction::Unreachable);
+    func.instruction(&Instruction::End);
+
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I32Const(1));
+    func.instruction(&Instruction::I32Sub);
+    func.instruction(&Instruction::LocalSet(4));
+    func.instruction(&Instruction::Block(BlockType::Empty));
+    func.instruction(&Instruction::Loop(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I32LtS);
+    func.instruction(&Instruction::BrIf(1));
+
+    // list[i + 1] = list[i]
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I32Const(1));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::Call(list_get_idx));
+    func.instruction(&Instruction::Call(list_set_idx));
+    func.instruction(&Instruction::Drop);
+
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I32Const(1));
+    func.instruction(&Instruction::I32Sub);
+    func.instruction(&Instruction::LocalSet(4));
+    func.instruction(&Instruction::Br(0));
+    func.instruction(&Instruction::End);
+    func.instruction(&Instruction::End);
+
+    // list[index] = value
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::Call(list_set_idx));
+    func.instruction(&Instruction::Drop);
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::End);
+    func
+}
+
+/// Builds `__aipo_list_remove_last(list_ptr: i32) -> i64`.
+fn build_list_remove_last_function() -> Function {
+    let mut func = Function::new([(3, ValType::I32), (1, ValType::I64)]);
+    // local 0: handle_ptr
+    // local 1: buf_ptr
+    // local 2: len
+    // local 3: index
+    // local 4: value
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::I32Load(MemArg {
+        offset: 0,
+        align: 2,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalSet(1));
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I32Load(MemArg {
+        offset: 0,
+        align: 2,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalSet(2));
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I32Const(0));
+    func.instruction(&Instruction::I32LeS);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    func.instruction(&Instruction::Unreachable);
+    func.instruction(&Instruction::End);
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I32Const(1));
+    func.instruction(&Instruction::I32Sub);
+    func.instruction(&Instruction::LocalSet(3));
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I32Const(3));
+    func.instruction(&Instruction::I32Shl);
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::I64Load(MemArg {
+        offset: 8,
+        align: 3,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalSet(4));
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I32Const(1));
+    func.instruction(&Instruction::I32Sub);
+    func.instruction(&Instruction::I32Store(MemArg {
+        offset: 0,
+        align: 2,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::End);
+    func
+}
+
+/// Builds `__aipo_list_clear(list_ptr: i32) -> i64`.
+fn build_list_clear_function() -> Function {
+    let mut func = Function::new([(1, ValType::I32)]);
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::I32Load(MemArg {
+        offset: 0,
+        align: 2,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalSet(1));
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I32Const(0));
+    func.instruction(&Instruction::I32Store(MemArg {
+        offset: 0,
+        align: 2,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::End);
+    func
+}
+
+/// Builds `__aipo_list_remove_at(list_ptr: i32, index: i32) -> i64`.
+fn build_list_remove_at_function() -> Function {
+    let mut func = Function::new([(3, ValType::I32), (1, ValType::I64)]);
+    // local 0: handle_ptr
+    // local 1: index
+    // local 2: buf_ptr
+    // local 3: len
+    // local 4: i
+    // local 5: value
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::I32Load(MemArg {
+        offset: 0,
+        align: 2,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalSet(2));
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I32Load(MemArg {
+        offset: 0,
+        align: 2,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalSet(3));
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I32Const(0));
+    func.instruction(&Instruction::I32LtS);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    func.instruction(&Instruction::Unreachable);
+    func.instruction(&Instruction::End);
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I32GeS);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    func.instruction(&Instruction::Unreachable);
+    func.instruction(&Instruction::End);
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I32Const(3));
+    func.instruction(&Instruction::I32Shl);
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::I64Load(MemArg {
+        offset: 8,
+        align: 3,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalSet(5));
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::LocalSet(4));
+    func.instruction(&Instruction::Block(BlockType::Empty));
+    func.instruction(&Instruction::Loop(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I32Const(1));
+    func.instruction(&Instruction::I32Sub);
+    func.instruction(&Instruction::I32GeS);
+    func.instruction(&Instruction::BrIf(1));
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I32Const(3));
+    func.instruction(&Instruction::I32Shl);
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I32Const(1));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::I32Const(3));
+    func.instruction(&Instruction::I32Shl);
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::I64Load(MemArg {
+        offset: 8,
+        align: 3,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::I64Store(MemArg {
+        offset: 8,
+        align: 3,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I32Const(1));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::LocalSet(4));
+    func.instruction(&Instruction::Br(0));
+    func.instruction(&Instruction::End);
+    func.instruction(&Instruction::End);
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I32Const(1));
+    func.instruction(&Instruction::I32Sub);
+    func.instruction(&Instruction::I32Store(MemArg {
+        offset: 0,
+        align: 2,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::End);
+    func
+}
+
+/// Builds `__aipo_list_remove(list_ptr: i32, value: i64) -> i64`.
+fn build_list_remove_function(list_remove_at_idx: u32) -> Function {
+    let mut func = Function::new([(3, ValType::I32)]);
+    // local 0: handle_ptr
+    // local 1: value
+    // local 2: buf_ptr
+    // local 3: len
+    // local 4: i
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::I32Load(MemArg {
+        offset: 0,
+        align: 2,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalSet(2));
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I32Load(MemArg {
+        offset: 0,
+        align: 2,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalSet(3));
+    func.instruction(&Instruction::I32Const(0));
+    func.instruction(&Instruction::LocalSet(4));
+    func.instruction(&Instruction::Block(BlockType::Empty));
+    func.instruction(&Instruction::Loop(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I32GeS);
+    func.instruction(&Instruction::BrIf(1));
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I32Const(3));
+    func.instruction(&Instruction::I32Shl);
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::I64Load(MemArg {
+        offset: 8,
+        align: 3,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I64Eq);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::Call(list_remove_at_idx));
+    func.instruction(&Instruction::Return);
+    func.instruction(&Instruction::End);
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I32Const(1));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::LocalSet(4));
+    func.instruction(&Instruction::Br(0));
+    func.instruction(&Instruction::End);
+    func.instruction(&Instruction::End);
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::End);
+    func
+}
+
+/// Builds `__aipo_list_count(list_ptr: i32, value: i64) -> i64`.
+fn build_list_count_function() -> Function {
+    let mut func = Function::new([(3, ValType::I32), (1, ValType::I64)]);
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::I32Load(MemArg {
+        offset: 0,
+        align: 2,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalSet(2));
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I32Load(MemArg {
+        offset: 0,
+        align: 2,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalSet(3));
+    func.instruction(&Instruction::I32Const(0));
+    func.instruction(&Instruction::LocalSet(4));
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::LocalSet(5));
+    func.instruction(&Instruction::Block(BlockType::Empty));
+    func.instruction(&Instruction::Loop(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I32GeS);
+    func.instruction(&Instruction::BrIf(1));
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I32Const(3));
+    func.instruction(&Instruction::I32Shl);
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::I64Load(MemArg {
+        offset: 8,
+        align: 3,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I64Eq);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::I64Const(1));
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::LocalSet(5));
+    func.instruction(&Instruction::End);
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I32Const(1));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::LocalSet(4));
+    func.instruction(&Instruction::Br(0));
+    func.instruction(&Instruction::End);
+    func.instruction(&Instruction::End);
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::End);
+    func
+}
+
+/// Builds `__aipo_list_find(list_ptr: i32, value: i64) -> i64`.
+fn build_list_find_function() -> Function {
+    let mut func = Function::new([(3, ValType::I32)]);
+    // local 0: handle, local 1: value, local 2: buf, local 3: len, local 4: i
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::I32Load(MemArg {
+        offset: 0,
+        align: 2,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalSet(2));
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I32Load(MemArg {
+        offset: 0,
+        align: 2,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalSet(3));
+    func.instruction(&Instruction::I32Const(0));
+    func.instruction(&Instruction::LocalSet(4));
+    func.instruction(&Instruction::Block(BlockType::Empty));
+    func.instruction(&Instruction::Loop(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I32GeS);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    func.instruction(&Instruction::I64Const(-1));
+    func.instruction(&Instruction::Return);
+    func.instruction(&Instruction::End);
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I32Const(3));
+    func.instruction(&Instruction::I32Shl);
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::I64Load(MemArg {
+        offset: 8,
+        align: 3,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I64Eq);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I64ExtendI32S);
+    func.instruction(&Instruction::Return);
+    func.instruction(&Instruction::End);
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I32Const(1));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::LocalSet(4));
+    func.instruction(&Instruction::Br(0));
+    func.instruction(&Instruction::End);
+    func.instruction(&Instruction::End);
+    func.instruction(&Instruction::I64Const(-1));
+    func.instruction(&Instruction::End);
+    func
+}
+
+/// Builds `__aipo_list_reverse(list_ptr: i32) -> i64`.
+fn build_list_reverse_function() -> Function {
+    let mut func = Function::new([(4, ValType::I32), (1, ValType::I64)]);
+    // local 0: handle, local 1: buf, local 2: len, local 3: i, local 4: j, local 5: tmp
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::I32Load(MemArg {
+        offset: 0,
+        align: 2,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalSet(1));
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I32Load(MemArg {
+        offset: 0,
+        align: 2,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalSet(2));
+    func.instruction(&Instruction::I32Const(0));
+    func.instruction(&Instruction::LocalSet(3));
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I32Const(1));
+    func.instruction(&Instruction::I32Sub);
+    func.instruction(&Instruction::LocalSet(4));
+    func.instruction(&Instruction::Block(BlockType::Empty));
+    func.instruction(&Instruction::Loop(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I32GeS);
+    func.instruction(&Instruction::BrIf(1));
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I32Const(3));
+    func.instruction(&Instruction::I32Shl);
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::I64Load(MemArg {
+        offset: 8,
+        align: 3,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalSet(5));
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I32Const(3));
+    func.instruction(&Instruction::I32Shl);
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I32Const(3));
+    func.instruction(&Instruction::I32Shl);
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::I64Load(MemArg {
+        offset: 8,
+        align: 3,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::I64Store(MemArg {
+        offset: 8,
+        align: 3,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I32Const(3));
+    func.instruction(&Instruction::I32Shl);
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::I64Store(MemArg {
+        offset: 8,
+        align: 3,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I32Const(1));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::LocalSet(3));
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I32Const(1));
+    func.instruction(&Instruction::I32Sub);
+    func.instruction(&Instruction::LocalSet(4));
+    func.instruction(&Instruction::Br(0));
+    func.instruction(&Instruction::End);
+    func.instruction(&Instruction::End);
     func.instruction(&Instruction::I64Const(0));
     func.instruction(&Instruction::End);
     func
@@ -7456,6 +8181,388 @@ fn compile_expr(
                     )?;
                     coerce_type(func, val_ty, WasmType::I64);
                     func.instruction(&Instruction::Call(list_add_idx));
+                    return Ok(WasmType::I64);
+                }
+            }
+
+            // Case 0.81: List and collection predicates/accessors.
+            if let HirExpr::Dot(receiver, method_name, _) = &**callee {
+                let receiver_kind =
+                    infer_expr_kind(receiver, locals, functions, table_indices, anon_map);
+                if method_name == "is_empty"
+                    && args.is_empty()
+                    && matches!(
+                        receiver_kind,
+                        LocalKind::List
+                            | LocalKind::Dict
+                            | LocalKind::Range
+                            | LocalKind::String
+                            | LocalKind::Bytes
+                    )
+                {
+                    let len_prop = HirExpr::Dot(receiver.clone(), "len".to_string(), *span);
+                    let zero = HirExpr::Literal(Literal::Int("0".to_string()), *span);
+                    let cmp =
+                        HirExpr::Binary(BinaryOp::Equal, Box::new(len_prop), Box::new(zero), *span);
+                    return compile_expr(
+                        &cmp,
+                        func,
+                        locals,
+                        functions,
+                        control_stack,
+                        structs,
+                        static_strings,
+                        table_indices,
+                        anon_map,
+                        indirect_sigs,
+                        alloc_func_idx,
+                        async_helpers,
+                        struct_depth,
+                        call_depth,
+                    );
+                }
+                if matches!(receiver_kind, LocalKind::List)
+                    && (method_name == "first" || method_name == "last")
+                    && args.is_empty()
+                {
+                    let (list_get_idx, _, _) = functions["__aipo_list_get"];
+                    let r_ty = compile_expr(
+                        receiver,
+                        func,
+                        locals,
+                        functions,
+                        control_stack,
+                        structs,
+                        static_strings,
+                        table_indices,
+                        anon_map,
+                        indirect_sigs,
+                        alloc_func_idx,
+                        async_helpers,
+                        struct_depth,
+                        call_depth,
+                    )?;
+                    coerce_type(func, r_ty, WasmType::I32);
+                    if method_name == "first" {
+                        func.instruction(&Instruction::I32Const(0));
+                    } else {
+                        let temp = locals["__dot_temp"].0;
+                        func.instruction(&Instruction::LocalSet(temp));
+                        func.instruction(&Instruction::LocalGet(temp));
+                        func.instruction(&Instruction::LocalGet(temp));
+                        let (list_len_idx, _, _) = functions["__aipo_list_len"];
+                        func.instruction(&Instruction::Call(list_len_idx));
+                        func.instruction(&Instruction::I32WrapI64);
+                        func.instruction(&Instruction::I32Const(1));
+                        func.instruction(&Instruction::I32Sub);
+                    }
+                    func.instruction(&Instruction::Call(list_get_idx));
+                    return Ok(WasmType::I64);
+                }
+                if matches!(receiver_kind, LocalKind::List)
+                    && method_name == "contains"
+                    && args.len() == 1
+                {
+                    let (list_contains_idx, _, _) = functions["__aipo_list_contains"];
+                    let r_ty = compile_expr(
+                        receiver,
+                        func,
+                        locals,
+                        functions,
+                        control_stack,
+                        structs,
+                        static_strings,
+                        table_indices,
+                        anon_map,
+                        indirect_sigs,
+                        alloc_func_idx,
+                        async_helpers,
+                        struct_depth,
+                        call_depth,
+                    )?;
+                    coerce_type(func, r_ty, WasmType::I32);
+                    let val_ty = compile_expr(
+                        &args[0].value,
+                        func,
+                        locals,
+                        functions,
+                        control_stack,
+                        structs,
+                        static_strings,
+                        table_indices,
+                        anon_map,
+                        indirect_sigs,
+                        alloc_func_idx,
+                        async_helpers,
+                        struct_depth,
+                        call_depth,
+                    )?;
+                    coerce_type(func, val_ty, WasmType::I64);
+                    func.instruction(&Instruction::Call(list_contains_idx));
+                    return Ok(WasmType::I32);
+                }
+                if matches!(receiver_kind, LocalKind::List)
+                    && method_name == "insert"
+                    && args.len() == 2
+                {
+                    let (list_insert_idx, _, _) = functions["__aipo_list_insert"];
+                    let r_ty = compile_expr(
+                        receiver,
+                        func,
+                        locals,
+                        functions,
+                        control_stack,
+                        structs,
+                        static_strings,
+                        table_indices,
+                        anon_map,
+                        indirect_sigs,
+                        alloc_func_idx,
+                        async_helpers,
+                        struct_depth,
+                        call_depth,
+                    )?;
+                    coerce_type(func, r_ty, WasmType::I32);
+                    let idx_ty = compile_expr(
+                        &args[0].value,
+                        func,
+                        locals,
+                        functions,
+                        control_stack,
+                        structs,
+                        static_strings,
+                        table_indices,
+                        anon_map,
+                        indirect_sigs,
+                        alloc_func_idx,
+                        async_helpers,
+                        struct_depth,
+                        call_depth,
+                    )?;
+                    coerce_type(func, idx_ty, WasmType::I32);
+                    let val_ty = compile_expr(
+                        &args[1].value,
+                        func,
+                        locals,
+                        functions,
+                        control_stack,
+                        structs,
+                        static_strings,
+                        table_indices,
+                        anon_map,
+                        indirect_sigs,
+                        alloc_func_idx,
+                        async_helpers,
+                        struct_depth,
+                        call_depth,
+                    )?;
+                    coerce_type(func, val_ty, WasmType::I64);
+                    func.instruction(&Instruction::Call(list_insert_idx));
+                    return Ok(WasmType::I64);
+                }
+                if matches!(receiver_kind, LocalKind::List)
+                    && method_name == "remove_last"
+                    && args.is_empty()
+                {
+                    let (list_remove_last_idx, _, _) = functions["__aipo_list_remove_last"];
+                    let r_ty = compile_expr(
+                        receiver,
+                        func,
+                        locals,
+                        functions,
+                        control_stack,
+                        structs,
+                        static_strings,
+                        table_indices,
+                        anon_map,
+                        indirect_sigs,
+                        alloc_func_idx,
+                        async_helpers,
+                        struct_depth,
+                        call_depth,
+                    )?;
+                    coerce_type(func, r_ty, WasmType::I32);
+                    func.instruction(&Instruction::Call(list_remove_last_idx));
+                    return Ok(WasmType::I64);
+                }
+                if matches!(receiver_kind, LocalKind::List)
+                    && method_name == "remove_at"
+                    && args.len() == 1
+                {
+                    let (list_remove_at_idx, _, _) = functions["__aipo_list_remove_at"];
+                    let r_ty = compile_expr(
+                        receiver,
+                        func,
+                        locals,
+                        functions,
+                        control_stack,
+                        structs,
+                        static_strings,
+                        table_indices,
+                        anon_map,
+                        indirect_sigs,
+                        alloc_func_idx,
+                        async_helpers,
+                        struct_depth,
+                        call_depth,
+                    )?;
+                    coerce_type(func, r_ty, WasmType::I32);
+                    let idx_ty = compile_expr(
+                        &args[0].value,
+                        func,
+                        locals,
+                        functions,
+                        control_stack,
+                        structs,
+                        static_strings,
+                        table_indices,
+                        anon_map,
+                        indirect_sigs,
+                        alloc_func_idx,
+                        async_helpers,
+                        struct_depth,
+                        call_depth,
+                    )?;
+                    coerce_type(func, idx_ty, WasmType::I32);
+                    func.instruction(&Instruction::Call(list_remove_at_idx));
+                    return Ok(WasmType::I64);
+                }
+                if matches!(receiver_kind, LocalKind::List)
+                    && method_name == "remove"
+                    && args.len() == 1
+                {
+                    let (list_remove_idx, _, _) = functions["__aipo_list_remove"];
+                    let r_ty = compile_expr(
+                        receiver,
+                        func,
+                        locals,
+                        functions,
+                        control_stack,
+                        structs,
+                        static_strings,
+                        table_indices,
+                        anon_map,
+                        indirect_sigs,
+                        alloc_func_idx,
+                        async_helpers,
+                        struct_depth,
+                        call_depth,
+                    )?;
+                    coerce_type(func, r_ty, WasmType::I32);
+                    let val_ty = compile_expr(
+                        &args[0].value,
+                        func,
+                        locals,
+                        functions,
+                        control_stack,
+                        structs,
+                        static_strings,
+                        table_indices,
+                        anon_map,
+                        indirect_sigs,
+                        alloc_func_idx,
+                        async_helpers,
+                        struct_depth,
+                        call_depth,
+                    )?;
+                    coerce_type(func, val_ty, WasmType::I64);
+                    func.instruction(&Instruction::Call(list_remove_idx));
+                    return Ok(WasmType::I64);
+                }
+                if matches!(receiver_kind, LocalKind::List)
+                    && method_name == "clear"
+                    && args.is_empty()
+                {
+                    let (list_clear_idx, _, _) = functions["__aipo_list_clear"];
+                    let r_ty = compile_expr(
+                        receiver,
+                        func,
+                        locals,
+                        functions,
+                        control_stack,
+                        structs,
+                        static_strings,
+                        table_indices,
+                        anon_map,
+                        indirect_sigs,
+                        alloc_func_idx,
+                        async_helpers,
+                        struct_depth,
+                        call_depth,
+                    )?;
+                    coerce_type(func, r_ty, WasmType::I32);
+                    func.instruction(&Instruction::Call(list_clear_idx));
+                    return Ok(WasmType::I64);
+                }
+                if matches!(receiver_kind, LocalKind::List)
+                    && (method_name == "count" || method_name == "find")
+                    && args.len() == 1
+                {
+                    let helper_idx = if method_name == "count" {
+                        functions["__aipo_list_count"].0
+                    } else {
+                        functions["__aipo_list_find"].0
+                    };
+                    let r_ty = compile_expr(
+                        receiver,
+                        func,
+                        locals,
+                        functions,
+                        control_stack,
+                        structs,
+                        static_strings,
+                        table_indices,
+                        anon_map,
+                        indirect_sigs,
+                        alloc_func_idx,
+                        async_helpers,
+                        struct_depth,
+                        call_depth,
+                    )?;
+                    coerce_type(func, r_ty, WasmType::I32);
+                    let val_ty = compile_expr(
+                        &args[0].value,
+                        func,
+                        locals,
+                        functions,
+                        control_stack,
+                        structs,
+                        static_strings,
+                        table_indices,
+                        anon_map,
+                        indirect_sigs,
+                        alloc_func_idx,
+                        async_helpers,
+                        struct_depth,
+                        call_depth,
+                    )?;
+                    coerce_type(func, val_ty, WasmType::I64);
+                    func.instruction(&Instruction::Call(helper_idx));
+                    return Ok(WasmType::I64);
+                }
+                if matches!(receiver_kind, LocalKind::List)
+                    && method_name == "reverse"
+                    && args.is_empty()
+                {
+                    let (list_reverse_idx, _, _) = functions["__aipo_list_reverse"];
+                    let r_ty = compile_expr(
+                        receiver,
+                        func,
+                        locals,
+                        functions,
+                        control_stack,
+                        structs,
+                        static_strings,
+                        table_indices,
+                        anon_map,
+                        indirect_sigs,
+                        alloc_func_idx,
+                        async_helpers,
+                        struct_depth,
+                        call_depth,
+                    )?;
+                    coerce_type(func, r_ty, WasmType::I32);
+                    func.instruction(&Instruction::Call(list_reverse_idx));
                     return Ok(WasmType::I64);
                 }
             }
