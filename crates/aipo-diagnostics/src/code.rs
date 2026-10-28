@@ -14,6 +14,8 @@ use crate::severity::Severity;
 pub enum DiagnosticCode {
     /// Experimental register backend cannot represent this program safely.
     AIPO_COMPILE_REG_UNSUPPORTED,
+    /// WebAssembly backend cannot compile a construct in the current subset.
+    AIPO_COMPILE_WASM_UNSUPPORTED,
 
     // --- Source (AIPO_SRC_*) ---
     /// File bytes are not valid UTF-8.
@@ -149,6 +151,7 @@ impl DiagnosticCode {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::AIPO_COMPILE_REG_UNSUPPORTED => "AIPO_COMPILE_REG_UNSUPPORTED",
+            Self::AIPO_COMPILE_WASM_UNSUPPORTED => "AIPO_COMPILE_WASM_UNSUPPORTED",
             Self::AIPO_SRC_INVALID_UTF8 => "AIPO_SRC_INVALID_UTF8",
             Self::AIPO_LEX_UNTERMINATED_STRING => "AIPO_LEX_UNTERMINATED_STRING",
             Self::AIPO_LEX_UNKNOWN_ESCAPE => "AIPO_LEX_UNKNOWN_ESCAPE",
@@ -213,6 +216,7 @@ impl DiagnosticCode {
     pub const fn default_severity(self) -> Severity {
         match self {
             Self::AIPO_COMPILE_REG_UNSUPPORTED
+            | Self::AIPO_COMPILE_WASM_UNSUPPORTED
             | Self::AIPO_SRC_INVALID_UTF8
             | Self::AIPO_LEX_UNTERMINATED_STRING
             | Self::AIPO_LEX_UNKNOWN_ESCAPE

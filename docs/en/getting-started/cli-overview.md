@@ -23,17 +23,17 @@ aipo run src/main.aipo --message-format=jsonl
 
 ### `aipo test`
 
-Discovers and executes unit tests automatically across `*_test.aipo` and `test_*.aipo` files, with full isolation, zeroed PRNG seeds, and a frozen virtual clock:
+Discovers and executes unit tests in `*_test.aipo`, `test_*.aipo`, or files with a `#!test` directive, with isolation, zeroed PRNG seeds, and a frozen virtual clock. Without an argument it scans `tests/` and the current directory; pass a package directory to run a package:
 
 ```bash
-# Run all unit tests
-aipo test
+# Run a package's tests
+aipo test packages/aipo-ui
 
 # Filter tests by name or path pattern
-aipo test --filter math
+aipo test packages/aipo-ui --filter layout
 
-# Machine-readable streaming JSONL for CI/CD
-aipo test --message-format=jsonl
+# Streaming JSONL output for CI/CD
+aipo test packages/aipo-ui --message-format=jsonl
 ```
 
 ### `aipo check`

@@ -21,7 +21,7 @@ Node.js 20+ recomendado. A publicação é independente do site legado em `docs/
 - `content/archive/`: registro e roteador para documentação histórica.
 - `content/en/`: tradução parcial em inglês, identificada como tal.
 
-A sintaxe V1 desejada e a linguagem implementada não são intercambiáveis. A matriz de compatibilidade documenta o estado encontrado. As amostras ainda não recebem selo de verificação sem um teste realmente executado.
+A sintaxe V1 documentada em `SYNTAX.md` é a superfície implementada, com `fixed` como forma legada aceita. A [matriz de backends](../docs/architecture/backend-support-matrix.md) documenta a cobertura medida e seus limites. As amostras não recebem selo de verificação sem um teste realmente executado.
 
 ## Integridade
 `npm run check` verifica links internos, destinos de navegação, frontmatter, índices e referência dos capítulos. `npm run check:examples` exercita exemplos originais quando o CLI existe, sem declarar validação de todos os capítulos. Nunca registrar status 'verified' sem saída capturada e commit correspondente.
@@ -33,7 +33,7 @@ O portal disponibiliza [Progresso da implementação](content/progress/index.md)
 ## Nova estrutura para leitores (2026-10-09)
 
 - `content/start/`: seu primeiro programa e solução de erros comuns.
-- `content/manual/`: manual por tarefa (20 assuntos, incluindo sintaxe nova).
+- `content/manual/`: manual por tarefa (21 páginas, incluindo sintaxe nova).
 - `content/examples/`: 26 programas completos reproduzidos de `examples/*.aipo`.
 - `content/reference/api/`: índice de módulos derivado dos nomes registrados em Rust.
 - `content/engineering/`: detalhes de engenharia, progresso e governança (separados do uso básico).

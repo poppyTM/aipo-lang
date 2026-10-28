@@ -19,7 +19,7 @@ use std::cell::RefCell;
 use std::collections::{HashMap, VecDeque};
 use std::rc::Rc;
 
-/// Identifier of the module entry script inside [`RegScheduler::tasks`].
+/// Identifier of the module entry script inside the scheduler task table.
 pub const MAIN_TASK: u64 = 0;
 
 /// Identifier of a structured join.

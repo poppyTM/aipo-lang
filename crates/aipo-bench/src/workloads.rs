@@ -203,7 +203,7 @@ pub(crate) fn vm_workloads(rounds: usize, _quick: bool) -> Vec<Sample> {
         ),
         (
             "vm/invariant-commit",
-            "struct R {\nlo\nhi\n}\nimpl R {\ninit(var self, lo, hi) {\nself.lo = lo\nself.hi = hi\n}\ninvariant() {\nself.lo < self.hi\n}\n}\nvar t = 0\nrepeat 50 {\nt = R{lo: t, hi: t + 2}.lo\n}\n",
+            "struct R {\nlo\nhi\n}\nR:init(lo, hi) {\nself.lo = lo\nself.hi = hi\n}\nR:invariant {\nself.lo < self.hi\n}\nvar t = 0\nrepeat 50 {\nt = R{lo: t, hi: t + 2}.lo\n}\n",
         ),
     ];
     cases

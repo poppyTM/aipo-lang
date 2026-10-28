@@ -6,12 +6,11 @@
 **Update Triggers:** crate added/removed/merged/split, dependency graph change
 **Related:** `docs/canon/Aipo — Arquitetura Modular do Workspace …md` (topology baseline)
 
-The canonical baseline lists 18 crates. **Wave 1 implements only the crates required by
-the MVP pipeline** (marked MVP below). The remaining crates are declared here so the
-dependency direction is fixed before they exist; their contracts are activated when their
-wave starts. Wave 2 (`aipo-js`) and Wave 3 (async parts of `aipo-vm`/`aipo-runtime`) are
-activated and their waves closed; still pending are Wave 4 (`aipo-host`, `aipo-poppy`),
-Wave 5 (`aipo-lsp`) and Wave 6 (packages in `aipo-cli`/`aipo-stdlib`).
+The workspace currently has **24 crates**. Wave 1 implements the MVP pipeline; Wave 2
+(`aipo-js`), Wave 3 (async), Wave 4 (`aipo-host`, `aipo-poppy`), Wave 5 (tooling/LSP) and
+Wave 6 (packages, Wasm, C ABI, GUI/game hosts) are present. The authoritative inventory and
+normal dependency graph are in [`docs/architecture/crates.md`](../architecture/crates.md),
+derived from `cargo metadata --no-deps`.
 
 Common fields for every crate: **Responsibility / Owned concepts / Inputs / Outputs /
 Public API / Allowed dependencies / Forbidden dependencies / Invariants / Error model /
@@ -28,6 +27,14 @@ Related ADPs.**
 
 Este delta descreve source reconstruído, não certifica gates. Consulte [guia](../development/runtime-hardening-guide.md) e [evidência](../evidence/P07-G01-runtime-hardening.md).
 
+## Delta de reconciliação — 2026-10-27
+
+- `aipo-bytecode`: o plano de execução agora tenta o emissor Reg primeiro e usa a VM canônica apenas quando o emissor rejeita o IR ou quando a construção exige serviços ausentes (`filter`/`map`/`reduce`, handlers de falha). O Reg cobre 20/36 programas de conformance nativamente.
+- `aipo-vm`: budgets de instrução estão implementados (`set_instruction_budget`, `set_meter_interval`, contador cumulativo) e a janela de iteração é truncada no retorno de cada ativação, incluindo retorno antecipado.
+- `aipo-cli`/`aipo-diagnostics`: novo código estável `AIPO_COMPILE_WASM_UNSUPPORTED` separa limitação de backend de fault de runtime; a mensagem aponta `--engine=vm`.
+- `aipo-cli`: build JS grava `package.json` com `"type": "module"`, além de `app.js`, runtime e source map.
+- `aipo-c-abi`: exceção documentada ao `unsafe_code = "forbid"`; a crate habilita `unsafe` apenas na fronteira FFI C.
+
 ## Global rules (apply to all crates)
 
 - Dependency graph is acyclic; frontend never depends on backend/runtime; `aipo-ir`
@@ -37,7 +44,9 @@ Este delta descreve source reconstruído, não certifica gates. Consulte [guia](
 - `pub` is opt-in: smallest visibility possible; every public item has rustdoc.
 - Safe Rust by default. `unsafe` is forbidden at workspace level
   (`unsafe_code = "forbid"` in workspace lints); a crate may re-enable it only with a
-  written unsafe policy justification in its contract (no Wave 1 crate needs it).
+  written unsafe policy justification in its contract. The only current exception is
+  `aipo-c-abi`, whose FFI boundary requires `unsafe` and which rejects unwinding and
+  invalid pointers at the edge.
 - Panics never carry Aipo user-facing errors: parser/semalyzer/runtime errors are `Result`.
 - No `clone()` as borrow-checker strategy; no `Rc<RefCell>`/`Arc<Mutex>` as default architecture.
 
@@ -131,16 +140,16 @@ Este delta descreve source reconstruído, não certifica gates. Consulte [guia](
 ### aipo-bytecode (MVP)
 - **Responsibility:** compact instruction encoding + constant pool + symbol interning; emitter Core IR → bytecode; verifier (structure, jump targets, stack effects) before load.
 - **Owns:** instruction set (`crates/aipo-bytecode/README.md` and the `opcode` module), `aibc` module format, verifier.
-- **Allowed deps:** aipo-ir, aipo-diagnostics.
+- **Allowed deps:** aipo-ir, aipo-diagnostics, aipo-source.
 - **Forbidden:** Poppy concepts, host capabilities, JS specifics.
 - **Invariants:** bytecode is loadable only if verifier passes; encoding is versioned; every instruction has deterministic stack effect documented.
 - **Testing:** round-trip emit→verify→disassemble tests; verifier negative tests; differential: fixture programs compile to expected disassembly snapshots.
 - **Related ADPs:** none.
 
 ### aipo-vm (MVP)
-- **Responsibility:** stack-based bytecode interpreter: value model, frames, call stack, closures/upvalues, collections (List/Dict ordered), structs with fixed/invariant, Failure propagation (Model B), runtime faults, iteration safety (structural mutation during each = fault). Shared mutable values (`List`, `Dict`, struct instances, upvalue cells) use `Rc<RefCell<…>>`.
-- **Owns:** interpreter loop, call frames, upvalues, builtins glue, runtime object representations, operand-stack depth limit. Instruction/fuel budgets, memory accounting and interruption are **not** implemented — see `docs/adp/ADP-003-execution-budgets.md` (draft).
-- **Allowed deps:** aipo-bytecode, aipo-runtime, and aipo-host — the host adapter (`crate::host`) is the single place that converts host values, maps host faults onto `VmFault` and gates privileged operations on a capability.
+- **Responsibility:** stack-based bytecode interpreter: value model, frames, call stack, closures/upvalues, collections (List/Dict ordered), structs with fixed/invariant, Failure propagation (Model B), runtime faults, iteration safety (structural mutation during each = fault). Shared mutable values (`List`, `Dict`, struct instances, upvalue cells) use `Rc<RefCell<…>>`; collections use `Collection<T>` so structural revision is tracked.
+- **Owns:** interpreter loop, call frames, upvalues, builtins glue, runtime object representations, operand-stack depth limit. Instruction budgets are implemented (`set_instruction_budget`, interval metering); memory accounting and interruption remain governed by `docs/adp/ADP-003-execution-budgets.md`.
+- **Allowed deps:** aipo-bytecode, aipo-diagnostics, aipo-host, aipo-source — the host adapter (`crate::host`) is the single place that converts host values, maps host faults onto `VmFault` and gates privileged operations on a capability.
 - **Host boundary invariants:** the VM holds the host services in one `HostContext` (granted capabilities, the objects behind their handles, the open scopes). It only ever *checks* against what the host decided: capabilities are granted by the embedder, handles are minted and released by the embedder, and a scope is opened and closed by the embedder around a callback. The scoped-escape rule is enforced where a value becomes heap-reachable — `SetGlobal`, `Return`, `SetField`, `SetIndex`, `BuildList`, `BuildDict` — and nowhere else, because a later read cannot know which scope a binding came from. The check is guarded by "has any scope closed?", so a program with no host bindings (every Wave 1–3 program) pays one boolean per publication point and nothing else.
 - **Forbidden:** parser/frontend crates (loads verified bytecode only), host-specific modules, Poppy.
 - **Invariants:** `Int` range ±(2^53−1) enforced semantically; `Float` finite-only (NaN/Inf are faults); no silent wraparound; conditions require Bool; `div`/`%`/`/` semantics per Language Reference; no Rust panic escapes as Aipo error (all VM errors are `Result`).
@@ -161,7 +170,7 @@ Este delta descreve source reconstruído, não certifica gates. Consulte [guia](
 
 ### aipo-stdlib (MVP)
 - **Responsibility:** Prelude V1 (`none, true, false, Int, Float, Byte, String, List, Dict, Bytes, len, copy, same, some, fail`) + MVP subset of portable stdlib (see `docs/stdlib/mvp-subset.md`); native implementations behind portable contracts.
-- **Allowed deps:** aipo-runtime, aipo-vm (registration), aipo-diagnostics.
+- **Allowed deps:** aipo-runtime, aipo-vm (registration), aipo-host, aipo-diagnostics.
 - **Forbidden:** host-specific crates (fs/http/net come later with capabilities).
 - **Invariants:** no concept outside Prelude is global; one canonical name per operation (no aliases); String NFC invariant; no implicit coercions.
 - **Implemented surface (Wave 1, S9):** `docs/stdlib/mvp-subset.md`.
@@ -193,8 +202,9 @@ Este delta descreve source reconstruído, não certifica gates. Consulte [guia](
 - **Notes:** differential VM↔JS suite per Fechamento Arquitetural §10
   (`crates/aipo-js/tests/differential.rs`, `crates/aipo-cli/tests/js_build.rs`).
 
-### aipo-lsp (Wave 5)
+### LSP (Wave 5, implemented in `aipo-cli`)
 - **Responsibility:** LSP over compiler services; never duplicates analyzer logic.
+- **Location:** `crates/aipo-cli/src/lsp.rs` (`aipo lsp`), not a separate crate. Covers stdio lifecycle, diagnostics, completion and formatting.
 
 ### aipo-host (Wave 4, started by `P03-G01`)
 - **Responsibility:** host ABI contracts: AHS consumption, capability model, host values/handles. General abstractions only.

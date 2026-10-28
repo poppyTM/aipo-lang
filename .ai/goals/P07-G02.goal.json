@@ -57,6 +57,12 @@
       "event": "implementation_and_evidence_published",
       "state": "DRAFT",
       "description": "Source recovered and published; Wasm early bypass removed, aliases/shadowing rejected, final MSRV/profiles/docs checks and paired benchmark recorded. Test gate remains unexecuted by user instruction."
+    },
+    {
+      "at": "2026-10-27T00:00:00.000000+00:00",
+      "event": "reconciliation_audit",
+      "state": "DRAFT",
+      "description": "Repository re-audited against code, conformance corpus and portal. Core/default tests, Poppy and eGUI passed; game host blocked by missing libasound2-dev in the audit host. Documentation gate was fixed and backend support matrix/evidence were updated. The goal remains DRAFT pending full release gates."
     }
   ],
   "amendments": [],

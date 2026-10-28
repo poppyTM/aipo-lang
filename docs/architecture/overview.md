@@ -1,8 +1,10 @@
 # Aipo — Visão Geral da Arquitetura (Waves 1–2)
 
-**Status:** normativo (nível de arquitetura)
+**Status:** histórico — este documento descreve o recorte das Waves 1–2.
+**Arquitetura atual:** consulte [`docs/architecture/crates.md`](crates.md) e o portal em `website/content/engineering/`.
 **Autoridade:** subordinada aos documentos canônicos em `docs/canon/`
-**Escopo:** arquitetura de implementação das Waves 1–2: pipeline, propriedade dos dados, fronteiras
+**Escopo:** arquitetura de implementação das Waves 1–2: pipeline, propriedade dos dados, fronteiras.
+Wasm, host ABI, pacotes, C ABI e adaptadores de GUI/game foram adicionados depois e não aparecem neste recorte.
 **Questões bloqueantes:**
 - Quem é o dono do estado canônico?
 - Quais componentes podem mutá-lo?
@@ -16,7 +18,7 @@ O sistema Aipo é particionado em componentes de workspace estritamente delimita
 3. **Middle-end Neutro em Relação ao Alvo**: `aipo-ir` (Core IR).
 4. **Bytecode & Runtime de Execução**: `aipo-bytecode` (codificação de instruções e verifier) e `aipo-vm` (máquina virtual baseada em stack sobre valores compartilhados `Rc<RefCell<…>>` — single-threaded por decisão, sem crate de GC).
 5. **Serviços de runtime & Stdlib**: `aipo-runtime` (registro de módulos, registro de nativos) e `aipo-stdlib` (Prelude, `math`, `string`, `io`, métodos de coleções).
-6. **Backend JavaScript (Wave 2)**: `aipo-js` (Core IR → bundle ESM + runtime shim versionado + source maps; depende apenas de `aipo-ir`, nunca de bytecode).
+6. **Backend JavaScript (Wave 2)**: `aipo-js` (Core IR → bundle ESM + runtime shim versionado + source maps; depende de `aipo-ir` e `aipo-diagnostics`, nunca de bytecode).
 7. **Tooling & Orquestração**: `aipo-formatter` e `aipo-cli` (`aipo run`, `aipo check`, `aipo build`, `aipo fmt`).
 8. **Harnesses exclusivos de teste**: `aipo-testkit` (RNG determinístico, gerador de programas, runners de pipeline/JS — nunca distribui semântica da linguagem) e `aipo-bench` (binário runner de benchmark).
 

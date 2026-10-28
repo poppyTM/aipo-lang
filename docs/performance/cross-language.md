@@ -362,7 +362,7 @@ Na comparação local A/B de três amostras contra `target/perf-phase1.json`, o 
 
 Com a introdução da crate `aipo-wasm` e a integração nativa ao CLI (`aipo run --wasm`), os programas Aipo são compilados diretamente do HIR para bytecode WebAssembly e executados via JIT machine code nativo pelo Cranelift/Wasmtime. 
 
-O runtime WebAssembly elimina a sobrecarga de despacho da Stack VM tradicional (`match` de opcodes, `Vm::step`, `Value` de 24 bytes com boxing e verificação de limites dinâmicos de pilha), operando diretamente com primitivas Wasm (`i64`, `f64`, `i32`) e layout linear de memória para structs.
+O runtime WebAssembly elimina a sobrecarga de despacho da Stack VM tradicional (`match` de opcodes, `Vm::step`, `Value` medido em 16 bytes neste alvo com boxing e verificação de limites dinâmicos de pilha), operando diretamente com primitivas Wasm (`i64`, `f64`, `i32`) e layout linear de memória para structs.
 
 ### Bateria comparativa (`aipo-bench --compare`)
 
@@ -429,5 +429,13 @@ Mede o ciclo de vida completo: invocação do processo CLI, parsing, lowering, c
 | **Ruby** | 89,63ms | 85,44ms | Inicialização de VM Ruby |
 
 O tempo de startup do Aipo Wasm JIT (~15ms) inclui a compilação JIT de código nativo pelo Cranelift, mantendo-se **mais ágil que CPython (21ms), Node.js (58ms) e Ruby (90ms)**.
+
+## Revalidação local de 2026-10-27
+
+`aipo-bench --quick --json /tmp/aipo-bench-current.json` completou no HEAD com 49 amostras de frontend, comandos, VM, JS e scaling. O workload `vm/invariant-commit` usava `impl`/`init`/`invariant()` antigos e foi atualizado para `Tipo:metodo`/`init`/`invariant`; sem isso o runner abortava no parser atual. Os ratios de scaling foram classificados como `noisy` pelo próprio runner; trate os números como fumaça de performance, não como baseline certificada.
+
+## Perfil Reg: microbenchmark não é ganho de usuário
+
+O benchmark pareado de P07-G02 mede chamadas Reg contra uma baseline fixa (17,361 ms → 3,616 ms em Int; 20,129 ms → 4,426 ms em String). Esse número **não** é um ganho fim-a-fim do CLI: em 2026-10-27, `aipo plan` selecionou Reg nativamente em 20/36 programas de conformance e usou a VM canônica nos demais. Programs com `filter`/`map`/`reduce`, `attempt`/`or_else` ou IR não representável continuam na VM. Meça o workload real com `aipo plan` antes de citar a razão.
 
 Esses números são evidência local, não gate nem promessa de performance. O relatório completo, com samples crus, profile release, dirty state e checksums, ficou em `target/cross-language-final.json` e `target/bench_wasm_comparison.json`, fora do versionamento. Anexe-o como evidence quando uma decisão de produto depender dos dados.

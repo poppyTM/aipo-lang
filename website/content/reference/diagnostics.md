@@ -20,6 +20,7 @@ Aipo distingue erros de uso da CLI, erros lexicais e sintáticos, problemas de s
 
 - `AIPO_SEM_EXPORT_UNKNOWN`: exportação de símbolo não resolvido na situação descrita no journal.
 - `AIPO_COMPILE_REG_UNSUPPORTED`: instrução não suportada pelo emissor de registradores.
+- `AIPO_COMPILE_WASM_UNSUPPORTED`: construção não suportada pelo subset WebAssembly atual; use `--engine=vm` para a superfície completa.
 - `AIPO_RT_FAILURE_UNCAUGHT`: falha recuperável não tratada no topo.
 - `AIPO_LEX_INVALID_NUMBER`: literal numérico inválido.
 

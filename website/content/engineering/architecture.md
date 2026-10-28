@@ -36,6 +36,9 @@ flowchart TD
 | `aipo-js` | IR | Código ESM e shim |
 | `aipo-wasm` | HIR | Módulo Wasm e execução opcional |
 | `aipo-host` / `aipo-c-abi` | Host autorizado | Esquemas, capacidades e ponte nativa |
+| `aipo-runtime` / `aipo-stdlib` | Bytecode e módulos | Registro nativo e biblioteca padrão |
+| `aipo-package` | Manifesto e lockfile | Grafo resolvido, cache e vendor |
+| `aipo-poppy` / `aipo-egui` / `aipo-game-host` | Hosts e adaptadores | ECS, GUI imediata e loop de jogo |
 
 ## Regras de boundaries
 
@@ -45,4 +48,4 @@ flowchart TD
 - A ABI pública precisa de versionamento e testes com consumidores, não somente testes Rust.
 - Referências semânticas de linguagem não são substituídas por descrições de implementação.
 
-**Aprofunde:** [Mapa original de crates](https://github.com/poppy-team/aipo-lang/blob/main/docs/crates/crate-contracts.md), [guia de runtime](https://github.com/poppy-team/aipo-lang/blob/main/docs/development/runtime-hardening-guide.md) e [Decisões](/engineering/decisions/).
+**Aprofunde:** [Inventário atual de 24 crates](https://github.com/poppyTM/aipo-lang/blob/main/docs/architecture/crates.md), [matriz de backends](https://github.com/poppyTM/aipo-lang/blob/main/docs/architecture/backend-support-matrix.md), [contratos de crates](https://github.com/poppyTM/aipo-lang/blob/main/docs/crates/crate-contracts.md), [guia de runtime](https://github.com/poppyTM/aipo-lang/blob/main/docs/development/runtime-hardening-guide.md) e [Decisões](/engineering/decisions/).

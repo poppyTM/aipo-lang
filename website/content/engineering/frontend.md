@@ -23,9 +23,9 @@ O frontend define onde o código-fonte deixa de ser uma sequência de caracteres
 
 ## Problemas de migração conhecidos
 
-O [ADR-001](https://github.com/poppy-team/aipo-lang/blob/main/docs/decisions/adr-001-canonical-syntax.md) descreve remoção de `end`, `div`, `impl`, `self!` e `satisfy` e a adoção das formas aprovadas. [SYNTAX.md](https://github.com/poppy-team/aipo-lang/blob/main/SYNTAX.md) lista os deltas conhecidos com o parser na revisão correspondente.
+O [ADR-001](https://github.com/poppyTM/aipo-lang/blob/main/docs/decisions/adr-001-canonical-syntax.md) descreve remoção de `end`, `div`, `impl`, `self!` e `satisfy` e a adoção das formas aprovadas. [SYNTAX.md](https://github.com/poppyTM/aipo-lang/blob/main/SYNTAX.md) lista os deltas com o parser atual; `fixed` permanece como legado aceito.
 
-O [journal de drift](https://github.com/poppy-team/aipo-lang/blob/main/docs/journal/2026-10-05-syntax-drift.md) encontrou divergências de campos tipados, importação e membros. Antes de corrigir, reproduza no HEAD e confira se ainda existem.
+O [journal de drift](https://github.com/poppyTM/aipo-lang/blob/main/docs/journal/2026-10-05-syntax-drift.md) registrou D1–D4. A reverificação de 2026-10-27 não reproduziu D1, D2 ou D3; D3 agora emite `AIPO_SEM_UNKNOWN_NAME`. D4 parseia e o caso testado avançou para um erro de tipo legítimo por outro motivo.
 
 ## Definição de pronto
 

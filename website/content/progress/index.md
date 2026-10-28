@@ -19,7 +19,7 @@ Acompanhe o que existe, o que ainda precisa ser demonstrado e o que falta implem
 - **IN PROGRESS (025%):** um em quatro checkpoints tem evidência reconhecida; gates restantes continuam abertos.
 - **DONE:** todos os checkpoints concluídos, as evidências vinculadas e todos os gates aplicáveis em estado `pass`.
 
-O status é explícito no JSON versionado. O site calcula o percentual, agrupa por etapa e filtra os processos; **não lê a implementação em tempo real**. A base desta primeira auditoria é o commit `7ab1538d1c1f2dde67e01527649c9a7eebd2ed4c`. A revisão P07-G01 registra testes não executados; por isso a inspeção da existência de código não fecha automaticamente os processos de runtime.
+O status é explícito no JSON versionado. O site calcula o percentual, agrupa por etapa e filtra os processos; **não lê a implementação em tempo real**. A base da reconciliação de 2026-10-27 é o commit `ab5fbc055803d018d63e9565a3283b278b79c5f3`. A reconciliação executou o workspace completo (1.130 testes), Poppy, eGUI, game host, conformance VM/Reg, validadores do portal e build VitePress. A inspeção de código continua sendo evidência diferente de certificação de release.
 
 ## Como sugerir correções
 

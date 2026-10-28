@@ -3,9 +3,9 @@
 **Data:** 2026-10-09. **Base estudada:** `488905ffb0b83ebbff458939542350d7280ad79b`.
 **Base de integração:** `bcbc4c991dee1d9f853c597aaed2790e8981b8b9`, incorporando a atualização de `wasm-encoder` para `0.261.0` já presente na `main`.
 **Escopo:** reconstrução das correções de runtime e dos estudos de referência após perda da cópia temporária da revisão.
-**Estado:** implementação publicada para revisão; backend de registradores experimental; Goal `P07-G01` em `DRAFT`.
+**Estado:** implementação integrada à `main`; backend de registradores experimental; Goal `P07-G01` em `DRAFT`.
 
-> O usuário autorizou commit, push e PR e solicitou explicitamente não executar testes nesta reconstrução. Testes e fixtures adicionados aqui descrevem o comportamento esperado, mas não foram executados. Resultados da versão local perdida não certificam esta versão. A evidência desta entrega está em [P07-G01](../evidence/P07-G01-runtime-hardening.md).
+> A reconstrução original não executou testes. A reconciliação de 2026-10-27 executou o workspace completo (1.130 testes), incluindo Poppy, eGUI, game host e conformance VM/Reg. Resultados da versão local perdida não certificam esta versão. A evidência original está em [P07-G01](../evidence/P07-G01-runtime-hardening.md) e a medição atual na [matriz de backends](../architecture/backend-support-matrix.md).
 
 ## 1. Como navegar
 
@@ -69,7 +69,7 @@ Para obter exatamente uma revisão, prefira o SHA do commit mostrado no PR. Uma 
 
 ### 3.2 Compilar
 
-O workspace declara `rust-version = "1.85"`. Isso não certifica que todas as features e dependências atuais compilem nessa versão. O lock contém Wasmtime `49.0.2`; use uma toolchain compatível com o grafo escolhido. A reconstrução usa Rust `1.99.0`, sem alterar o MSRV declarado.
+O workspace declara `rust-version = "1.96"`, alinhado ao grafo Wasmtime `49.0.4`/Cranelift `0.136.4` do lockfile. A reconciliação usou Rust `1.99.1`; a matriz de MSRV por perfil continua sendo um gate separado.
 
 Build padrão do CLI:
 

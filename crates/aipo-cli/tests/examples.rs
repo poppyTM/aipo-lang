@@ -99,7 +99,7 @@ fn build_and_run_node(entry: &Path, tag: &str) -> (Option<i32>, String, String) 
         "--out".to_string(),
         out_dir.to_string_lossy().into_owned(),
     ];
-    let (code, _, build_err) = {
+    let (code, build_out, build_err) = {
         let _guard = lock();
         let mut out: Vec<u8> = Vec::new();
         let mut err: Vec<u8> = Vec::new();
@@ -112,6 +112,16 @@ fn build_and_run_node(entry: &Path, tag: &str) -> (Option<i32>, String, String) 
     };
     assert_eq!(code, 0, "example builds: {}", entry.display());
     assert!(build_err.is_empty(), "build is quiet: {build_err}");
+    assert!(
+        build_out.contains("built 4 files"),
+        "JS builds emit app.js, runtime, map and package.json: {build_out}"
+    );
+    let manifest = std::fs::read_to_string(out_dir.join("package.json"))
+        .expect("JS builds write package.json");
+    assert!(
+        manifest.contains("\"type\": \"module\""),
+        "package.json selects ESM: {manifest}"
+    );
     let output = Command::new("node")
         .arg("app.js")
         .current_dir(&out_dir)

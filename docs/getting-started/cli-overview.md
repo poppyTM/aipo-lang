@@ -23,17 +23,17 @@ aipo run src/main.aipo --message-format=jsonl
 
 ### `aipo test`
 
-Descobre e executa testes unitários automaticamente em arquivos `*_test.aipo` e `test_*.aipo`, garantindo isolamento total por VM limpa, semente PRNG zerada e relógio congelado:
+Descobre e executa testes unitários em arquivos `*_test.aipo`, `test_*.aipo` ou com diretiva `#!test`, garantindo isolamento por VM limpa, semente PRNG zerada e relógio congelado. Sem argumento, varre `tests/` e o diretório atual; para um pacote, passe o diretório:
 
 ```bash
-# Executar todos os testes do projeto
-aipo test
+# Executar os testes de um pacote
+aipo test packages/aipo-ui
 
 # Filtrar testes por padrão de nome ou caminho
-aipo test --filter math
+aipo test packages/aipo-ui --filter layout
 
 # Saída em streaming JSONL para CI/CD
-aipo test --message-format=jsonl
+aipo test packages/aipo-ui --message-format=jsonl
 ```
 
 ### `aipo check`

@@ -88,17 +88,17 @@ Aipo enforces deterministic exit codes:
 
 ## 2. Automated Testing: `aipo test`
 
-The `aipo test` command is the built-in test runner. It recursively discovers files ending in `_test.aipo` or starting with `test_*.aipo`.
+The `aipo test` command is the built-in test runner. Without an argument it scans `tests/` and the current directory; pass a package directory to run a package. It discovers files ending in `_test.aipo`, starting with `test_*.aipo`, or containing a `#!test` directive. Suites that call `host_*` need the host bridge.
 
 ```bash
-# Run all project tests
-aipo test
+# Run a package's tests
+aipo test packages/aipo-ui
 
 # Filter tests by function name or path pattern
-aipo test --filter auth
+aipo test packages/aipo-ui --filter layout
 
 # Machine-readable output for CI/CD integrations
-aipo test --message-format=jsonl
+aipo test packages/aipo-ui --message-format=jsonl
 ```
 
 ### Determinism and Isolation
@@ -182,6 +182,7 @@ The emitted bundle includes:
 - `app.js`: Application logic and entry point.
 - `aipo-runtime.js`: Modular, versioned runtime shim with zero external dependencies.
 - `app.js.map`: Complete source map for direct debugging of `.aipo` source in browser DevTools.
+- `package.json`: Declares `"type": "module"` so `node app.js` works in the output directory.
 
 ---
 
@@ -258,5 +259,5 @@ jobs:
         run: aipo check examples/01_fizzbuzz.aipo
 
       - name: Run Unit Tests
-        run: aipo test
+        run: aipo test packages/aipo-ui
 ```

@@ -11,7 +11,7 @@ O Aipo possui destinos de execução diferentes. A semântica efetiva depende da
 cargo run -q -p aipo-cli -- build examples/06_variables_and_values.aipo --target js --out dist/
 ```
 
-O comando emite arquivos JavaScript e artefatos de runtime necessários ao destino. Confira os caminhos e o formato no `--help` do binário instalado.
+O comando emite o bundle ESM (`app.js`), o runtime (`aipo-runtime.js`), o source map e um `package.json` com `"type": "module"` para que `node app.js` funcione no diretório de saída. Confira os caminhos e o formato no `--help` do binário instalado.
 
 ## WebAssembly
 

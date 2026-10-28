@@ -8,7 +8,7 @@ O frontend do Aipo é responsável por processar o código-fonte em texto puro a
 
 ### 1. `aipo-source`
 - Representa o arquivo fonte e seu conteúdo em memória.
-- Fornece indexação de linhas e colunas segura em relação a fronteiras UTF-8 (`is_char_boundary`), garantindo compatibilidade estrita com a MSRV (Rust 1.85+).
+- Fornece indexação de linhas e colunas segura em relação a fronteiras UTF-8 (`is_char_boundary`), garantindo compatibilidade com a MSRV declarada (Rust 1.96).
 
 ### 2. `aipo-lexer`
 - Converte o fluxo de caracteres UTF-8 em uma sequência contígua de tokens.

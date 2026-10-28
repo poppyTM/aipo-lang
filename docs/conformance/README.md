@@ -5,13 +5,13 @@
 **Scope:** corpus layout, snapshot matrix, regeneration, gate rubric
 **Update Triggers:** new fixture kind, snapshot format change, gate criteria change
 
-## Delta de reconstrução — P07-G01
+## Delta de reconciliação — 2026-10-27
 
-As fixtures `programs/33_dict_primary_iteration` e `programs/34_conditional_values` registram, respectivamente, chaves de Dict em iteração primária e resultados condicionais em ramos que convergem. Seus `.stdout` são expectativas baseadas no canon e revisão manual; não foram regenerados nem executados nesta reconstrução.
+O corpus completo foi executado no SHA auditado: 36 programas com `.stdout`, 29 diagnósticos com `.code`, casos de módulo, AHS e formatação. `crates/aipo-cli/tests/reg_conformance.rs` compara todos os programas nos engines `vm` e `reg`; quando o emissor Reg não cobre uma construção, o plano usa a VM canônica com motivo explícito e a saída continua idêntica.
 
-`crates/aipo-cli/tests/reg_conformance.rs` compara essas fixtures nos engines vm/reg. `crates/aipo-vm/tests/reg_vm_robustness.rs` cobre aritmética compartilhada, operandos inválidos, budget, Unicode/extremos e índice de iteração em registrador alto. `disabled_features.rs` cobre ausência de compiler/runner. As suites JIT Wasm agora respeitam features. Execução dispensada explicitamente pelo usuário nesta rodada; paridade ainda precisa ser validada.
+O Reg cobre 20 dos 36 programas nativamente. Ficam na VM canônica: métodos de ordem superior (`filter`, `map`, `reduce`, …), handlers de falha (`attempt`/`or_else`) e funções que o emissor não representa. O Wasm foi verificado separadamente; sua cobertura é registrada na [matriz de backends](../architecture/backend-support-matrix.md), não inferida deste corpus.
 
-Consulte [guia e limites](../development/runtime-hardening-guide.md) e [evidência](../evidence/P07-G01-runtime-hardening.md). Este delta não reclassifica como certificados os cenários pendentes.
+Consulte [guia e limites](../development/runtime-hardening-guide.md) e [evidência](../evidence/P07-G01-runtime-hardening.md). A execução de 2026-10-27 não transforma os goals P07 em `DONE`; ela fecha o gate de testes deste corpus.
 
 ## Purpose
 
@@ -54,7 +54,7 @@ snapshot for a program is only ever rewritten on request (see *Regeneration*).
 | `02_recursion` | recursion, `return`, base cases |
 | `03_control_flow` | `if`/`elif`/`else`, `match`/`when`, `loop`, `while`, `repeat`, `each`, `break`, `continue` |
 | `04_collections` | `List`/`Dict` literals, core collection method APIs, indexing |
-| `05_structs_and_impl` | `struct` with defaults, construction, `impl` methods, associated functions |
+| `05_structs_and_impl` | `struct` with defaults, construction, `Tipo:metodo` methods, associated functions |
 | `06_closures` | anonymous `fn`, capture, per-iteration capture in loops |
 | `07_strings_and_math` | `string` and `math` modules, `find`/`replace`/`split`/`join`, rounding modes |
 | `08_failures` | `fail`, `or_else`, `attempt`/`failed`, `err.message` |
@@ -65,7 +65,7 @@ snapshot for a program is only ever rewritten on request (see *Regeneration*).
 | `13_init_and_invariant` | `Type{...}` runs `init` when declared (with defaults and `fixed` assignment), `invariant()` verified at the end of construction |
 | `14_signature_contracts` | `name: Type`, `name!: Type`, `-> T`, `T?`, checked default, the `Function` contract, a `struct` contract and a mutable receiver |
 | `15_invariant_on_mutation` | `invariant()` at stable mutable boundaries: commit, rollback with the entry value preserved (method and direct assignment) and rollback of two instances in one operation |
-| `16_interface_contracts` | `satisfy` plus an interface used as a written contract: structural conformance at runtime, `T?` accepting `none`, an interface operation with an argument |
+| `16_interface_contracts` | `#!satisfies` plus an interface used as a written contract: structural conformance at runtime, `T?` accepting `none`, an interface operation with an argument |
 | `17_unicode_nfc` | NFC at the construction boundaries: escaped literal, concatenation, interpolation, `join`, `replace`, `format`, case mapping, `reverse`, and a mark with no precomposed form surviving normalization |
 | `18_tolerant_slices_and_clamp` | tolerant slices (above the end, before the start, inverted) for `List`, `String` and `Bytes`; `math.clamp` with inverted bounds as a recoverable `Failure`; mixed numeric promotion in `min`/`max` |
 | `19_local_functions` | local `fn` declarations: shared `var` capture (canon's `create_counter`), self-recursion through the local name, and a local `fn` reading an enclosing parameter |
@@ -73,10 +73,19 @@ snapshot for a program is only ever rewritten on request (see *Regeneration*).
 | `21_attempt_recovery_and_journal` | `return fail(…)` propagating to the caller's `attempt` boundary, and recovery releasing pre-handler journal entries (only post-handler mutations roll back) |
 | `22_signed_zero` | IEEE signed zero: `-0.0` observable in `Float` display, `Int` arithmetic never producing negative zero (normalized on the JS backend) |
 | `23_init_in_parameterized_fn` | construction with `init` inside a parameterized function (fuzz-found IR builder panic regression) |
-| `24_async_functions_and_await` | `async fn` as a call protocol (calling spawns eagerly, `await` explicit everywhere), task values bound/passed/joined, `task.spawn`, `await` as statement/initializer/return, anonymous `async fn` closure and an `async fn` `impl` method with the receiver as argument 0 |
-| `25_await_do` | `await do … end` sequential sugar over several tasks and a local `fn` that awaits inside the block |
+| `24_async_functions_and_await` | `async fn` as a call protocol (calling spawns eagerly, `await` explicit everywhere), task values bound/passed/joined, `task.spawn`, `await` as statement/initializer/return, anonymous `async fn` closure and an `async fn` `Tipo:metodo` method with the receiver as argument 0 |
+| `25_await_do` | `await do { ... }` sequential sugar over several tasks and a local `fn` that awaits inside the block |
 | `26_async_combinators` | `task.all`/`race`/`timeout`/`cancel`/`sleep`/`group` composed in one program with deterministic ordering |
 | `27_numeric_literal_bases` | decimal/hex/binary/octal integer literals, separators, float literal forms and `i64`-range boundaries |
+| `28_time_clock_capability` | `time.now`/`time.monotonic` under the CLI clock capability, including monotonicity |
+| `29_try_propagation_operator` | postfix `?` propagation in expressions, handlers and callers |
+| `30_struct_update_with` | functional `with { ... }` updates, immutable base and `fixed` field identity |
+| `31_match_destructure_and_guards` | struct destructuring, field bindings and `if` guards in `match` |
+| `32_enum_variants_and_matching` | unit, struct and tuple enum variants with exhaustive matching |
+| `33_dict_primary_iteration` | insertion-ordered Dict iteration and key/value projection |
+| `34_conditional_values` | inline `if c then a else b` values in statements, returns and nested branches |
+| `35_register_profile_shared_services` | Reg profile fallback with shared captures, async/await and scheduler semantics |
+| `36_semantic_type_tests` | `is` checks across primitives, collections and nullable contracts |
 
 | Diagnostic fixture | Code asserted |
 |---|---|
@@ -120,12 +129,12 @@ snapshot for a program is only ever rewritten on request (see *Regeneration*).
 |---|---|
 | `01_missing_indent` | indentation is canonicalized to four spaces |
 | `02_operator_spacing` | binary operator spacing |
-| `03_nested_blocks` | nested block indentation and `end` alignment |
+| `03_nested_blocks` | nested block indentation and brace alignment |
 | `04_match_branches` | `when`/`else` arm indentation |
 | `05_comments_and_blanks` | comment and blank-line preservation |
-| `06_struct_and_impl` | `struct`/`impl` bodies |
+| `06_struct_and_impl` | `struct` and `Tipo:metodo` bodies |
 | `07_slices_and_calls` | call and slice argument layout |
-| `08_trailing_block` | trailing `do … end` blocks |
+| `08_trailing_block` | trailing `do { ... }` blocks |
 
 ### Host surface fixtures (`ahs/`)
 
@@ -234,7 +243,7 @@ The three residual limits `P00-G14` left open were closed by `P00-G15` and are c
 | `aipo-sema` did not use the written annotations for a pre-execution report | `P00-G15` | `diagnostics/15_sem_contract_violation`, `diagnostics/16_sem_return_contract` |
 | Interface contracts were accepted instead of checked by structural conformance | `P00-G15` | `programs/16_interface_contracts`, `diagnostics/17_runtime_interface_contract`, `diagnostics/18_runtime_interface_arity` |
 | The ADP-001 questions on inverted `clamp` bounds, slice saturation and NFC construction boundaries were open | `P00-G15` | `programs/17_unicode_nfc`, `programs/18_tolerant_slices_and_clamp`, `diagnostics/19_runtime_clamp_inverted_bounds` |
-| Module bindings were invisible inside `fn`/`impl` bodies and local `fn` declarations collapsed into anonymous closures | `P00-G16` | `programs/19_local_functions`, `programs/20_module_scope` |
+| Module bindings were invisible inside `fn`/`Tipo:metodo` bodies and local `fn` declarations collapsed into anonymous closures | `P00-G16` | `programs/19_local_functions`, `programs/20_module_scope` |
 
 What the MVP subset declares but the implementation still does not deliver is explicit
 non-delivery, not an open gap (see `docs/evidence/P00-G16-wave-1-exit-review.md` and

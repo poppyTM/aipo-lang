@@ -399,3 +399,22 @@ fn test_cli_budget_flag_validation() {
 
     let _ = fs::remove_file(script);
 }
+
+#[test]
+fn test_wasm_unsupported_reports_compile_diagnostic() {
+    let script = temp_file(
+        "unsupported.aipo",
+        "let items = [1, 2]\nio.println(len(items))\n",
+    );
+    let (code, _, stderr) = run_cli(&["check", script.to_str().unwrap(), "--wasm"]);
+    assert_eq!(code, EXIT_LANGUAGE_FAILURE, "stderr: {stderr}");
+    assert!(
+        stderr.contains("AIPO_COMPILE_WASM_UNSUPPORTED"),
+        "expected compile diagnostic, got: {stderr}"
+    );
+    assert!(
+        !stderr.contains("AIPO_RT_TYPE_MISMATCH"),
+        "backend limitation must not be a runtime fault: {stderr}"
+    );
+    let _ = fs::remove_file(script);
+}
