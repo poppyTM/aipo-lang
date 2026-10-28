@@ -9,7 +9,7 @@ Este registro conserva **evidências de inconsistência editorial**, não decide
 
 | Tema | Fonte canônica | Estado |
 | --- | --- | --- |
-| Estado da implementação | `PROJECT_STATE.md` + `.ai/goals/` | P07-G01/G02/G03 DONE; release v0.1.0 publicada |
+| Estado da implementação | `PROJECT_STATE.md` + `.ai/goals/` | P07-G01/G02/G03 DONE; P08-G01 performance baseline DONE; release v0.1.0 publicada |
 | Sintaxe implementada | `SYNTAX.md` + testes do parser | Normativo para a superfície atual; `fixed` é legado aceito |
 | Arquitetura e crates | `docs/architecture/crates.md` + `docs/crates/crate-contracts.md` | Derivado de `cargo metadata` |
 | Conformance | `docs/conformance/README.md` + fixtures | Executável; 36 programas e 29 diagnósticos |

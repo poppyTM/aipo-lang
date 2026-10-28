@@ -434,6 +434,10 @@ O tempo de startup do Aipo Wasm JIT (~15ms) inclui a compilação JIT de código
 
 `aipo-bench --quick --json /tmp/aipo-bench-current.json` completou no HEAD com 49 amostras de frontend, comandos, VM, JS e scaling. O workload `vm/invariant-commit` usava `impl`/`init`/`invariant()` antigos e foi atualizado para `Tipo:metodo`/`init`/`invariant`; sem isso o runner abortava no parser atual. Os ratios de scaling foram classificados como `noisy` pelo próprio runner; trate os números como fumaça de performance, não como baseline certificada.
 
+## Baseline P08-G01 (2026-10-28)
+
+A Matriz 2 foi executada com CPU 0 pinada no host compartilhado `c036164`: `aipo-bench --json` com 58 amostras e `aipo-bench --compare --compare-quick` com 3 rounds. Reg ficou em 0,95x/0,69x/1,02x/1,55x/1,00x contra a VM em arithmetic/collections/fields/recursion/strings; Wasm ficou em 0,16x/0,20x/0,07x/0,45x nos workloads suportados. `strings` no Wasm falhou com `AIPO_COMPILE_WASM_UNSUPPORTED`. Dados brutos e limitações: [P08-G01](../evidence/P08-G01/README.md). Não é runner dedicado nem gate de regressão.
+
 ## Perfil Reg: microbenchmark não é ganho de usuário
 
 O benchmark pareado de P07-G02 mede chamadas Reg contra uma baseline fixa (17,361 ms → 3,616 ms em Int; 20,129 ms → 4,426 ms em String). Esse número **não** é um ganho fim-a-fim do CLI: em 2026-10-27, `aipo plan` selecionou Reg nativamente em 20/36 programas de conformance e usou a VM canônica nos demais. Programs com `filter`/`map`/`reduce`, `attempt`/`or_else` ou IR não representável continuam na VM. Meça o workload real com `aipo plan` antes de citar a razão.
