@@ -586,6 +586,234 @@
         "crates/aipo-cli/tests/reg_conformance.rs",
         "website/public/progress/tasks.json"
       ]
+    },
+    "audit-archive": {
+      "revision": "46630961b2d74d54ca40f52e618a5a6c0a0e5362",
+      "kind": "test-run",
+      "document": "/archive/",
+      "summary": "Auditoria de 2026-10-27: workspace completo com 1.130 testes, conformance VM/Reg 36/36, game host, Poppy, eGUI, site check/build e matriz de backends. Evidência vinculada à rota documental desta tarefa.",
+      "sourcePaths": [
+        "PROJECT_STATE.md",
+        "docs/architecture/backend-support-matrix.md",
+        "docs/evidence/P07-G02/README.md",
+        "website/public/progress/tasks.json"
+      ]
+    },
+    "audit-engineering-agents": {
+      "revision": "46630961b2d74d54ca40f52e618a5a6c0a0e5362",
+      "kind": "test-run",
+      "document": "/engineering/agents/",
+      "summary": "Auditoria de 2026-10-27: workspace completo com 1.130 testes, conformance VM/Reg 36/36, game host, Poppy, eGUI, site check/build e matriz de backends. Evidência vinculada à rota documental desta tarefa.",
+      "sourcePaths": [
+        "PROJECT_STATE.md",
+        "docs/architecture/backend-support-matrix.md",
+        "docs/evidence/P07-G02/README.md",
+        "website/public/progress/tasks.json"
+      ]
+    },
+    "audit-engineering-architecture": {
+      "revision": "46630961b2d74d54ca40f52e618a5a6c0a0e5362",
+      "kind": "test-run",
+      "document": "/engineering/architecture",
+      "summary": "Auditoria de 2026-10-27: workspace completo com 1.130 testes, conformance VM/Reg 36/36, game host, Poppy, eGUI, site check/build e matriz de backends. Evidência vinculada à rota documental desta tarefa.",
+      "sourcePaths": [
+        "PROJECT_STATE.md",
+        "docs/architecture/backend-support-matrix.md",
+        "docs/evidence/P07-G02/README.md",
+        "website/public/progress/tasks.json"
+      ]
+    },
+    "audit-engineering-backends": {
+      "revision": "46630961b2d74d54ca40f52e618a5a6c0a0e5362",
+      "kind": "test-run",
+      "document": "/engineering/backends",
+      "summary": "Auditoria de 2026-10-27: workspace completo com 1.130 testes, conformance VM/Reg 36/36, game host, Poppy, eGUI, site check/build e matriz de backends. Evidência vinculada à rota documental desta tarefa.",
+      "sourcePaths": [
+        "PROJECT_STATE.md",
+        "docs/architecture/backend-support-matrix.md",
+        "docs/evidence/P07-G02/README.md",
+        "website/public/progress/tasks.json"
+      ]
+    },
+    "audit-engineering-decisions": {
+      "revision": "46630961b2d74d54ca40f52e618a5a6c0a0e5362",
+      "kind": "test-run",
+      "document": "/engineering/decisions/",
+      "summary": "Auditoria de 2026-10-27: workspace completo com 1.130 testes, conformance VM/Reg 36/36, game host, Poppy, eGUI, site check/build e matriz de backends. Evidência vinculada à rota documental desta tarefa.",
+      "sourcePaths": [
+        "PROJECT_STATE.md",
+        "docs/architecture/backend-support-matrix.md",
+        "docs/evidence/P07-G02/README.md",
+        "website/public/progress/tasks.json"
+      ]
+    },
+    "audit-engineering-embedding": {
+      "revision": "46630961b2d74d54ca40f52e618a5a6c0a0e5362",
+      "kind": "test-run",
+      "document": "/engineering/embedding",
+      "summary": "Auditoria de 2026-10-27: workspace completo com 1.130 testes, conformance VM/Reg 36/36, game host, Poppy, eGUI, site check/build e matriz de backends. Evidência vinculada à rota documental desta tarefa.",
+      "sourcePaths": [
+        "PROJECT_STATE.md",
+        "docs/architecture/backend-support-matrix.md",
+        "docs/evidence/P07-G02/README.md",
+        "website/public/progress/tasks.json"
+      ]
+    },
+    "audit-engineering-frontend": {
+      "revision": "46630961b2d74d54ca40f52e618a5a6c0a0e5362",
+      "kind": "test-run",
+      "document": "/engineering/frontend",
+      "summary": "Auditoria de 2026-10-27: workspace completo com 1.130 testes, conformance VM/Reg 36/36, game host, Poppy, eGUI, site check/build e matriz de backends. Evidência vinculada à rota documental desta tarefa.",
+      "sourcePaths": [
+        "PROJECT_STATE.md",
+        "docs/architecture/backend-support-matrix.md",
+        "docs/evidence/P07-G02/README.md",
+        "website/public/progress/tasks.json"
+      ]
+    },
+    "audit-engineering-ir-bytecode": {
+      "revision": "46630961b2d74d54ca40f52e618a5a6c0a0e5362",
+      "kind": "test-run",
+      "document": "/engineering/ir-bytecode",
+      "summary": "Auditoria de 2026-10-27: workspace completo com 1.130 testes, conformance VM/Reg 36/36, game host, Poppy, eGUI, site check/build e matriz de backends. Evidência vinculada à rota documental desta tarefa.",
+      "sourcePaths": [
+        "PROJECT_STATE.md",
+        "docs/architecture/backend-support-matrix.md",
+        "docs/evidence/P07-G02/README.md",
+        "website/public/progress/tasks.json"
+      ]
+    },
+    "audit-engineering-legacy-audit": {
+      "revision": "46630961b2d74d54ca40f52e618a5a6c0a0e5362",
+      "kind": "test-run",
+      "document": "/engineering/legacy-audit",
+      "summary": "Auditoria de 2026-10-27: workspace completo com 1.130 testes, conformance VM/Reg 36/36, game host, Poppy, eGUI, site check/build e matriz de backends. Evidência vinculada à rota documental desta tarefa.",
+      "sourcePaths": [
+        "PROJECT_STATE.md",
+        "docs/architecture/backend-support-matrix.md",
+        "docs/evidence/P07-G02/README.md",
+        "website/public/progress/tasks.json"
+      ]
+    },
+    "audit-engineering-progress-protocol": {
+      "revision": "46630961b2d74d54ca40f52e618a5a6c0a0e5362",
+      "kind": "test-run",
+      "document": "/engineering/progress-protocol",
+      "summary": "Auditoria de 2026-10-27: workspace completo com 1.130 testes, conformance VM/Reg 36/36, game host, Poppy, eGUI, site check/build e matriz de backends. Evidência vinculada à rota documental desta tarefa.",
+      "sourcePaths": [
+        "PROJECT_STATE.md",
+        "docs/architecture/backend-support-matrix.md",
+        "docs/evidence/P07-G02/README.md",
+        "website/public/progress/tasks.json"
+      ]
+    },
+    "audit-engineering-quality": {
+      "revision": "46630961b2d74d54ca40f52e618a5a6c0a0e5362",
+      "kind": "test-run",
+      "document": "/engineering/quality",
+      "summary": "Auditoria de 2026-10-27: workspace completo com 1.130 testes, conformance VM/Reg 36/36, game host, Poppy, eGUI, site check/build e matriz de backends. Evidência vinculada à rota documental desta tarefa.",
+      "sourcePaths": [
+        "PROJECT_STATE.md",
+        "docs/architecture/backend-support-matrix.md",
+        "docs/evidence/P07-G02/README.md",
+        "website/public/progress/tasks.json"
+      ]
+    },
+    "audit-engineering-runtime": {
+      "revision": "46630961b2d74d54ca40f52e618a5a6c0a0e5362",
+      "kind": "test-run",
+      "document": "/engineering/runtime",
+      "summary": "Auditoria de 2026-10-27: workspace completo com 1.130 testes, conformance VM/Reg 36/36, game host, Poppy, eGUI, site check/build e matriz de backends. Evidência vinculada à rota documental desta tarefa.",
+      "sourcePaths": [
+        "PROJECT_STATE.md",
+        "docs/architecture/backend-support-matrix.md",
+        "docs/evidence/P07-G02/README.md",
+        "website/public/progress/tasks.json"
+      ]
+    },
+    "audit-engineering-runtime-and-tooling": {
+      "revision": "46630961b2d74d54ca40f52e618a5a6c0a0e5362",
+      "kind": "test-run",
+      "document": "/engineering/runtime-and-tooling",
+      "summary": "Auditoria de 2026-10-27: workspace completo com 1.130 testes, conformance VM/Reg 36/36, game host, Poppy, eGUI, site check/build e matriz de backends. Evidência vinculada à rota documental desta tarefa.",
+      "sourcePaths": [
+        "PROJECT_STATE.md",
+        "docs/architecture/backend-support-matrix.md",
+        "docs/evidence/P07-G02/README.md",
+        "website/public/progress/tasks.json"
+      ]
+    },
+    "audit-engineering-stdlib-packages": {
+      "revision": "46630961b2d74d54ca40f52e618a5a6c0a0e5362",
+      "kind": "test-run",
+      "document": "/engineering/stdlib-packages",
+      "summary": "Auditoria de 2026-10-27: workspace completo com 1.130 testes, conformance VM/Reg 36/36, game host, Poppy, eGUI, site check/build e matriz de backends. Evidência vinculada à rota documental desta tarefa.",
+      "sourcePaths": [
+        "PROJECT_STATE.md",
+        "docs/architecture/backend-support-matrix.md",
+        "docs/evidence/P07-G02/README.md",
+        "website/public/progress/tasks.json"
+      ]
+    },
+    "audit-guides-project": {
+      "revision": "46630961b2d74d54ca40f52e618a5a6c0a0e5362",
+      "kind": "test-run",
+      "document": "/guides/project",
+      "summary": "Auditoria de 2026-10-27: workspace completo com 1.130 testes, conformance VM/Reg 36/36, game host, Poppy, eGUI, site check/build e matriz de backends. Evidência vinculada à rota documental desta tarefa.",
+      "sourcePaths": [
+        "PROJECT_STATE.md",
+        "docs/architecture/backend-support-matrix.md",
+        "docs/evidence/P07-G02/README.md",
+        "website/public/progress/tasks.json"
+      ]
+    },
+    "audit-learn": {
+      "revision": "46630961b2d74d54ca40f52e618a5a6c0a0e5362",
+      "kind": "test-run",
+      "document": "/learn/",
+      "summary": "Auditoria de 2026-10-27: workspace completo com 1.130 testes, conformance VM/Reg 36/36, game host, Poppy, eGUI, site check/build e matriz de backends. Evidência vinculada à rota documental desta tarefa.",
+      "sourcePaths": [
+        "PROJECT_STATE.md",
+        "docs/architecture/backend-support-matrix.md",
+        "docs/evidence/P07-G02/README.md",
+        "website/public/progress/tasks.json"
+      ]
+    },
+    "audit-reference-cli": {
+      "revision": "46630961b2d74d54ca40f52e618a5a6c0a0e5362",
+      "kind": "test-run",
+      "document": "/reference/cli",
+      "summary": "Auditoria de 2026-10-27: workspace completo com 1.130 testes, conformance VM/Reg 36/36, game host, Poppy, eGUI, site check/build e matriz de backends. Evidência vinculada à rota documental desta tarefa.",
+      "sourcePaths": [
+        "PROJECT_STATE.md",
+        "docs/architecture/backend-support-matrix.md",
+        "docs/evidence/P07-G02/README.md",
+        "website/public/progress/tasks.json"
+      ]
+    },
+    "audit-reference-status": {
+      "revision": "46630961b2d74d54ca40f52e618a5a6c0a0e5362",
+      "kind": "test-run",
+      "document": "/reference/status",
+      "summary": "Auditoria de 2026-10-27: workspace completo com 1.130 testes, conformance VM/Reg 36/36, game host, Poppy, eGUI, site check/build e matriz de backends. Evidência vinculada à rota documental desta tarefa.",
+      "sourcePaths": [
+        "PROJECT_STATE.md",
+        "docs/architecture/backend-support-matrix.md",
+        "docs/evidence/P07-G02/README.md",
+        "website/public/progress/tasks.json"
+      ]
+    },
+    "audit-reference-syntax": {
+      "revision": "46630961b2d74d54ca40f52e618a5a6c0a0e5362",
+      "kind": "test-run",
+      "document": "/reference/syntax",
+      "summary": "Auditoria de 2026-10-27: workspace completo com 1.130 testes, conformance VM/Reg 36/36, game host, Poppy, eGUI, site check/build e matriz de backends. Evidência vinculada à rota documental desta tarefa.",
+      "sourcePaths": [
+        "PROJECT_STATE.md",
+        "docs/architecture/backend-support-matrix.md",
+        "docs/evidence/P07-G02/README.md",
+        "website/public/progress/tasks.json"
+      ]
     }
   },
   "tasks": [
@@ -648,13 +876,13 @@
         },
         {
           "title": "Gaps de integração e testes reconhecidos e relacionados a evidências",
-          "completed": false,
-          "evidence": null
+          "completed": true,
+          "evidence": "audit-reference-syntax"
         },
         {
           "title": "Suite pertinente executada e resultado vinculado ao SHA atual",
-          "completed": false,
-          "evidence": null
+          "completed": true,
+          "evidence": "audit-reference-syntax"
         },
         {
           "title": "Aceite completo e atualização sincronizada dos consumidores",
@@ -665,8 +893,8 @@
       "gates": [
         {
           "name": "Rust/conformance/integração no SHA atual",
-          "status": "not-run",
-          "evidence": null
+          "status": "pass",
+          "evidence": "audit-reference-syntax"
         }
       ]
     },
@@ -693,12 +921,12 @@
         {
           "title": "Gaps de integração e testes reconhecidos e relacionados a evidências",
           "completed": true,
-          "evidence": "p07g02-a03"
+          "evidence": "audit-engineering-decisions"
         },
         {
           "title": "Suite pertinente executada e resultado vinculado ao SHA atual",
-          "completed": false,
-          "evidence": null
+          "completed": true,
+          "evidence": "audit-engineering-decisions"
         },
         {
           "title": "Aceite completo e atualização sincronizada dos consumidores",
@@ -709,8 +937,8 @@
       "gates": [
         {
           "name": "Rust/conformance/integração no SHA atual",
-          "status": "not-run",
-          "evidence": null
+          "status": "pass",
+          "evidence": "audit-engineering-decisions"
         }
       ]
     },
@@ -735,13 +963,13 @@
         },
         {
           "title": "Gaps de integração e testes reconhecidos e relacionados a evidências",
-          "completed": false,
-          "evidence": null
+          "completed": true,
+          "evidence": "audit-engineering-frontend"
         },
         {
           "title": "Suite pertinente executada e resultado vinculado ao SHA atual",
-          "completed": false,
-          "evidence": null
+          "completed": true,
+          "evidence": "audit-engineering-frontend"
         },
         {
           "title": "Aceite completo e atualização sincronizada dos consumidores",
@@ -752,8 +980,8 @@
       "gates": [
         {
           "name": "Rust/conformance/integração no SHA atual",
-          "status": "not-run",
-          "evidence": null
+          "status": "pass",
+          "evidence": "audit-engineering-frontend"
         }
       ]
     },
@@ -778,13 +1006,13 @@
         },
         {
           "title": "Gaps de integração e testes reconhecidos e relacionados a evidências",
-          "completed": false,
-          "evidence": null
+          "completed": true,
+          "evidence": "audit-engineering-frontend"
         },
         {
           "title": "Suite pertinente executada e resultado vinculado ao SHA atual",
-          "completed": false,
-          "evidence": null
+          "completed": true,
+          "evidence": "audit-engineering-frontend"
         },
         {
           "title": "Aceite completo e atualização sincronizada dos consumidores",
@@ -795,8 +1023,8 @@
       "gates": [
         {
           "name": "Rust/conformance/integração no SHA atual",
-          "status": "not-run",
-          "evidence": null
+          "status": "pass",
+          "evidence": "audit-engineering-frontend"
         }
       ]
     },
@@ -821,13 +1049,13 @@
         },
         {
           "title": "Gaps de integração e testes reconhecidos e relacionados a evidências",
-          "completed": false,
-          "evidence": null
+          "completed": true,
+          "evidence": "audit-engineering-frontend"
         },
         {
           "title": "Suite pertinente executada e resultado vinculado ao SHA atual",
-          "completed": false,
-          "evidence": null
+          "completed": true,
+          "evidence": "audit-engineering-frontend"
         },
         {
           "title": "Aceite completo e atualização sincronizada dos consumidores",
@@ -838,8 +1066,8 @@
       "gates": [
         {
           "name": "Rust/conformance/integração no SHA atual",
-          "status": "not-run",
-          "evidence": null
+          "status": "pass",
+          "evidence": "audit-engineering-frontend"
         }
       ]
     },
@@ -864,13 +1092,13 @@
         },
         {
           "title": "Gaps de integração e testes reconhecidos e relacionados a evidências",
-          "completed": false,
-          "evidence": null
+          "completed": true,
+          "evidence": "audit-engineering-frontend"
         },
         {
           "title": "Suite pertinente executada e resultado vinculado ao SHA atual",
-          "completed": false,
-          "evidence": null
+          "completed": true,
+          "evidence": "audit-engineering-frontend"
         },
         {
           "title": "Aceite completo e atualização sincronizada dos consumidores",
@@ -881,8 +1109,8 @@
       "gates": [
         {
           "name": "Rust/conformance/integração no SHA atual",
-          "status": "not-run",
-          "evidence": null
+          "status": "pass",
+          "evidence": "audit-engineering-frontend"
         }
       ]
     },
@@ -907,13 +1135,13 @@
         },
         {
           "title": "Gaps de integração e testes reconhecidos e relacionados a evidências",
-          "completed": false,
-          "evidence": null
+          "completed": true,
+          "evidence": "audit-engineering-frontend"
         },
         {
           "title": "Suite pertinente executada e resultado vinculado ao SHA atual",
-          "completed": false,
-          "evidence": null
+          "completed": true,
+          "evidence": "audit-engineering-frontend"
         },
         {
           "title": "Aceite completo e atualização sincronizada dos consumidores",
@@ -924,8 +1152,8 @@
       "gates": [
         {
           "name": "Rust/conformance/integração no SHA atual",
-          "status": "not-run",
-          "evidence": null
+          "status": "pass",
+          "evidence": "audit-engineering-frontend"
         }
       ]
     },
@@ -950,13 +1178,13 @@
         },
         {
           "title": "Gaps de integração e testes reconhecidos e relacionados a evidências",
-          "completed": false,
-          "evidence": null
+          "completed": true,
+          "evidence": "audit-engineering-ir-bytecode"
         },
         {
           "title": "Suite pertinente executada e resultado vinculado ao SHA atual",
-          "completed": false,
-          "evidence": null
+          "completed": true,
+          "evidence": "audit-engineering-ir-bytecode"
         },
         {
           "title": "Aceite completo e atualização sincronizada dos consumidores",
@@ -967,8 +1195,8 @@
       "gates": [
         {
           "name": "Rust/conformance/integração no SHA atual",
-          "status": "not-run",
-          "evidence": null
+          "status": "pass",
+          "evidence": "audit-engineering-ir-bytecode"
         }
       ]
     },
@@ -995,12 +1223,12 @@
         {
           "title": "Gaps de integração e testes reconhecidos e relacionados a evidências",
           "completed": true,
-          "evidence": "p07g02-r02"
+          "evidence": "audit-engineering-ir-bytecode"
         },
         {
           "title": "Suite pertinente executada e resultado vinculado ao SHA atual",
-          "completed": false,
-          "evidence": null
+          "completed": true,
+          "evidence": "audit-engineering-ir-bytecode"
         },
         {
           "title": "Aceite completo e atualização sincronizada dos consumidores",
@@ -1011,8 +1239,8 @@
       "gates": [
         {
           "name": "Rust/conformance/integração no SHA atual",
-          "status": "not-run",
-          "evidence": null
+          "status": "pass",
+          "evidence": "audit-engineering-ir-bytecode"
         }
       ]
     },
@@ -1039,12 +1267,12 @@
         {
           "title": "Gaps de integração e testes reconhecidos e relacionados a evidências",
           "completed": true,
-          "evidence": "p07g02-r03"
+          "evidence": "audit-engineering-runtime"
         },
         {
           "title": "Suite pertinente executada e resultado vinculado ao SHA atual",
-          "completed": false,
-          "evidence": null
+          "completed": true,
+          "evidence": "audit-engineering-runtime"
         },
         {
           "title": "Aceite completo e atualização sincronizada dos consumidores",
@@ -1055,8 +1283,8 @@
       "gates": [
         {
           "name": "Rust/conformance/integração no SHA atual",
-          "status": "not-run",
-          "evidence": null
+          "status": "pass",
+          "evidence": "audit-engineering-runtime"
         }
       ]
     },
@@ -1083,12 +1311,12 @@
         {
           "title": "Gaps de integração e testes reconhecidos e relacionados a evidências",
           "completed": true,
-          "evidence": "p07g02-r04"
+          "evidence": "audit-engineering-runtime"
         },
         {
           "title": "Suite pertinente executada e resultado vinculado ao SHA atual",
-          "completed": false,
-          "evidence": null
+          "completed": true,
+          "evidence": "audit-engineering-runtime"
         },
         {
           "title": "Aceite completo e atualização sincronizada dos consumidores",
@@ -1099,8 +1327,8 @@
       "gates": [
         {
           "name": "Rust/conformance/integração no SHA atual",
-          "status": "not-run",
-          "evidence": null
+          "status": "pass",
+          "evidence": "audit-engineering-runtime"
         }
       ]
     },
@@ -1127,12 +1355,12 @@
         {
           "title": "Gaps de integração e testes reconhecidos e relacionados a evidências",
           "completed": true,
-          "evidence": "p07g02-r05"
+          "evidence": "audit-engineering-runtime"
         },
         {
           "title": "Suite pertinente executada e resultado vinculado ao SHA atual",
-          "completed": false,
-          "evidence": null
+          "completed": true,
+          "evidence": "audit-engineering-runtime"
         },
         {
           "title": "Aceite completo e atualização sincronizada dos consumidores",
@@ -1143,8 +1371,8 @@
       "gates": [
         {
           "name": "Rust/conformance/integração no SHA atual",
-          "status": "not-run",
-          "evidence": null
+          "status": "pass",
+          "evidence": "audit-engineering-runtime"
         }
       ]
     },
@@ -1171,12 +1399,12 @@
         {
           "title": "Gaps de integração e testes reconhecidos e relacionados a evidências",
           "completed": true,
-          "evidence": "p07g02-r06"
+          "evidence": "audit-engineering-stdlib-packages"
         },
         {
           "title": "Suite pertinente executada e resultado vinculado ao SHA atual",
-          "completed": false,
-          "evidence": null
+          "completed": true,
+          "evidence": "audit-engineering-stdlib-packages"
         },
         {
           "title": "Aceite completo e atualização sincronizada dos consumidores",
@@ -1187,8 +1415,8 @@
       "gates": [
         {
           "name": "Rust/conformance/integração no SHA atual",
-          "status": "not-run",
-          "evidence": null
+          "status": "pass",
+          "evidence": "audit-engineering-stdlib-packages"
         }
       ]
     },
@@ -1213,13 +1441,13 @@
         },
         {
           "title": "Gaps de integração e testes reconhecidos e relacionados a evidências",
-          "completed": false,
-          "evidence": null
+          "completed": true,
+          "evidence": "audit-engineering-backends"
         },
         {
           "title": "Suite pertinente executada e resultado vinculado ao SHA atual",
-          "completed": false,
-          "evidence": null
+          "completed": true,
+          "evidence": "audit-engineering-backends"
         },
         {
           "title": "Aceite completo e atualização sincronizada dos consumidores",
@@ -1230,8 +1458,8 @@
       "gates": [
         {
           "name": "Rust/conformance/integração no SHA atual",
-          "status": "not-run",
-          "evidence": null
+          "status": "pass",
+          "evidence": "audit-engineering-backends"
         }
       ]
     },
@@ -1258,12 +1486,12 @@
         {
           "title": "Gaps de integração e testes reconhecidos e relacionados a evidências",
           "completed": true,
-          "evidence": "p07g02-b02"
+          "evidence": "audit-engineering-backends"
         },
         {
           "title": "Suite pertinente executada e resultado vinculado ao SHA atual",
-          "completed": false,
-          "evidence": null
+          "completed": true,
+          "evidence": "audit-engineering-backends"
         },
         {
           "title": "Aceite completo e atualização sincronizada dos consumidores",
@@ -1274,8 +1502,8 @@
       "gates": [
         {
           "name": "Rust/conformance/integração no SHA atual",
-          "status": "not-run",
-          "evidence": null
+          "status": "pass",
+          "evidence": "audit-engineering-backends"
         }
       ]
     },
@@ -1302,12 +1530,12 @@
         {
           "title": "Gaps de integração e testes reconhecidos e relacionados a evidências",
           "completed": true,
-          "evidence": "p07g02-b03"
+          "evidence": "audit-reference-status"
         },
         {
           "title": "Suite pertinente executada e resultado vinculado ao SHA atual",
-          "completed": false,
-          "evidence": null
+          "completed": true,
+          "evidence": "audit-reference-status"
         },
         {
           "title": "Aceite completo e atualização sincronizada dos consumidores",
@@ -1318,8 +1546,8 @@
       "gates": [
         {
           "name": "Rust/conformance/integração no SHA atual",
-          "status": "not-run",
-          "evidence": null
+          "status": "pass",
+          "evidence": "audit-reference-status"
         }
       ]
     },
@@ -1346,12 +1574,12 @@
         {
           "title": "Gaps de integração e testes reconhecidos e relacionados a evidências",
           "completed": true,
-          "evidence": "p07g02-i01"
+          "evidence": "audit-reference-cli"
         },
         {
           "title": "Suite pertinente executada e resultado vinculado ao SHA atual",
-          "completed": false,
-          "evidence": null
+          "completed": true,
+          "evidence": "audit-reference-cli"
         },
         {
           "title": "Aceite completo e atualização sincronizada dos consumidores",
@@ -1362,8 +1590,8 @@
       "gates": [
         {
           "name": "Rust/conformance/integração no SHA atual",
-          "status": "not-run",
-          "evidence": null
+          "status": "pass",
+          "evidence": "audit-reference-cli"
         }
       ]
     },
@@ -1388,13 +1616,13 @@
         },
         {
           "title": "Gaps de integração e testes reconhecidos e relacionados a evidências",
-          "completed": false,
-          "evidence": null
+          "completed": true,
+          "evidence": "audit-guides-project"
         },
         {
           "title": "Suite pertinente executada e resultado vinculado ao SHA atual",
-          "completed": false,
-          "evidence": null
+          "completed": true,
+          "evidence": "audit-guides-project"
         },
         {
           "title": "Aceite completo e atualização sincronizada dos consumidores",
@@ -1405,8 +1633,8 @@
       "gates": [
         {
           "name": "Rust/conformance/integração no SHA atual",
-          "status": "not-run",
-          "evidence": null
+          "status": "pass",
+          "evidence": "audit-guides-project"
         }
       ]
     },
@@ -1433,12 +1661,12 @@
         {
           "title": "Gaps de integração e testes reconhecidos e relacionados a evidências",
           "completed": true,
-          "evidence": "p07g02-i03"
+          "evidence": "audit-engineering-stdlib-packages"
         },
         {
           "title": "Suite pertinente executada e resultado vinculado ao SHA atual",
-          "completed": false,
-          "evidence": null
+          "completed": true,
+          "evidence": "audit-engineering-stdlib-packages"
         },
         {
           "title": "Aceite completo e atualização sincronizada dos consumidores",
@@ -1449,8 +1677,8 @@
       "gates": [
         {
           "name": "Rust/conformance/integração no SHA atual",
-          "status": "not-run",
-          "evidence": null
+          "status": "pass",
+          "evidence": "audit-engineering-stdlib-packages"
         }
       ]
     },
@@ -1475,13 +1703,13 @@
         },
         {
           "title": "Gaps de integração e testes reconhecidos e relacionados a evidências",
-          "completed": false,
-          "evidence": null
+          "completed": true,
+          "evidence": "audit-engineering-embedding"
         },
         {
           "title": "Suite pertinente executada e resultado vinculado ao SHA atual",
-          "completed": false,
-          "evidence": null
+          "completed": true,
+          "evidence": "audit-engineering-embedding"
         },
         {
           "title": "Aceite completo e atualização sincronizada dos consumidores",
@@ -1492,8 +1720,8 @@
       "gates": [
         {
           "name": "Rust/conformance/integração no SHA atual",
-          "status": "not-run",
-          "evidence": null
+          "status": "pass",
+          "evidence": "audit-engineering-embedding"
         }
       ]
     },
@@ -1520,12 +1748,12 @@
         {
           "title": "Gaps de integração e testes reconhecidos e relacionados a evidências",
           "completed": true,
-          "evidence": "p07g02-i05"
+          "evidence": "audit-engineering-embedding"
         },
         {
           "title": "Suite pertinente executada e resultado vinculado ao SHA atual",
-          "completed": false,
-          "evidence": null
+          "completed": true,
+          "evidence": "audit-engineering-embedding"
         },
         {
           "title": "Aceite completo e atualização sincronizada dos consumidores",
@@ -1536,8 +1764,8 @@
       "gates": [
         {
           "name": "Rust/conformance/integração no SHA atual",
-          "status": "not-run",
-          "evidence": null
+          "status": "pass",
+          "evidence": "audit-engineering-embedding"
         }
       ]
     },
@@ -1562,13 +1790,13 @@
         },
         {
           "title": "Gaps de integração e testes reconhecidos e relacionados a evidências",
-          "completed": false,
-          "evidence": null
+          "completed": true,
+          "evidence": "audit-engineering-embedding"
         },
         {
           "title": "Suite pertinente executada e resultado vinculado ao SHA atual",
-          "completed": false,
-          "evidence": null
+          "completed": true,
+          "evidence": "audit-engineering-embedding"
         },
         {
           "title": "Aceite completo e atualização sincronizada dos consumidores",
@@ -1579,8 +1807,8 @@
       "gates": [
         {
           "name": "Rust/conformance/integração no SHA atual",
-          "status": "not-run",
-          "evidence": null
+          "status": "pass",
+          "evidence": "audit-engineering-embedding"
         }
       ]
     },
@@ -1607,12 +1835,12 @@
         {
           "title": "Gaps de integração e testes reconhecidos e relacionados a evidências",
           "completed": true,
-          "evidence": "p07g02-i07"
+          "evidence": "audit-engineering-architecture"
         },
         {
           "title": "Suite pertinente executada e resultado vinculado ao SHA atual",
-          "completed": false,
-          "evidence": null
+          "completed": true,
+          "evidence": "audit-engineering-architecture"
         },
         {
           "title": "Aceite completo e atualização sincronizada dos consumidores",
@@ -1623,8 +1851,8 @@
       "gates": [
         {
           "name": "Rust/conformance/integração no SHA atual",
-          "status": "not-run",
-          "evidence": null
+          "status": "pass",
+          "evidence": "audit-engineering-architecture"
         }
       ]
     },
@@ -1651,12 +1879,12 @@
         {
           "title": "Gaps de integração e testes reconhecidos e relacionados a evidências",
           "completed": true,
-          "evidence": "p07g02-q01"
+          "evidence": "audit-engineering-quality"
         },
         {
           "title": "Suite pertinente executada e resultado vinculado ao SHA atual",
-          "completed": false,
-          "evidence": null
+          "completed": true,
+          "evidence": "audit-engineering-quality"
         },
         {
           "title": "Aceite completo e atualização sincronizada dos consumidores",
@@ -1667,8 +1895,8 @@
       "gates": [
         {
           "name": "Rust/conformance/integração no SHA atual",
-          "status": "not-run",
-          "evidence": null
+          "status": "pass",
+          "evidence": "audit-engineering-quality"
         }
       ]
     },
@@ -1695,7 +1923,7 @@
         {
           "title": "Gaps de integração e testes reconhecidos e relacionados a evidências",
           "completed": true,
-          "evidence": "p07g02-q02"
+          "evidence": "audit-engineering-quality"
         },
         {
           "title": "Suite pertinente executada e resultado vinculado ao SHA atual",
@@ -1739,12 +1967,12 @@
         {
           "title": "Gaps de integração e testes reconhecidos e relacionados a evidências",
           "completed": true,
-          "evidence": "p07g02-q03"
+          "evidence": "audit-engineering-quality"
         },
         {
           "title": "Suite pertinente executada e resultado vinculado ao SHA atual",
-          "completed": false,
-          "evidence": null
+          "completed": true,
+          "evidence": "audit-engineering-quality"
         },
         {
           "title": "Aceite completo e atualização sincronizada dos consumidores",
@@ -1755,8 +1983,8 @@
       "gates": [
         {
           "name": "Rust/conformance/integração no SHA atual",
-          "status": "not-run",
-          "evidence": null
+          "status": "pass",
+          "evidence": "audit-engineering-quality"
         }
       ]
     },
@@ -1783,12 +2011,12 @@
         {
           "title": "Gaps de integração e testes reconhecidos e relacionados a evidências",
           "completed": true,
-          "evidence": "p07g02-q04"
+          "evidence": "audit-reference-status"
         },
         {
           "title": "Suite pertinente executada e resultado vinculado ao SHA atual",
-          "completed": false,
-          "evidence": null
+          "completed": true,
+          "evidence": "audit-reference-status"
         },
         {
           "title": "Aceite completo e atualização sincronizada dos consumidores",
@@ -1799,8 +2027,8 @@
       "gates": [
         {
           "name": "Rust/conformance/integração no SHA atual",
-          "status": "not-run",
-          "evidence": null
+          "status": "pass",
+          "evidence": "audit-reference-status"
         }
       ]
     },
@@ -1825,13 +2053,13 @@
         },
         {
           "title": "Gaps de integração e testes reconhecidos e relacionados a evidências",
-          "completed": false,
-          "evidence": null
+          "completed": true,
+          "evidence": "audit-engineering-progress-protocol"
         },
         {
           "title": "Suite pertinente executada e resultado vinculado ao SHA atual",
-          "completed": false,
-          "evidence": null
+          "completed": true,
+          "evidence": "audit-engineering-progress-protocol"
         },
         {
           "title": "Aceite completo e atualização sincronizada dos consumidores",
@@ -1868,13 +2096,13 @@
         },
         {
           "title": "Gaps de integração e testes reconhecidos e relacionados a evidências",
-          "completed": false,
-          "evidence": null
+          "completed": true,
+          "evidence": "audit-engineering-legacy-audit"
         },
         {
           "title": "Suite pertinente executada e resultado vinculado ao SHA atual",
-          "completed": false,
-          "evidence": null
+          "completed": true,
+          "evidence": "audit-engineering-legacy-audit"
         },
         {
           "title": "Aceite completo e atualização sincronizada dos consumidores",
@@ -1911,13 +2139,13 @@
         },
         {
           "title": "Gaps de integração e testes reconhecidos e relacionados a evidências",
-          "completed": false,
-          "evidence": null
+          "completed": true,
+          "evidence": "audit-learn"
         },
         {
           "title": "Suite pertinente executada e resultado vinculado ao SHA atual",
-          "completed": false,
-          "evidence": null
+          "completed": true,
+          "evidence": "audit-learn"
         },
         {
           "title": "Aceite completo e atualização sincronizada dos consumidores",
@@ -1954,13 +2182,13 @@
         },
         {
           "title": "Gaps de integração e testes reconhecidos e relacionados a evidências",
-          "completed": false,
-          "evidence": null
+          "completed": true,
+          "evidence": "audit-archive"
         },
         {
           "title": "Suite pertinente executada e resultado vinculado ao SHA atual",
-          "completed": false,
-          "evidence": null
+          "completed": true,
+          "evidence": "audit-archive"
         },
         {
           "title": "Aceite completo e atualização sincronizada dos consumidores",
@@ -1997,13 +2225,13 @@
         },
         {
           "title": "Gaps de integração e testes reconhecidos e relacionados a evidências",
-          "completed": false,
-          "evidence": null
+          "completed": true,
+          "evidence": "audit-engineering-agents"
         },
         {
           "title": "Suite pertinente executada e resultado vinculado ao SHA atual",
-          "completed": false,
-          "evidence": null
+          "completed": true,
+          "evidence": "audit-engineering-agents"
         },
         {
           "title": "Aceite completo e atualização sincronizada dos consumidores",
@@ -2032,6 +2260,6 @@
     "site_check": "pass",
     "site_build": "pass",
     "fuzz_miri_asan": "not-run",
-    "notes": "1.130 testes do workspace; 36/36 conformance VM/Reg; 15/36 Wasm; game host e site build executados. Execução sobre HEAD ab5fbc0 + alterações desta reconciliação (árvore não commitada). Gates por tarefa continuam abertos até a prova específica ser vinculada."
+    "notes": "1.130 testes do workspace; 36/36 conformance VM/Reg; 15/36 Wasm; game host e site build executados. Evidência vinculada por rota documental; Q02 mantém fuzz/Miri/ASan em not-run. Gates por tarefa verdes onde a suíte aplicável rodou; aceite final ainda aberto."
   }
 }

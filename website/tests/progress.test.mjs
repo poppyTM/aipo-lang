@@ -39,7 +39,8 @@ test('counters match the source of truth, no separate percentage state', () => {
 })
 test('rejects completing a checkpoint without evidence', () => {
   const data=clone()
-  data.tasks[1].checkpoints[1].completed = true
+  const open = data.tasks[1].checkpoints.find(c => !c.completed)
+  open.completed = true
   assert.throws(() => validateProgress(data), /checkpoint invalid or unproven/)
 })
 test('rejects evidence outside task document scope', () => {
@@ -78,7 +79,9 @@ test('rejects duplicate IDs, dates, invalid branches and traversal', () => {
 })
 test('rejects false CI pass without linked proof', () => {
   const data=clone()
-  data.tasks[1].gates[0].status='pass'
+  const task = data.tasks.find(t => t.id === 'Q02')
+  task.gates[0].status='pass'
+  task.gates[0].evidence=null
   assert.throws(() => validateProgress(data), /gate pass without task-specific proof/)
 })
 test('rejects missing routes and unresolvable code paths through injectable checks', () => {
