@@ -173,3 +173,21 @@ fn sum_odds() -> Int {
     // 1 + 3 + 5 = 9
     assert_eq!(f.call(&mut store, ()).unwrap(), 9);
 }
+
+#[test]
+fn test_global_len_builtin_for_list_string_and_dict() {
+    let code = r#"
+fn sizes() -> Int {
+  let xs = [1, 2, 3]
+  let text = "hello"
+  let d = {"a": 1, "b": 2}
+  return len(xs) + len(text) + len(d)
+}
+"#;
+    let (mut store, instance) = instantiate_aipo(code);
+    let f = instance
+        .get_typed_func::<(), i64>(&mut store, "sizes")
+        .expect("exported `sizes`");
+
+    assert_eq!(f.call(&mut store, ()).unwrap(), 10);
+}

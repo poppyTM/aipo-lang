@@ -404,7 +404,7 @@ fn test_cli_budget_flag_validation() {
 fn test_wasm_unsupported_reports_compile_diagnostic() {
     let script = temp_file(
         "unsupported.aipo",
-        "let items = [1, 2]\nio.println(len(items))\n",
+        "io.println(string.trim(\"  Aipo  \"))\n",
     );
     let (code, _, stderr) = run_cli(&["check", script.to_str().unwrap(), "--wasm"]);
     assert_eq!(code, EXIT_LANGUAGE_FAILURE, "stderr: {stderr}");

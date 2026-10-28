@@ -8,8 +8,8 @@
 
 - Project: **aipo**
 - Prumo: **0.6.0**
-- Current phase: **P08 — Performance baseline**
-- Active goal: **none — P08-G01 concluído**
+- Current phase: **P09 — Wasm and RegVM parity**
+- Active goal: **P09-G01 — Wasm and RegVM parity completion (EXECUTING)**
 - Last completed goal: **P08-G01 — Performance Matrix 2 baseline**
 - Completed slices:
   - **S1 (P00-G01)**: Workspace, `aipo-source`, `aipo-diagnostics`
@@ -83,7 +83,7 @@
     - Tipos de valor em C (`aipo_value_t`), handles geracionais (`aipo_handle_t`) com detecção de `AIPO_ERR_STALE_HANDLE`, callbacks nativos (`aipo_host_fn_t`), gating de capacidades (`grant`/`revoke`), e diagnóstico em `aipo_last_error`.
     - Suíte de 8 testes de integração exaustivos cobrindo todo o ciclo de vida, primitivas, callbacks, handles, erros e segurança contra ponteiros nulos.
 - Context methodology: **Lean Progressive Context (LPC)**
-- Last updated: `2026-10-28T04:30:00Z`
+- Last updated: `2026-10-28T05:00:00Z`
 - **Fio Vertical Fino Wasm (Marco 1 / P06-G01)**:
   - Crate `aipo-wasm` integrada ao workspace com emissor de seções Wasm (`WasmEmitter`), mapeamento de tipos (`WasmType`, `WasmFnType`), e compilador de HIR para Wasm (`compile_hir`).
   - Suporte a funções aritméticas com contratos estáticos (`Int`, `Float`, `Bool`) e inferência de retorno.

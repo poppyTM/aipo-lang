@@ -18,7 +18,7 @@
 | Stack VM | 36/36 | 0 | 36/36 | Referência de semântica |
 | RegVM | 20/36 | 16/36 | 36/36 | Fallback: métodos de ordem superior, handlers de falha e IR não representável |
 | JavaScript | 36/36 | 0 | 36/36 | Bundle ESM; requer Node com ESM |
-| WebAssembly | 15/36 | — | — | Subset; falhas de compilação emitem `AIPO_COMPILE_WASM_UNSUPPORTED`; host, `len`, métodos de string e provas de tipo dinâmicas ainda limitam |
+| WebAssembly | 16/36 | — | — | Subset; falhas de compilação emitem `AIPO_COMPILE_WASM_UNSUPPORTED`; host, métodos de string/coleção e provas de tipo dinâmicas ainda limitam |
 
 ## Exemplos executáveis
 
@@ -27,7 +27,7 @@
 | Stack VM | 23/23 com `.stdout` | 23/23 | 3 exemplos de host não têm snapshot |
 | RegVM | 10/23 nativos; 13/23 fallback | 23/23 | Fallback explícito preserva a saída |
 | JavaScript | 23/23 | 23/23 | O build grava `package.json` com `"type": "module"` |
-| WebAssembly | 4/26 | — | Programas de host e muitos métodos de stdlib ainda não compilam |
+| WebAssembly | 5/26 | — | Programas de host e muitos métodos de stdlib ainda não compilam |
 
 ## Outros subsistemas
 
