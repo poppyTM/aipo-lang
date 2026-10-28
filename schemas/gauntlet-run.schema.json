@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/gauntlet-run.schema.json",
+  "type": "object",
+  "required": ["run_id", "mode", "rounds", "stop_reason", "findings"],
+  "properties": {
+    "run_id": { "type": "string", "minLength": 1 },
+    "mode": { "enum": ["off", "auto", "force"] },
+    "goal": { "type": "string" },
+    "rounds": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["round", "deterministic", "findings"],
+        "properties": {
+          "round": { "type": "integer", "minimum": 1 },
+          "deterministic": {
+            "type": "object",
+            "properties": {
+              "passed": { "type": "boolean" },
+              "checks": { "type": "array", "items": { "type": "string" } },
+              "failed": { "type": "array", "items": { "type": "string" } }
+            },
+            "additionalProperties": true
+          },
+          "findings": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["id", "dimension", "severity", "status"],
+              "properties": {
+                "id": { "type": "string" },
+                "dimension": { "type": "string" },
+                "severity": { "enum": ["critical", "high", "medium", "low"] },
+                "status": { "enum": ["open", "resolved", "waived", "accepted-debt"] },
+                "evidence": { "type": "array", "items": { "type": "string" } },
+                "critic": { "enum": ["deterministic", "model", "human"] },
+                "detail": { "type": "string" }
+              },
+              "additionalProperties": true
+            }
+          },
+          "scorecard": { "type": "object", "description": "Scores are secondary; blocking findings stay individually visible." },
+          "repair_applied": { "type": "boolean" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "stop_reason": { "enum": ["gates-passed", "no-findings", "max-rounds", "budget-exhausted", "no-improvement", "human-decision"] },
+    "findings": { "type": "array", "description": "Open findings after the final round." },
+    "evidence": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,6 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://raw.githubusercontent.com/raillen/prumo/main/schemas/side-effect-journal.schema.json",
+  "type":"object","required":["id","run_id","kind","target","intent","status","created_at"],
+  "properties":{"id":{"type":"string"},"run_id":{"type":"string"},"kind":{"enum":["read-only","reversible","side-effecting","destructive","unknown"]},"target":{"type":"string"},"intent":{"type":"string"},"status":{"enum":["pending","completed","unknown_side_effect"]},"idempotency_key":{"type":"string"},"created_at":{"type":"string"},"outcome":{"type":"string"}},"additionalProperties":false
+}

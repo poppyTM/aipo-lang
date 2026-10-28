@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/context-plan.schema.json",
+  "type": "object",
+  "required": ["task_id", "strategy"],
+  "properties": {
+    "task_id": { "type": "string", "minLength": 1 },
+    "strategy": {
+      "enum": [
+        "direct",
+        "structural",
+        "known-pack",
+        "progressive-retrieval",
+        "bounded-delegation",
+        "stop"
+      ]
+    },
+    "budget": { "type": "object" },
+    "planned_items": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          { "type": "string" },
+          { "$ref": "context-item.schema.json" }
+        ]
+      }
+    },
+    "stop_conditions": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "additionalProperties": true
+}

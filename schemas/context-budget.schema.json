@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/context-budget.schema.json",
+  "type": "object",
+  "properties": {
+    "max_input_tokens": { "type": "integer", "minimum": 0 },
+    "max_retrieved_tokens": { "type": "integer", "minimum": 0 },
+    "max_injected_tokens": { "type": "integer", "minimum": 0 },
+    "max_intermediate_output_tokens": { "type": "integer", "minimum": 0 },
+    "max_expansions": { "type": "integer", "minimum": 0 },
+    "max_delegations": { "type": "integer", "minimum": 0 },
+    "max_delegation_depth": { "type": "integer", "minimum": 0 },
+    "deadline": { "type": "string" },
+    "cost_budget": {
+      "oneOf": [
+        { "type": "number", "minimum": 0 },
+        { "type": "object" }
+      ]
+    },
+    "stop_reasons": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "sufficient_evidence",
+          "budget_exhausted",
+          "blocked",
+          "human_required",
+          "no_relevant_context"
+        ]
+      }
+    }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/trust-policy.schema.json",
+  "type": "object",
+  "required": ["version", "trusted_sources", "untrusted_sources"],
+  "properties": {
+    "version": { "type": "integer", "minimum": 1 },
+    "trusted_sources": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "contextual_sources": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "untrusted_sources": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "invariants": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "additionalProperties": true
+}

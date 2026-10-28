@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/agent-event.schema.json",
+  "title": "AgentEvent",
+  "description": "Normalized harness timeline unit.",
+  "type": "object",
+  "required": ["id", "run_id", "kind", "created_at"],
+  "properties": {
+    "id": { "type": "string" },
+    "run_id": { "type": "string" },
+    "turn_id": { "type": "string" },
+    "kind": { "type": "string" },
+    "payload": { "type": "object" },
+    "created_at": { "type": "string", "format": "date-time" }
+  }
+}

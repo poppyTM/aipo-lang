@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/planning-session.schema.json",
+  "$comment": "E-G07: transcript-free structured planning session checkpoint for resume + context compilation.",
+  "type": "object",
+  "required": ["id", "run_id", "scope"],
+  "properties": {
+    "version": {"type": "integer", "minimum": 1},
+    "id": {"type": "string", "minLength": 1},
+    "run_id": {"type": "string", "minLength": 1},
+    "scope": {"type": "string", "minLength": 1},
+    "goal": {"type": "string"},
+    "decisions": {
+      "type": "array",
+      "items": {"$ref": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/decision-proposal.schema.json"}
+    },
+    "open_questions": {
+      "type": "array",
+      "items": {"$ref": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/open-question.schema.json"}
+    },
+    "last_preview": {
+      "type": "object",
+      "properties": {
+        "extracted_decisions": {
+          "type": "array",
+          "items": {"$ref": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/decision-proposal.schema.json"}
+        },
+        "contradictions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["scope", "existing_id", "existing_authority", "existing_statement", "new_statement"],
+            "properties": {
+              "scope": {"type": "string"},
+              "contract": {"type": "string"},
+              "existing_id": {"type": "string"},
+              "existing_authority": {"type": "string"},
+              "existing_statement": {"type": "string"},
+              "new_id": {"type": "string"},
+              "new_authority": {"type": "string"},
+              "new_statement": {"type": "string"}
+            },
+            "additionalProperties": false
+          }
+        },
+        "supersessions": {
+          "type": "array",
+          "items": {"type": "object"}
+        },
+        "blockers_resolved": {"type": "integer", "minimum": 0},
+        "open_remaining": {"type": "integer", "minimum": 0},
+        "preview_mandatory": {"type": "boolean"}
+      },
+      "additionalProperties": false
+    },
+    "updated_at": {"type": "string"}
+  },
+  "additionalProperties": false
+}

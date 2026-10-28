@@ -1,0 +1,6 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://raw.githubusercontent.com/raillen/prumo/main/schemas/execution-environment.schema.json",
+  "type":"object","required":["id","version","kind","isolation"],
+  "properties":{"id":{"type":"string"},"version":{"type":"integer","const":1},"kind":{"enum":["local","worktree","sandbox","container"]},"isolation":{"enum":["none","project-root","worktree","sandbox"]},"network":{"enum":["deny","restricted","allow"]},"filesystem_roots":{"type":"array","items":{"type":"string"}},"environment_fingerprint":{"type":"string"}},"additionalProperties":true
+}

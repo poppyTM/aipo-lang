@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/gui-scenario.schema.json",
+  "title": "Atlas Desktop GUI Scenario",
+  "description": "Provider-neutral desktop GUI test scenario schema conforming to Chapter 26 (Native Desktop GUI Test Bridge).",
+  "type": "object",
+  "required": ["id", "name", "app", "steps"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^gui:[a-z0-9][a-z0-9._-]*$"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "description": {
+      "type": "string"
+    },
+    "app": {
+      "type": "object",
+      "required": ["executable"],
+      "properties": {
+        "executable": { "type": "string" },
+        "args": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "cwd": { "type": "string" },
+        "env": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
+      }
+    },
+    "preferred_driver": {
+      "type": "string",
+      "enum": [
+        "gui.windows-uia",
+        "gui.macos-ax",
+        "gui.linux-atspi",
+        "gui.macos-xcui",
+        "gui.qt-squish",
+        "mock"
+      ]
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["action"],
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "launch",
+              "find",
+              "click",
+              "double_click",
+              "type",
+              "shortcut",
+              "focus",
+              "wait_for",
+              "assert",
+              "screenshot",
+              "close"
+            ]
+          },
+          "locator": {
+            "type": "object",
+            "properties": {
+              "role": { "type": "string" },
+              "name": { "type": "string" },
+              "automation_id": { "type": "string" },
+              "label": { "type": "string" },
+              "value": { "type": "string" },
+              "description": { "type": "string" },
+              "state": { "type": "string" },
+              "parent": { "type": "string" },
+              "relation": { "type": "string" }
+            }
+          },
+          "input": {
+            "type": "string",
+            "description": "Text to type or shortcut combo (e.g. Ctrl+S, Ctrl+P)"
+          },
+          "expectations": {
+            "type": "object",
+            "properties": {
+              "visible": { "type": "boolean" },
+              "focused": { "type": "boolean" },
+              "enabled": { "type": "boolean" },
+              "text": { "type": "string" },
+              "value": { "type": "string" },
+              "state": { "type": "string" }
+            }
+          },
+          "timeout_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 5000
+          }
+        }
+      }
+    }
+  },
+  "additionalProperties": true
+}

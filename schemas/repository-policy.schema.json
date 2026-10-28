@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/repository-policy.schema.json",
+  "type": "object",
+  "required": ["schema_version", "repository", "branches", "commits", "pushes", "issues", "pull_requests", "reviews", "merge", "agents", "releases", "tags", "github", "emergency_bypass"],
+  "properties": {
+    "schema_version": {"type": "integer", "const": 1},
+    "repository": {"type": "object", "required": ["default_branch", "provider", "governance_profile"], "properties": {"default_branch": {"type": "string", "minLength": 1}, "provider": {"enum": ["github"]}, "governance_profile": {"enum": ["solo", "team", "strict"]}}, "additionalProperties": false},
+    "branches": {"type": "object", "required": ["allowed_categories", "patterns", "automation_prefixes"], "properties": {"allowed_categories": {"type": "array", "items": {"type": "string"}, "minItems": 1}, "patterns": {"type": "object", "additionalProperties": {"type": "string"}}, "automation_prefixes": {"type": "array", "items": {"type": "string"}}}, "additionalProperties": false},
+    "commits": {"type": "object", "required": ["types", "subject_required"], "properties": {"types": {"type": "array", "items": {"type": "string"}, "minItems": 1}, "subject_required": {"type": "boolean"}, "format": {"type": "string"}}, "additionalProperties": false},
+    "pushes": {"type": "object", "required": ["direct_main", "force_main", "work_branch_force_with_lease"], "properties": {"direct_main": {"enum": ["deny", "require_pr"]}, "force_main": {"enum": ["deny"]}, "work_branch_force_with_lease": {"enum": ["deny", "conditional"]}}, "additionalProperties": false},
+    "issues": {"type": "object", "required": ["blank_allowed", "security_reporting"], "properties": {"blank_allowed": {"type": "boolean"}, "security_reporting": {"enum": ["security_policy", "issue"]}}, "additionalProperties": false},
+    "pull_requests": {"type": "object", "required": ["required_for_main", "title_format", "auto_merge"], "properties": {"required_for_main": {"type": "boolean"}, "title_format": {"type": "string"}, "auto_merge": {"enum": ["disabled", "policy"]}, "delete_branch_after_merge": {"type": "boolean"}}, "additionalProperties": false},
+    "reviews": {"type": "object", "required": ["profile", "required_approvals"], "properties": {"profile": {"enum": ["solo", "team", "strict"]}, "required_approvals": {"type": "integer", "minimum": 0}, "independent_verifier_for": {"type": "array", "items": {"enum": ["high", "critical"]}}}, "additionalProperties": false},
+    "merge": {"type": "object", "required": ["strategy", "linear_history", "conversation_resolution"], "properties": {"strategy": {"enum": ["squash"]}, "linear_history": {"type": "boolean"}, "conversation_resolution": {"type": "boolean"}}, "additionalProperties": false},
+    "agents": {"type": "object", "required": ["default_permissions", "forbidden_operations"], "properties": {"default_permissions": {"type": "object"}, "forbidden_operations": {"type": "array", "items": {"type": "string"}}}, "additionalProperties": false},
+    "releases": {"type": "object", "required": ["tag_pattern", "immutable"], "properties": {"tag_pattern": {"type": "string"}, "immutable": {"type": "boolean"}}, "additionalProperties": false},
+    "tags": {"type": "object", "required": ["release_patterns", "deletion", "rewrite"], "properties": {"release_patterns": {"type": "array", "items": {"type": "string"}}, "deletion": {"enum": ["deny"]}, "rewrite": {"enum": ["deny"]}}, "additionalProperties": false},
+    "github": {"type": "object", "required": ["repository", "rulesets", "required_checks"], "properties": {"repository": {"type": "string", "minLength": 1}, "rulesets": {"type": "boolean"}, "required_checks": {"type": "array", "items": {"type": "string"}}}, "additionalProperties": false},
+    "emergency_bypass": {"type": "object", "required": ["enabled", "required_fields"], "properties": {"enabled": {"type": "boolean"}, "required_fields": {"type": "array", "items": {"type": "string"}, "minItems": 1}}, "additionalProperties": false}
+  },
+  "additionalProperties": false
+}

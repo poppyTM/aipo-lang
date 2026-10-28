@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/knowledge-claim.schema.json",
+  "type": "object",
+  "required": ["id", "statement", "status", "revision", "evidence"],
+  "properties": {
+    "id": { "type": "string", "pattern": "^claim:[a-z0-9][a-z0-9._-]*$" },
+    "statement": { "type": "string", "minLength": 1 },
+    "status": { "enum": ["proposed", "accepted", "superseded", "refuted", "stale"] },
+    "revision": { "type": "integer", "minimum": 1 },
+    "requires": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^ku:[a-z0-9][a-z0-9._-]*$" },
+      "description": "Requirements this claim satisfies."
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "type", "revision", "reveals"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "type": { "enum": ["test", "benchmark", "ci", "manual-review", "artifact", "screenshot", "log", "conformance"] },
+          "revision": { "type": "string", "description": "Target revision the evidence proves." },
+          "reveals": {
+            "type": "array",
+            "description": "Requirement/claim IDs this evidence item supports.",
+            "items": { "type": "string" }
+          },
+          "producer": { "type": "string" },
+          "verified": { "type": "boolean" },
+          "freshness": { "enum": ["current", "stale", "unknown"] },
+          "artifact": { "type": "string" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "authority": { "enum": ["canonical", "derived", "external"] },
+    "provenance": { "type": "object", "additionalProperties": true }
+  },
+  "additionalProperties": true
+}

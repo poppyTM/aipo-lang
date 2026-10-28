@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/harness-handoff.schema.json",
+  "title": "HarnessHandoff",
+  "description": "Typed pointer-first Handoff v2 bundle (refs, not transcript).",
+  "type": "object",
+  "required": ["handoff", "refs"],
+  "properties": {
+    "handoff": {
+      "type": "object",
+      "required": ["id", "from", "to", "run_id", "created_at"],
+      "properties": {
+        "id": { "type": "string" },
+        "from": { "type": "string" },
+        "to": { "type": "string" },
+        "run_id": { "type": "string" },
+        "checkpoint_id": { "type": "string" },
+        "workspace_rev": { "type": "string" },
+        "context_manifest_id": { "type": "string" },
+        "summary": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "refs": {
+      "type": "object",
+      "required": ["run", "checkpoint", "context_manifest", "workspace_rev"],
+      "properties": {
+        "run": { "type": "string" },
+        "checkpoint": { "type": "string" },
+        "context_manifest": { "type": "string" },
+        "workspace_rev": { "type": "string" }
+      },
+      "additionalProperties": { "type": "string" }
+    }
+  }
+}

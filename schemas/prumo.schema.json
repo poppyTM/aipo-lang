@@ -1,0 +1,287 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/prumo.schema.json",
+  "type": "object",
+  "required": [
+    "version",
+    "framework",
+    "project",
+    "documentation",
+    "context",
+    "intelligence",
+    "orchestration",
+    "goals",
+    "ai",
+    "protocol"
+  ],
+  "properties": {
+    "version": {
+      "type": "integer",
+      "minimum": 2
+    },
+    "protocol": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "compatible": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "framework": {
+      "type": "object",
+      "required": [
+        "name",
+        "version"
+      ],
+      "properties": {
+        "name": {
+          "const": "prumo"
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": true
+    },
+    "project": {
+      "type": "object",
+      "required": [
+        "name",
+        "type"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "oneOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          ]
+        }
+      },
+      "additionalProperties": true
+    },
+    "stack": {
+      "type": "object"
+    },
+    "features": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "risk": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "quality": {
+      "type": "object"
+    },
+    "documentation": {
+      "type": "object",
+      "required": [
+        "entrypoint",
+        "canonical_format",
+        "site",
+        "audiences"
+      ],
+      "properties": {
+        "entrypoint": {
+          "type": "string"
+        },
+        "canonical_format": {
+          "const": "markdown"
+        },
+        "site": {
+          "type": "object"
+        },
+        "audiences": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "source_locale": {
+          "type": "string",
+          "pattern": "^[a-z]{2}(-[A-Z]{2})?$"
+        },
+        "locales": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z]{2}(-[A-Z]{2})?$"
+          }
+        },
+        "virtual_chunking": {
+          "type": ["boolean", "string"]
+        }
+      },
+      "additionalProperties": true
+    },
+    "context": {
+      "type": "object",
+      "required": [
+        "methodology",
+        "mode",
+        "profiles",
+        "deep_recursion",
+        "runtime"
+      ],
+      "properties": {
+        "methodology": {
+          "const": "lean-progressive-context"
+        },
+        "architecture": {
+          "type": "string"
+        },
+        "mode": {
+          "enum": [
+            "legacy",
+            "progressive"
+          ]
+        },
+        "budget_profile": {
+          "type": "string"
+        },
+        "profiles": {
+          "type": "object",
+          "minProperties": 1
+        },
+        "deep_recursion": {
+          "type": "object",
+          "required": [
+            "enabled"
+          ],
+          "properties": {
+            "enabled": {
+              "type": ["boolean", "string"]
+            }
+          },
+          "additionalProperties": true
+        },
+        "runtime": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": true
+    },
+    "intelligence": {
+      "type": "object",
+      "required": [
+        "enabled",
+        "path"
+      ],
+      "properties": {
+        "enabled": {
+          "type": ["boolean", "string"]
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": true
+    },
+    "orchestration": {
+      "type": "object",
+      "required": [
+        "protocol",
+        "orchestrator"
+      ],
+      "properties": {
+        "protocol": {
+          "type": "string"
+        },
+        "orchestrator": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "goals": {
+      "type": "object",
+      "required": [
+        "active_phase"
+      ],
+      "properties": {
+        "active_phase": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "ai": {
+      "type": "object",
+      "required": [
+        "preferred_models"
+      ],
+      "properties": {
+        "preferred_models": {
+          "type": "array",
+          "minItems": 1
+        }
+      },
+      "additionalProperties": true
+    },
+    "permissions": {
+      "type": "object"
+    },
+    "execution": {
+      "type": "object"
+    },
+    "ui": {
+      "type": "object",
+      "description": "Interface documentation. Applies to any project Prumo builds that has an interface, not only to Prumo itself. When the project declares a UI capability (`ui`, `tui`, `desktop-gui`, `web-application`) or a UI `project.type` and does not say otherwise, the interface map is on and projected for all three audiences.",
+      "properties": {
+        "interface_map": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Master switch. `false` produces nothing and says so; there is no silent skip."
+            },
+            "targets": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "enum": ["developer", "site", "agent"]
+              },
+              "description": "Which audiences get a projection. Narrowing is a product decision: a map for the code agent and the developer but not for a public site is a legitimate scope, and an empty list is refused rather than producing nothing quietly."
+            },
+            "derivation": {
+              "enum": ["off", "verify-only", "fill-gaps"],
+              "description": "How much the compiler reads from the implementation beyond proving symbols. `verify-only` (the default) reports elements the map omits; `fill-gaps` lists them for review; `off` skips it. Divergence between a declared and a derived element is an error in every mode."
+            },
+            "path": {
+              "type": "string",
+              "description": "Canonical map location, relative to the project root. Defaults to `docs/ui-ux/interface-map.json`."
+            }
+          }
+        }
+      }
+    }
+  },
+  "additionalProperties": true
+}

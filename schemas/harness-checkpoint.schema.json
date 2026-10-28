@@ -1,0 +1,48 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/harness-checkpoint.schema.json",
+  "title": "HarnessCheckpoint",
+  "description": "Crash-safe NativeAgent safe-point snapshot.",
+  "type": "object",
+  "required": ["id", "run_id", "state", "created_at"],
+  "properties": {
+    "id": { "type": "string" },
+    "run_id": { "type": "string" },
+    "state": {
+      "type": "object",
+      "required": ["run_id", "session_id", "turn_id", "phase", "revision"],
+      "properties": {
+        "run_id": { "type": "string" },
+        "session_id": { "type": "string" },
+        "turn_id": { "type": "string" },
+        "phase": { "type": "string", "enum": ["prepare", "compile_context", "request_model", "consume_model_event", "plan_tool_calls", "permission_check", "execute_tool", "record_observation", "evaluate_stop", "checkpoint", "yield", "complete", "failed"] },
+        "revision": { "type": "integer", "minimum": 1 },
+        "context_manifest_id": { "type": "string" },
+        "model_route": { "type": "string" },
+        "stop_reason": { "type": "string" },
+        "pending_tools": {
+          "description": "Tool calls the run stopped on; carried so a paused run can be answered without guessing.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "turn_id", "name", "idempotency_key"],
+            "properties": {
+              "id": { "type": "string" },
+              "turn_id": { "type": "string" },
+              "name": { "type": "string" },
+              "arguments": { "type": "object" },
+              "idempotency_key": { "type": "string" }
+            }
+          }
+        },
+        "pending_permissions": {
+          "description": "Permission request ids awaiting a client decision.",
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "workspace_rev": { "type": "string" },
+    "created_at": { "type": "string", "format": "date-time" }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://raw.githubusercontent.com/raillen/prumo/main/schemas/continuation-record.schema.json",
+  "type":"object","required":["version","run","state","repository","completed","current","pending","next_steps"],
+  "properties":{"version":{"type":"integer","const":1},"project":{"type":"string"},"goal":{"type":"string"},"task":{"type":"string"},"run":{"type":"string"},"state":{"type":"string"},"repository":{"type":"object","required":["branch","revision","dirty"],"properties":{"branch":{"type":"string"},"revision":{"type":"string"},"dirty":{"type":"boolean"}},"additionalProperties":true},"executor":{"type":"object"},"completed":{"type":"array","items":{"type":"string"}},"current":{"type":"array","items":{"type":"string"}},"pending":{"type":"array","items":{"type":"string"}},"decisions":{"type":"array","items":{"type":"string"}},"files":{"type":"object"},"evidence":{"type":"array","items":{"type":"string"}},"blockers":{"type":"array","items":{"type":"string"}},"pending_side_effects":{"type":"array","items":{"type":"string"}},"next_steps":{"type":"array","items":{"type":"string"}},"context_sources":{"type":"array","items":{"type":"string"}}},"additionalProperties":true
+}

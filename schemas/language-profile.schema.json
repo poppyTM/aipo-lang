@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/language-profile.schema.json",
+  "title": "Prumo Language Engineering Profile",
+  "description": "Schema defining language-specific engineering constraints, compiler flags, sanitizers, strictness levels, and prohibited patterns.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "id",
+    "language",
+    "family",
+    "strictness_level"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._-]+$"
+    },
+    "language": {
+      "type": "string"
+    },
+    "family": {
+      "type": "string",
+      "enum": [
+        "systems",
+        "managed_vm",
+        "modern_compiled_safe",
+        "dynamic_scripting",
+        "domain_dsl"
+      ]
+    },
+    "standard_version": {
+      "type": "string"
+    },
+    "strictness_level": {
+      "type": "string",
+      "enum": ["lenient", "standard", "strict", "paranoid"]
+    },
+    "compiler_flags": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "sanitizers": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["address", "undefined", "thread", "memory", "leak"]
+      }
+    },
+    "static_analysis": {
+      "type": "object",
+      "properties": {
+        "tools": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "flags": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "treat_warnings_as_errors": {
+          "type": "boolean"
+        }
+      }
+    },
+    "prohibited_patterns": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["pattern", "reason"],
+        "properties": {
+          "pattern": { "type": "string" },
+          "name": { "type": "string" },
+          "reason": { "type": "string" },
+          "severity": { "type": "string", "enum": ["error", "warning"] }
+        }
+      }
+    },
+    "quarantined_patterns": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["pattern", "hatch_type", "reason"],
+        "properties": {
+          "pattern": { "type": "string" },
+          "name": { "type": "string" },
+          "hatch_type": { "type": "string" },
+          "reason": { "type": "string" }
+        }
+      }
+    },
+    "required_evidence": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "testing": {
+      "type": "object",
+      "properties": {
+        "frameworks": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "fuzzing": { "type": "string" },
+        "mutation": { "type": "string" },
+        "property_based": { "type": "string" }
+      }
+    }
+  },
+  "additionalProperties": true
+}

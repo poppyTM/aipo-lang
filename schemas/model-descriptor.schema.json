@@ -1,0 +1,6 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://raw.githubusercontent.com/raillen/prumo/main/schemas/model-descriptor.schema.json",
+  "type":"object","required":["id","version","provider","privacy"],
+  "properties":{"id":{"type":"string"},"version":{"type":"integer","minimum":1},"provider":{"type":"string"},"privacy":{"enum":["local","trusted","external","unknown"]},"context_tokens":{"type":"integer","minimum":0},"structured_output":{"type":"boolean"},"tool_use":{"type":"boolean"},"pricing":{"type":"object"},"rate_limit":{"type":"object"}},"additionalProperties":true
+}

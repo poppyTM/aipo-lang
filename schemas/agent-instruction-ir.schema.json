@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/agent-instruction-ir.schema.json",
+  "title": "AgentInstructionIR",
+  "description": "Provider-neutral instruction knowledge. Every vendor surface is a projection of this IR (W16).",
+  "type": "object",
+  "required": ["version", "rules"],
+  "properties": {
+    "version": { "type": "integer", "minimum": 1 },
+    "token_budget": {
+      "type": "object",
+      "description": "Instruction token ceilings per adapter scope (W16.11).",
+      "properties": {
+        "root": { "type": "integer", "minimum": 1 },
+        "scope": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "rules": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "text"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1, "description": "Stable rule ID, unique per scope." },
+          "scope": { "type": "string", "description": "Repository path scope; empty is the root scope." },
+          "text": { "type": "string", "minLength": 1, "description": "The instruction, rendered verbatim into adapters." },
+          "precedence": { "type": "integer", "description": "Lower compiles first within a scope." },
+          "adapters": {
+            "type": "array",
+            "items": { "enum": ["agents-md", "copilot", "cursor", "claude", "skill-md"] },
+            "description": "Adapters this rule targets; empty means all."
+          },
+          "sources": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Canonical knowledge pointers this rule derives from."
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

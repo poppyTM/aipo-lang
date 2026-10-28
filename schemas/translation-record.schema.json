@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/translation-record.schema.json",
+  "type": "object",
+  "required": ["unit_id", "locale", "source_locale", "source_digest", "state"],
+  "properties": {
+    "unit_id": { "type": "string", "description": "Stable DocumentationUnit/KnowledgeUnit ID." },
+    "locale": { "type": "string", "pattern": "^[a-z]{2}(-[A-Z]{2})?$" },
+    "source_locale": { "type": "string", "pattern": "^[a-z]{2}(-[A-Z]{2})?$" },
+    "source_digest": { "type": "string", "description": "Digest of the canonical source at translation time." },
+    "source_revision": { "type": "string" },
+    "state": { "enum": ["missing", "machine-draft", "needs-review", "current", "needs-update", "stale", "superseded"] },
+    "segments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "source_segment", "text"],
+        "properties": {
+          "id": { "type": "string", "description": "Stable locale-key identity, independent of file path." },
+          "source_segment": { "type": "string" },
+          "text": { "type": "string" },
+          "state": { "enum": ["current", "needs-update", "machine-draft", "needs-review"] },
+          "placeholders_ok": { "type": "boolean" },
+          "reviewed": { "type": "boolean" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "terminology_revision": { "type": "string" },
+    "reviewer": { "type": "string" },
+    "quality_findings": { "type": "array", "items": { "type": "string" } },
+    "fallback": { "enum": ["none", "source-locale", "alternate-locale"], "description": "Never render an empty locale surface." },
+    "rtl": { "type": "boolean" },
+    "generated_by": { "enum": ["human", "machine", "prumo-assisted"] }
+  },
+  "additionalProperties": true
+}

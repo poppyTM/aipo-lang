@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/project-manifest.schema.json",
+  "type": "object",
+  "required": ["framework", "project", "documentation", "orchestration", "goals", "ai"],
+  "properties": {
+    "framework": {
+      "type": "object",
+      "required": ["name", "version"],
+      "properties": {"name": {"const": "prumo"}, "version": {"type": "string"}}
+    },
+    "project": {"type": "object", "required": ["name", "type"]},
+    "documentation": {"type": "object", "required": ["entrypoint"]},
+    "orchestration": {"type": "object", "required": ["protocol", "orchestrator"]},
+    "goals": {"type": "object", "required": ["active_phase"]},
+    "ai": {"type": "object", "required": ["policy"]}
+  },
+  "additionalProperties": true
+}

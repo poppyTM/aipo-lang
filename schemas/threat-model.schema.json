@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/threat-model.schema.json",
+  "type": "object",
+  "required": ["version", "target_system", "assets", "trust_boundaries", "threats"],
+  "properties": {
+    "version": { "type": "integer", "minimum": 1 },
+    "target_system": { "type": "string" },
+    "assets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "classification"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "classification": { "enum": ["public", "internal", "confidential", "restricted"] },
+          "description": { "type": "string" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "trust_boundaries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "source", "destination", "protocol"],
+        "properties": {
+          "id": { "type": "string" },
+          "source": { "type": "string" },
+          "destination": { "type": "string" },
+          "protocol": { "type": "string" },
+          "authentication": { "type": "string" },
+          "authorization": { "type": "string" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "threats": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "category", "description", "impact", "mitigation"],
+        "properties": {
+          "id": { "type": "string" },
+          "category": { "enum": ["Spoofing", "Tampering", "Repudiation", "InformationDisclosure", "DenialOfService", "ElevationOfPrivilege", "AgenticHijack"] },
+          "affected_asset": { "type": "string" },
+          "affected_boundary": { "type": "string" },
+          "description": { "type": "string" },
+          "impact": { "enum": ["low", "medium", "high", "critical"] },
+          "mitigation": { "type": "string" },
+          "verification_test": { "type": "string" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "residual_risks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "rationale": { "type": "string" },
+          "compensating_control": { "type": "string" },
+          "approved_by": { "type": "string" }
+        }
+      }
+    }
+  },
+  "additionalProperties": true
+}

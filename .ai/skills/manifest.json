@@ -1,69 +1,9 @@
 {
-  "generated_by": {
-    "prumo": "0.2.0"
-  },
   "skills": [
-    "architecture-quality",
     "clean-code",
-    "code-review",
     "cognitive-clarity",
-    "dependency-management",
-    "documentation",
-    "error-handling",
-    "git-workflow",
-    "goal-management",
-    "lean-progressive-context",
-    "project-intelligence",
-    "prumo-navigation",
-    "refactoring",
-    "release-engineering",
     "testing-quality"
   ],
-  "reasons": {
-    "architecture-quality": [
-      "core"
-    ],
-    "clean-code": [
-      "core"
-    ],
-    "code-review": [
-      "core"
-    ],
-    "cognitive-clarity": [
-      "core"
-    ],
-    "dependency-management": [
-      "core"
-    ],
-    "documentation": [
-      "core"
-    ],
-    "error-handling": [
-      "core"
-    ],
-    "git-workflow": [
-      "core"
-    ],
-    "goal-management": [
-      "core"
-    ],
-    "lean-progressive-context": [
-      "core"
-    ],
-    "project-intelligence": [
-      "core"
-    ],
-    "prumo-navigation": [
-      "core"
-    ],
-    "refactoring": [
-      "core"
-    ],
-    "release-engineering": [
-      "core"
-    ],
-    "testing-quality": [
-      "core"
-    ]
-  }
+  "updated": "2026-10-28T03:10:32Z",
+  "version": "0.6.0"
 }

@@ -1,0 +1,21 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://raw.githubusercontent.com/raillen/prumo/main/schemas/documentation-contract.schema.json",
+  "type":"object",
+  "required":["id","version","role","description","required_knowledge","blocking_questions","update_triggers","staleness"],
+  "properties": {
+    "id":{"type":"string","minLength":1},
+    "version":{"type":"integer","minimum":1},
+    "role":{"type":"string","minLength":1},
+    "description":{"type":"string"},
+    "applicability":{"type":"object"},
+    "required_knowledge":{"type":"array","items":{"type":"string"}},
+    "blocking_questions":{"type":"array","items":{"type":"string"}},
+    "evidence_requirements":{"type":"array","items":{"type":"string"}},
+    "update_triggers":{"type":"array","items":{"type":"string"}},
+    "eligible_owners":{"type":"array","items":{"type":"string"}},
+    "staleness":{"type":"object","required":["mode"],"properties":{"mode":{"enum":["never","trigger-based","time-assisted","manual-verification"]}},"additionalProperties":true},
+    "canonical_source_pointers":{"type":"array","items":{"type":"string"}}
+  },
+  "additionalProperties":false
+}

@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/viewer-extension-api.schema.json",
+  "title": "Prumo Viewer Extension API v1",
+  "description": "Newline-delimited JSON-RPC methods for process extensions.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["jsonrpc", "method"],
+  "properties": {
+    "jsonrpc": { "const": "2.0" },
+    "id": { "type": "integer", "minimum": 1 },
+    "method": {
+      "enum": [
+        "initialize",
+        "command/invoke",
+        "workspace/read",
+        "workspace/search",
+        "workspace/index",
+        "workspace/create-file",
+        "workspace/create-folder",
+        "workspace/rename",
+        "workspace/delete",
+        "git/status",
+        "git/diff",
+        "git/stage",
+        "git/unstage",
+        "git/discard",
+        "git/commit",
+        "git/push",
+        "git/pull",
+        "ui/notify",
+        "editor/reveal",
+        "editor/set-line-decorations",
+        "editor/clear-line-decorations",
+        "shutdown"
+      ]
+    },
+    "params": { "type": "object" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "method": { "const": "initialize" } } },
+      "then": { "required": ["id", "params"] }
+    },
+    {
+      "if": { "properties": { "method": { "const": "command/invoke" } } },
+      "then": { "required": ["id", "params"] }
+    },
+    {
+      "if": {
+        "properties": {
+          "method": { "enum": ["workspace/read", "workspace/search", "workspace/index", "workspace/create-file", "workspace/create-folder", "workspace/rename", "workspace/delete", "git/status", "git/diff", "git/stage", "git/unstage", "git/discard", "git/commit", "git/push", "git/pull", "ui/notify", "editor/reveal", "editor/set-line-decorations", "editor/clear-line-decorations"] }
+        }
+      },
+      "then": { "required": ["id", "params"] }
+    },
+    {
+      "if": { "properties": { "method": { "const": "shutdown" } } },
+      "then": { "required": ["id"] }
+    }
+  ]
+}

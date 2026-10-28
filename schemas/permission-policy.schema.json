@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/permission-policy.schema.json",
+  "type": "object",
+  "required": ["version"],
+  "properties": {
+    "version": { "type": "integer", "minimum": 1 },
+    "mode": {
+      "enum": ["controlled", "agentic", "autonomous"]
+    },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          { "type": "string" },
+          {
+            "type": "object",
+            "required": ["capability"],
+            "properties": {
+              "capability": { "type": "string" },
+              "scope": { "type": "string" },
+              "hosts": { "type": "array", "items": { "type": "string" } },
+              "paths": { "type": "array", "items": { "type": "string" } }
+            },
+            "additionalProperties": true
+          }
+        ]
+      }
+    },
+    "risk_classes": {
+      "type": "object",
+      "properties": {
+        "READ": { "type": "string" },
+        "SAFE_WRITE": { "type": "string" },
+        "EXECUTE": { "type": "string" },
+        "EXTERNAL_WRITE": { "type": "string" },
+        "SECRET": { "type": "string" },
+        "DESTRUCTIVE": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "scopes": { "type": "object" },
+    "roles": { "type": "object" }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/documentation-projection.schema.json",
+  "type": "object",
+  "required": ["id", "surface", "unit_id", "authority", "fingerprint", "status"],
+  "properties": {
+    "id": { "type": "string", "pattern": "^proj:" },
+    "surface": { "type": "string", "description": "DocumentationSurface ID this projection renders into." },
+    "unit_id": { "type": "string", "description": "DocumentationUnit or KnowledgeUnit ID." },
+    "authority": { "enum": ["projection"], "const": "projection", "description": "A projection never becomes canonical on its own." },
+    "generated_from": { "type": "array", "items": { "type": "string" }, "description": "Contract/schema/symbol/source IDs used as inputs." },
+    "policy": { "enum": ["GENERATED", "ASSISTED", "CURATED"] },
+    "fingerprint": { "type": "string", "description": "Content fingerprint for no-op writes and freshness." },
+    "generated_revision": { "type": "string" },
+    "generated_at": { "type": "string" },
+    "status": { "enum": ["current", "needs-update", "stale", "superseded"] },
+    "path": { "type": "string" }
+  },
+  "additionalProperties": true
+}

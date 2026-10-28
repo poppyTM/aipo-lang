@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/unsafe-code-review.schema.json",
+  "type": "object",
+  "required": ["apiVersion", "kind", "component", "language", "unsafeRegions", "review"],
+  "properties": {
+    "apiVersion": { "const": "prumo.dev/v1alpha1" },
+    "kind": { "const": "UnsafeCodeReview" },
+    "component": { "type": "string" },
+    "language": { "type": "string" },
+    "unsafeRegions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["file", "symbol", "justification", "assumptions", "requiredEvidence", "owner"],
+        "properties": {
+          "file": { "type": "string" },
+          "symbol": { "type": "string" },
+          "justification": { "type": "string" },
+          "assumptions": { "type": "array", "items": { "type": "string" } },
+          "boundary": {
+            "type": "object",
+            "properties": {
+              "externalLibrary": { "type": "string" },
+              "abi": { "type": "string" }
+            }
+          },
+          "requiredEvidence": { "type": "array", "items": { "type": "string" } },
+          "owner": { "type": "string" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "review": {
+      "type": "object",
+      "required": ["verifier", "result"],
+      "properties": {
+        "verifier": { "type": "string" },
+        "result": { "enum": ["PASS", "BLOCK", "EXCEPTION", "UNSPECIFIED"] }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}

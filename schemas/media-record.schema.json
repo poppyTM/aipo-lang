@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/media-record.schema.json",
+  "type": "object",
+  "required": ["media_id", "kind", "source_unit", "source_revision", "hash", "status"],
+  "properties": {
+    "media_id": { "type": "string", "pattern": "^media:[a-z0-9][a-z0-9._-]*$" },
+    "kind": { "enum": ["screenshot", "terminal-frame", "diagram", "gif", "video"] },
+    "source_unit": { "type": "string", "description": "DocumentationUnit or UI state this media illustrates." },
+    "source_revision": { "type": "string" },
+    "capture_environment": { "type": "string" },
+    "viewport_or_terminal_size": { "type": "string" },
+    "theme": { "type": "string" },
+    "locale": { "type": "string" },
+    "platform": { "type": "string" },
+    "state": { "type": "string" },
+    "hash": { "type": "string" },
+    "created_at": { "type": "string" },
+    "status": { "enum": ["missing", "capture-required", "captured", "verified", "current", "affected-by-ui-change", "needs-update", "stale", "superseded"] },
+    "superseded_by": { "type": "string" },
+    "path": { "type": "string" }
+  },
+  "additionalProperties": true
+}

@@ -9,14 +9,14 @@ Este registro conserva **evidências de inconsistência editorial**, não decide
 
 | Tema | Fonte canônica | Estado |
 | --- | --- | --- |
-| Estado da implementação | `PROJECT_STATE.md` + `.ai/goals/` | Atualizado na reconciliação de 2026-10-27; goals P07 seguem DRAFT |
+| Estado da implementação | `PROJECT_STATE.md` + `.ai/goals/` | P07-G01/G02 DONE; P07-G03 certifica a release v0.1.0 |
 | Sintaxe implementada | `SYNTAX.md` + testes do parser | Normativo para a superfície atual; `fixed` é legado aceito |
 | Arquitetura e crates | `docs/architecture/crates.md` + `docs/crates/crate-contracts.md` | Derivado de `cargo metadata` |
 | Conformance | `docs/conformance/README.md` + fixtures | Executável; 36 programas e 29 diagnósticos |
 | Diagnósticos | `docs/diagnostics/catalog.md` + `aipo-diagnostics` | Códigos estáveis |
 | Progresso e evidência | `website/public/progress/tasks.json` | Painel auditável; baseline revisado em 2026-10-27 |
 | Documentos legados | `docs/en/`, `docs/journal/`, `docs/evidence/` | Históricos; não certificam o HEAD |
-| Release | `docs/adp/ADP-008-v0.1.0-language-release.md` + `PROJECT_STATE.md` | `v0.1.0` ainda não certificada |
+| Release | `docs/adp/ADP-008-v0.1.0-language-release.md` + `PROJECT_STATE.md` | `v0.1.0` em certificação; tag publicada ao final de P07-G03 |
 
 ## ADP-003 — Execução de scripts não confiáveis
 

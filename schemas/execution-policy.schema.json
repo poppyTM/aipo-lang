@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/execution-policy.schema.json",
+  "type": "object",
+  "required": [
+    "version",
+    "default_backend"
+  ],
+  "properties": {
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "default_backend": {
+      "enum": [
+        "direct",
+        "gateway",
+        "cli",
+        "acp",
+        "custom"
+      ]
+    },
+    "backends": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "type"
+        ],
+        "properties": {
+          "type": {
+            "enum": [
+              "direct",
+              "gateway",
+              "cli",
+              "acp",
+              "custom"
+            ]
+          },
+          "harness": {
+            "type": "string"
+          },
+          "transport": {
+            "type": "string"
+          },
+          "endpoint": {
+            "type": "string"
+          },
+          "credential_reference": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "gateway": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "routing": {
+      "type": "object"
+    },
+    "credential_references": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": true
+}

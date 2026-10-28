@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "packages": [
+    {
+      "id": "clean-code",
+      "version": "0.6.0",
+      "checksum": "eef2c1fc27eca2360efeacf4627b111ba51112dc54f2f2aea9c07c3d0a3fdcc1",
+      "type": "skill"
+    },
+    {
+      "id": "cognitive-clarity",
+      "version": "0.6.0",
+      "checksum": "dc8196ea759144b1a704fea7b0c657ec45f0880d0faafa8097e4d2342d5e79f8",
+      "type": "skill"
+    },
+    {
+      "id": "testing-quality",
+      "version": "0.6.0",
+      "checksum": "5d5d5778db56062ac6ff3e66a80addb54f64bd6424b4fcb16c09c508cc0241e1",
+      "type": "skill"
+    }
+  ]
+}

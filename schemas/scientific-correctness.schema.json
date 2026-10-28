@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/scientific-correctness.schema.json",
+  "type": "object",
+  "required": ["apiVersion", "kind", "metadata", "problem", "method", "validation", "results"],
+  "properties": {
+    "apiVersion": { "const": "prumo.dev/v1alpha1" },
+    "kind": { "const": "ScientificCorrectness" },
+    "metadata": {
+      "type": "object",
+      "required": ["id"],
+      "properties": {
+        "id": { "type": "string" },
+        "domain": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "problem": {
+      "type": "object",
+      "required": ["domain", "equations", "units"],
+      "properties": {
+        "domain": { "type": "string" },
+        "equations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "representation"],
+            "properties": {
+              "id": { "type": "string" },
+              "representation": { "type": "string" }
+            }
+          }
+        },
+        "units": {
+          "type": "object",
+          "properties": {
+            "system": { "type": "string" },
+            "dimensionalAnalysisRequired": { "type": "boolean" }
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "method": {
+      "type": "object",
+      "required": ["algorithm", "precision"],
+      "properties": {
+        "algorithm": { "type": "string" },
+        "discretization": { "type": "string" },
+        "timestep": { "type": "number" },
+        "precision": { "enum": ["binary32", "binary64", "binary128", "arbitrary"] },
+        "floatingPointStandard": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "validation": {
+      "type": "object",
+      "required": ["reference", "tolerances"],
+      "properties": {
+        "reference": {
+          "type": "object",
+          "required": ["type", "artifact"],
+          "properties": {
+            "type": { "enum": ["analytical", "trusted-implementation", "published-dataset"] },
+            "artifact": { "type": "string" }
+          }
+        },
+        "tolerances": {
+          "type": "object",
+          "properties": {
+            "absolute": { "type": "number" },
+            "relative": { "type": "number" }
+          }
+        },
+        "convergence": {
+          "type": "object",
+          "properties": {
+            "required": { "type": "boolean" },
+            "metric": { "type": "string" }
+          }
+        },
+        "invariants": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "tolerance"],
+            "properties": {
+              "name": { "type": "string" },
+              "tolerance": { "type": "number" }
+            }
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "results": {
+      "type": "object",
+      "required": ["status"],
+      "properties": {
+        "status": { "enum": ["PASS", "BLOCK", "EXCEPTION", "UNSPECIFIED"] },
+        "errorMetrics": { "type": "object" },
+        "convergenceObserved": { "type": ["boolean", "null"] },
+        "invariantViolations": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}

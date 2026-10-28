@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/adoption-migration-proposal.schema.json",
+  "title": "AdoptionMigrationProposal",
+  "description": "Formal migration proposal generated from adoption audit findings, governed by Review Queue before application",
+  "type": "object",
+  "required": [
+    "id",
+    "title",
+    "description",
+    "status",
+    "review_required",
+    "actions",
+    "contract",
+    "created_at"
+  ],
+  "properties": {
+    "id": { "type": "string" },
+    "title": { "type": "string" },
+    "description": { "type": "string" },
+    "source_finding": { "type": "string" },
+    "status": {
+      "type": "string",
+      "enum": ["pending-review", "approved", "rejected", "applied"]
+    },
+    "review_required": { "type": "boolean" },
+    "review_notes": { "type": "string" },
+    "approved_by": { "type": "string" },
+    "approved_at": { "type": "string" },
+    "actions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["type", "target_path", "content", "reversible"],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["create_file", "update_file", "record_binding"]
+          },
+          "target_path": { "type": "string" },
+          "content": { "type": "string" },
+          "description": { "type": "string" },
+          "reversible": { "type": "boolean" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "contract": {
+      "$ref": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/prumo-migration.schema.json"
+    },
+    "created_at": { "type": "string" }
+  },
+  "additionalProperties": false
+}

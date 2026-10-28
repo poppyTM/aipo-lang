@@ -1,0 +1,28 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://raw.githubusercontent.com/raillen/prumo/main/schemas/open-question.schema.json",
+  "type":"object",
+  "required":["id","scope","priority","status"],
+  "properties":{
+    "id":{"type":"string","minLength":1},
+    "version":{"type":"integer","minimum":1},
+    "scope":{"type":"string","minLength":1},
+    "contract":{"type":"string"},
+    "topic":{"type":"string"},
+    "priority":{"enum":["blocker","irreversible","high-risk","product","important-detail","nice-to-have"]},
+    "blocking":{"type":"boolean"},
+    "reason":{"type":"string"},
+    "suggested_answers":{"type":"array","items":{"type":"string"}},
+    "status":{"enum":["open","asked","resolved","superseded"]},
+    "owner":{"type":"string"},
+    "eligible_owners":{"type":"array","items":{"type":"string"}},
+    "question":{"type":"string"},
+    "answer":{"type":"string"},
+    "asked_at":{"type":"string"},
+    "resolved_at":{"type":"string"},
+    "decision_ref":{"type":"string"},
+    "superseded_by":{"type":"string"},
+    "evidence":{"type":"array","items":{"type":"string"}}
+  },
+  "additionalProperties":false
+}

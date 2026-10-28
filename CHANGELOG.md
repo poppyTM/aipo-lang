@@ -37,6 +37,28 @@ O formato baseia-se no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 - Estudos com nove SHAs completos, fetch/lock fora do repo, guia de uso/reimplementação, compatibilidade, limitações e roteiro de medição.
 - Publicação em draft. Testes não executados nesta reconstrução por pedido do usuário; resultados de arquivos temporários perdidos não certificam esta revisão.
 
+## [0.1.0] - 2026-10-28
+
+Primeira release certificada da linguagem Aipo, com escopo language-first conforme ADP-008.
+
+### Entregue
+
+- Frontend, HIR, sema, Core IR, bytecode, Stack VM e RegVM experimental com scheduler cooperativo.
+- Backend JavaScript ESM com paridade diferencial no corpus e `package.json` para execução direta.
+- Backend WebAssembly no subset documentado, com `AIPO_COMPILE_WASM_UNSUPPORTED` para o que ainda não é representável.
+- C ABI síncrona, handles geracionais, capabilities, embedding Rust e harness C.
+- Pacotes herméticos, cache, vendor, GitHub pinado e CLI completa (`run`, `check`, `build`, `test`, `fmt`, `disasm`, `package`, `plan`, `profile`, `debug`, `watch`, `lsp`).
+- Host ABI, Poppy, eGUI e game host com testes headless.
+- Workspace com 1.130 testes; conformance VM/Reg 36/36; JS 36/36; MSRV 1.96; Clippy, rustfmt, rustdoc estrito e site VitePress verdes.
+- Prumo 0.6.0 `validate` e `doctor` limpos; schemas canônicos e workforce core versionados.
+
+### Limites conhecidos
+
+- Wasm cobre 15/36 programas de conformance e 4/26 exemplos; não é paridade total.
+- Reg nativo cobre 20/36 programas; métodos de ordem superior e handlers de falha usam a VM canônica.
+- Fuzz, Miri e ASan não foram executados nesta release.
+- Benchmarks seguem locais e ruidosos; a matriz de performance dedicada continua como trabalho futuro.
+
 ## [Unreleased] - Trilha WebAssembly & Self-Hosting
 
 - **Substrato de Execução WebAssembly & C ABI (ADP-009, ADP-013)**:

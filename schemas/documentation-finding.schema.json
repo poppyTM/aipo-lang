@@ -1,0 +1,8 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://raw.githubusercontent.com/raillen/prumo/main/schemas/documentation-finding.schema.json",
+  "type":"object",
+  "required":["id","sources","type","severity","authority","description","state"],
+  "properties":{"id":{"type":"string"},"sources":{"type":"array","items":{"type":"string"}},"contract":{"type":"string"},"type":{"type":"string"},"severity":{"enum":["low","medium","high","critical"]},"authority":{"type":"string"},"description":{"type":"string"},"state":{"enum":["open","accepted","resolved","dismissed"]}},
+  "additionalProperties":false
+}

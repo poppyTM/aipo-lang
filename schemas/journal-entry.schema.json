@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/journal-entry.schema.json",
+  "title": "JournalEntry",
+  "description": "Synthesized implementation journal entry (no chain-of-thought persisted)",
+  "type": "object",
+  "required": ["id", "summary", "created_at"],
+  "properties": {
+    "id": { "type": "string" },
+    "goal": { "type": "string" },
+    "title": { "type": "string" },
+    "summary": { "type": "string" },
+    "decisions": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "code_changes": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "tests": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "evidence": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "changed_docs": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "created_at": { "type": "string" }
+  },
+  "additionalProperties": false
+}

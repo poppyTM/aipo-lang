@@ -1,0 +1,6 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://raw.githubusercontent.com/raillen/prumo/main/schemas/executor-session.schema.json",
+  "type":"object","required":["id","version","run_id","started_at","status"],
+  "properties":{"id":{"type":"string"},"version":{"type":"integer","const":1},"run_id":{"type":"string"},"started_at":{"type":"string"},"ended_at":{"type":"string"},"harness":{"type":"string"},"model":{"type":"string"},"environment":{"type":"string"},"end_reason":{"type":"string"},"predecessor":{"type":"string"},"successor":{"type":"string"},"status":{"enum":["active","ended"]}},"additionalProperties":true
+}

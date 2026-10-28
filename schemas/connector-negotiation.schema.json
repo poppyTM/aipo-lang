@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/connector-negotiation.schema.json",
+  "title": "ConnectorNegotiationResult",
+  "description": "Schema contract for connector capability negotiation results and graceful degradations",
+  "type": "object",
+  "required": ["connector_id", "compatible", "supported", "degraded", "unsupported"],
+  "properties": {
+    "connector_id": { "type": "string" },
+    "compatible": { "type": "boolean" },
+    "supported": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "degraded": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "unsupported": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "warnings": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "additionalProperties": false
+}

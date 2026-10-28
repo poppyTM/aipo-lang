@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/task.schema.json",
+  "type": "object",
+  "required": [
+    "id",
+    "goal_id",
+    "plan_id",
+    "title",
+    "objective",
+    "dependencies",
+    "role",
+    "status"
+  ],
+  "properties": {
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" },
+    "goal_id": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" },
+    "plan_id": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" },
+    "title": { "type": "string", "minLength": 1 },
+    "objective": { "type": "string", "minLength": 1 },
+    "dependencies": { "type": "array", "items": { "type": "string" } },
+    "role": { "type": "string", "minLength": 1 },
+    "required_skills": { "type": "array", "items": { "type": "string" } },
+    "risk": { "type": "string" },
+    "priority": { "type": "string" },
+    "isolation": { "type": "string" },
+    "context_strategy": {
+      "oneOf": [
+        { "type": "string" },
+        { "type": "object" }
+      ]
+    },
+    "inputs": { "type": "array" },
+    "outputs": { "type": "array" },
+    "required_evidence": { "type": "array" },
+    "gates": {
+      "oneOf": [
+        { "type": "array", "items": { "type": "string" } },
+        { "type": "object" }
+      ]
+    },
+    "token_budget": {
+      "oneOf": [
+        { "type": "integer", "minimum": 0 },
+        { "type": "object" }
+      ]
+    },
+    "cost_budget": {
+      "oneOf": [
+        { "type": "number", "minimum": 0 },
+        { "type": "object" }
+      ]
+    },
+    "time_budget": {
+      "oneOf": [
+        { "type": "integer", "minimum": 0 },
+        { "type": "string" },
+        { "type": "object" }
+      ]
+    },
+    "retry_policy": { "type": "object" },
+    "fallback_policy": { "type": "object" },
+    "status": {
+      "enum": [
+        "PLANNED",
+        "QUEUED",
+        "RUNNING",
+        "BLOCKED",
+        "VERIFYING",
+        "DONE",
+        "FAILED",
+        "CANCELLED"
+      ]
+    }
+  },
+  "additionalProperties": true
+}

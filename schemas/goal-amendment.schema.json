@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/goal-amendment.schema.json",
+  "type": "object",
+  "required": [
+    "id",
+    "goal_id",
+    "revision",
+    "reason",
+    "approved_by",
+    "approved_at",
+    "changes"
+  ],
+  "properties": {
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" },
+    "goal_id": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" },
+    "revision": { "type": "integer", "minimum": 1 },
+    "reason": { "type": "string", "minLength": 1 },
+    "approved_by": { "type": "string", "minLength": 1 },
+    "approved_at": { "type": "string", "minLength": 1 },
+    "changes": {
+      "type": "object",
+      "properties": {
+        "objective": { "type": "string" },
+        "acceptance": { "type": "array", "items": { "type": "string" } },
+        "constraints": { "type": "array", "items": { "type": "string" } },
+        "non_goals": { "type": "array", "items": { "type": "string" } },
+        "gates": { "type": "object" }
+      },
+      "additionalProperties": true
+    },
+    "digest": { "type": "string" }
+  },
+  "additionalProperties": true
+}

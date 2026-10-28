@@ -1,0 +1,6 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://raw.githubusercontent.com/raillen/prumo/main/schemas/decision-proposal.schema.json",
+  "$comment":"E-G02: canonical Living Plan decision/proposal model.",
+  "type":"object","required":["id","statement","classification","authority","confidence","status"],"properties":{"id":{"type":"string"},"statement":{"type":"string"},"classification":{"enum":["explicit-decision","preference","constraint","requirement","non-goal","unresolved","hypothesis","agent-suggestion"]},"scope":{"type":"string"},"actor":{"type":"string"},"source":{"type":"string"},"authority":{"type":"string"},"confidence":{"enum":["high","medium","low","unknown"]},"status":{"enum":["proposed","accepted","rejected","superseded"]},"affected":{"type":"array","items":{"type":"string"}},"rationale":{"type":"string"},"alternatives":{"type":"array","items":{"type":"string"}},"evidence":{"type":"array","items":{"type":"string"}},"supersedes":{"type":"string"},"created_at":{"type":"string"},"resolved_at":{"type":"string"}},"additionalProperties":false
+}

@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/experience-event.schema.json",
+  "title": "SessionEvent",
+  "description": "Structured session event for the Prumo Experience Layer (not conversational transcript)",
+  "type": "object",
+  "required": ["id", "session_id", "type", "summary", "timestamp"],
+  "properties": {
+    "id": { "type": "string" },
+    "session_id": { "type": "string" },
+    "type": {
+      "type": "string",
+      "enum": [
+        "session_started",
+        "goal_selected",
+        "decision_made",
+        "checkpoint_saved",
+        "tool_executed",
+        "blocker_occurred",
+        "session_completed",
+        "handoff_created"
+      ]
+    },
+    "summary": { "type": "string" },
+    "payload": { "type": "object" },
+    "timestamp": { "type": "string" }
+  },
+  "additionalProperties": false
+}

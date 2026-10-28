@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/run.schema.json",
+  "type": "object",
+  "required": [
+    "id",
+    "task_id",
+    "goal_id",
+    "plan_id",
+    "status",
+    "started_at"
+  ],
+  "properties": {
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" },
+    "task_id": { "type": "string", "minLength": 1 },
+    "goal_id": { "type": "string", "minLength": 1 },
+    "plan_id": { "type": "string", "minLength": 1 },
+    "status": {
+      "enum": [
+        "CREATED",
+        "QUEUED",
+        "RUNNING",
+        "BLOCKED",
+        "VERIFYING",
+        "COMPLETED",
+        "FAILED",
+        "CANCELLED"
+      ]
+    },
+    "started_at": { "type": "string", "minLength": 1 },
+    "finished_at": { "type": "string" },
+    "execution_profile": {
+      "oneOf": [
+        { "type": "string" },
+        { "type": "object" }
+      ]
+    },
+    "attempts": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          { "type": "string" },
+          { "$ref": "attempt.schema.json" }
+        ]
+      }
+    },
+    "budgets": { "type": "object" },
+    "summary": { "type": "string" },
+    "evidence": { "type": "array" },
+    "events": { "type": "array" }
+  },
+  "additionalProperties": true
+}

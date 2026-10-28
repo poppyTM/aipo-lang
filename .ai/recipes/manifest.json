@@ -1,13 +1,5 @@
 {
-  "generated_by": {
-    "prumo": "0.2.0"
-  },
-  "recipes": [
-    "documentation-refactor"
-  ],
-  "reasons": {
-    "documentation-refactor": [
-      "skill-match"
-    ]
-  }
+  "recipes": [],
+  "updated": "2026-10-28T03:15:00Z",
+  "version": "0.6.0"
 }

@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/tenant-isolation.schema.json",
+  "type": "object",
+  "required": ["version", "planes", "verification_suite"],
+  "properties": {
+    "version": { "type": "integer", "minimum": 1 },
+    "planes": {
+      "type": "object",
+      "required": ["api", "database", "rls", "cache", "storage", "search", "queue", "analytics", "export", "backup"],
+      "properties": {
+        "api": {
+          "type": "object",
+          "properties": {
+            "strategy": { "type": "string" },
+            "object_auth_enforced": { "type": "boolean" },
+            "test_fixture": { "type": "string" }
+          },
+          "additionalProperties": true
+        },
+        "database": {
+          "type": "object",
+          "properties": {
+            "strategy": { "enum": ["discriminator_column", "schema_per_tenant", "database_per_tenant"] },
+            "privileged_role_bypass_prevented": { "type": "boolean" }
+          },
+          "additionalProperties": true
+        },
+        "rls": {
+          "type": "object",
+          "properties": {
+            "policies_defined": { "type": "boolean" },
+            "test_matrix": { "type": "string" }
+          },
+          "additionalProperties": true
+        },
+        "cache": {
+          "type": "object",
+          "properties": {
+            "key_prefix_pattern": { "type": "string" },
+            "tenant_namespaced": { "type": "boolean" }
+          },
+          "additionalProperties": true
+        },
+        "storage": {
+          "type": "object",
+          "properties": {
+            "path_scoping_enforced": { "type": "boolean" },
+            "signed_url_ttl_seconds": { "type": "integer" }
+          },
+          "additionalProperties": true
+        },
+        "search": {
+          "type": "object",
+          "properties": {
+            "tenant_filter_mandatory": { "type": "boolean" }
+          },
+          "additionalProperties": true
+        },
+        "queue": {
+          "type": "object",
+          "properties": {
+            "worker_revalidates_context": { "type": "boolean" },
+            "tamper_proof_payload": { "type": "boolean" }
+          },
+          "additionalProperties": true
+        },
+        "analytics": {
+          "type": "object",
+          "properties": {
+            "tenant_boundary_preserved": { "type": "boolean" }
+          },
+          "additionalProperties": true
+        },
+        "export": {
+          "type": "object",
+          "properties": {
+            "authorization_rechecked_at_execution": { "type": "boolean" }
+          },
+          "additionalProperties": true
+        },
+        "backup": {
+          "type": "object",
+          "properties": {
+            "restore_boundary_verified": { "type": "boolean" }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    },
+    "verification_suite": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["test_id", "plane", "adversarial_scenario", "expected_outcome"],
+        "properties": {
+          "test_id": { "type": "string" },
+          "plane": { "type": "string" },
+          "adversarial_scenario": { "type": "string" },
+          "expected_outcome": { "enum": ["DENIED", "EMPTY", "ERROR"] },
+          "evidence_file": { "type": "string" }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}

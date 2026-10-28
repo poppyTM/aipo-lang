@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/viewer-config.schema.json",
+  "title": "Prumo Viewer configuration",
+  "description": "Client-owned preferences for the native Freya workspace viewer. Secrets are never stored here.",
+  "type": "object",
+  "required": [
+    "version",
+    "theme",
+    "provider",
+    "model",
+    "show_whitespace",
+    "poll_interval_seconds"
+  ],
+  "properties": {
+    "version": {
+      "const": 1
+    },
+    "theme": {
+      "type": "string",
+      "enum": ["system", "light", "dark"]
+    },
+    "provider": {
+      "type": "string",
+      "minLength": 1
+    },
+    "model": {
+      "type": "string"
+    },
+    "socket_path": {
+      "type": ["string", "null"]
+    },
+    "terminal_shell": {
+      "type": ["string", "null"]
+    },
+    "show_whitespace": {
+      "type": "boolean"
+    },
+    "poll_interval_seconds": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 60
+    }
+  },
+  "additionalProperties": false
+}

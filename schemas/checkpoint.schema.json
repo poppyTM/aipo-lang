@@ -1,0 +1,6 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://raw.githubusercontent.com/raillen/prumo/main/schemas/checkpoint.schema.json",
+  "type":"object","required":["id","version","run_id","phase","created_at","completed_steps","pending_steps"],
+  "properties":{"id":{"type":"string"},"version":{"type":"integer","const":1},"run_id":{"type":"string"},"phase":{"type":"string"},"created_at":{"type":"string"},"workspace_ref":{"type":"string"},"completed_steps":{"type":"array","items":{"type":"string"}},"pending_steps":{"type":"array","items":{"type":"string"}},"evidence":{"type":"array","items":{"type":"string"}},"pending_side_effects":{"type":"array","items":{"type":"string"}},"budget":{"type":"object"},"context_sources":{"type":"array","items":{"type":"string"}},"resume_token":{"type":"string"}},"additionalProperties":true
+}

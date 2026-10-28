@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/adoption-resolution.schema.json",
+  "$comment": "F-G07: adoption uncertainty interview questions and resolution choices.",
+  "type": "object",
+  "required": ["version", "questions", "resolved_count", "unresolved_count"],
+  "properties": {
+    "version": { "type": "integer", "const": 1 },
+    "questions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/uncertainty_question" }
+    },
+    "resolved_count": { "type": "integer", "minimum": 0 },
+    "unresolved_count": { "type": "integer", "minimum": 0 }
+  },
+  "$defs": {
+    "uncertainty_question": {
+      "type": "object",
+      "required": ["id", "ledger_entry_id", "question", "options", "default_choice", "confidence"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "ledger_entry_id": { "type": "string", "minLength": 1 },
+        "question": { "type": "string", "minLength": 1 },
+        "context": { "type": "string" },
+        "options": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1
+        },
+        "default_choice": { "type": "string" },
+        "confidence": { "enum": ["factual", "high", "medium", "low"] }
+      },
+      "additionalProperties": false
+    },
+    "resolution_choice": {
+      "type": "object",
+      "required": ["question_id", "selected_option", "actor"],
+      "properties": {
+        "question_id": { "type": "string", "minLength": 1 },
+        "selected_option": { "type": "string", "minLength": 1 },
+        "actor": { "type": "string" },
+        "rationale": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/glossary.schema.json",
+  "title": "Prumo Terminology Glossary",
+  "description": "Canonical terminology registry (W20.2). A term is preferred, deprecated (outgoing wording that must name its replacement) or forbidden (wording that must not appear in current documentation).",
+  "type": "object",
+  "required": ["version", "terms"],
+  "properties": {
+    "version": { "type": "integer", "minimum": 1 },
+    "note": { "type": "string" },
+    "terms": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["term", "definition", "status"],
+        "properties": {
+          "term": { "type": "string", "minLength": 1 },
+          "definition": { "type": "string", "minLength": 1 },
+          "status": { "enum": ["preferred", "deprecated", "forbidden"] },
+          "replaced_by": {
+            "type": "string",
+            "description": "Required for a deprecated term: the preferred term that replaces it."
+          },
+          "locale": { "type": "string" },
+          "sources": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Canonical documents that establish the term."
+          }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}

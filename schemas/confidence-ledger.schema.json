@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/confidence-ledger.schema.json",
+  "$comment": "F-G05: confidence ledger recording all non-trivial inferences with evidence and alternatives.",
+  "type": "object",
+  "required": ["version", "entries", "summary"],
+  "properties": {
+    "version": { "type": "integer", "const": 1 },
+    "entries": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/ledger_entry" }
+    },
+    "summary": { "$ref": "#/$defs/ledger_summary" }
+  },
+  "$defs": {
+    "ledger_entry": {
+      "type": "object",
+      "required": ["id", "claim", "category", "confidence", "evidence", "status", "authority"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "claim": { "type": "string", "minLength": 1 },
+        "category": {
+          "enum": ["classification", "capability", "profile", "mapping", "other"]
+        },
+        "confidence": { "enum": ["factual", "high", "medium", "low"] },
+        "score": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+        "evidence": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1
+        },
+        "alternatives": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "status": { "enum": ["unresolved", "accepted", "rejected"] },
+        "authority": { "type": "string", "minLength": 1 },
+        "rationale": { "type": "string" },
+        "requires_confirmation": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "ledger_summary": {
+      "type": "object",
+      "required": ["total", "unresolved", "requires_confirmation"],
+      "properties": {
+        "total": { "type": "integer", "minimum": 0 },
+        "factual": { "type": "integer", "minimum": 0 },
+        "high": { "type": "integer", "minimum": 0 },
+        "medium": { "type": "integer", "minimum": 0 },
+        "low": { "type": "integer", "minimum": 0 },
+        "unresolved": { "type": "integer", "minimum": 0 },
+        "requires_confirmation": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

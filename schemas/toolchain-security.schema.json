@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/toolchain-security.schema.json",
+  "type": "object",
+  "required": ["apiVersion", "kind", "source", "toolchain", "dependencies", "build", "provenance", "release"],
+  "properties": {
+    "apiVersion": { "const": "prumo.dev/v1alpha1" },
+    "kind": { "const": "ToolchainSecurity" },
+    "source": {
+      "type": "object",
+      "required": ["repositoryDigest", "revision"],
+      "properties": {
+        "repositoryDigest": { "type": "string" },
+        "revision": { "type": "string" },
+        "dirty": { "type": "boolean" }
+      },
+      "additionalProperties": true
+    },
+    "toolchain": {
+      "type": "object",
+      "required": ["compiler", "linker"],
+      "properties": {
+        "compiler": {
+          "type": "object",
+          "required": ["name", "version", "digest"],
+          "properties": {
+            "name": { "type": "string" },
+            "version": { "type": "string" },
+            "digest": { "type": "string" }
+          }
+        },
+        "linker": {
+          "type": "object",
+          "required": ["name", "version", "digest"],
+          "properties": {
+            "name": { "type": "string" },
+            "version": { "type": "string" },
+            "digest": { "type": "string" }
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "dependencies": {
+      "type": "object",
+      "required": ["lockfileRequired", "sbom"],
+      "properties": {
+        "lockfileRequired": { "type": "boolean" },
+        "sbom": {
+          "type": "object",
+          "required": ["format", "digest"],
+          "properties": {
+            "format": { "enum": ["cyclonedx", "spdx"] },
+            "digest": { "type": "string" }
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "build": {
+      "type": "object",
+      "required": ["isolated", "ephemeral"],
+      "properties": {
+        "isolated": { "type": "boolean" },
+        "ephemeral": { "type": "boolean" },
+        "environmentDigest": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "provenance": {
+      "type": "object",
+      "required": ["slsaVersion", "verified"],
+      "properties": {
+        "slsaVersion": { "type": "string" },
+        "attestation": { "type": "string" },
+        "verified": { "type": "boolean" }
+      },
+      "additionalProperties": true
+    },
+    "reproducibility": {
+      "type": "object",
+      "properties": {
+        "required": { "type": "boolean" },
+        "independentBuilders": { "type": "integer" },
+        "artifactsEqual": { "type": ["boolean", "null"] }
+      }
+    },
+    "signing": {
+      "type": "object",
+      "properties": {
+        "required": { "type": "boolean" },
+        "artifactSignature": { "type": "string" }
+      }
+    },
+    "release": {
+      "type": "object",
+      "required": ["status"],
+      "properties": {
+        "status": { "enum": ["PASS", "BLOCK", "EXCEPTION", "UNSPECIFIED"] }
+      }
+    }
+  },
+  "additionalProperties": true
+}

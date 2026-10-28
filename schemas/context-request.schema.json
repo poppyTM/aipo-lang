@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/context-request.schema.json",
+  "type": "object",
+  "required": ["task_id", "intent"],
+  "properties": {
+    "task_id": { "type": "string", "minLength": 1 },
+    "intent": { "type": "string", "minLength": 1 },
+    "required_topics": { "type": "array", "items": { "type": "string" } },
+    "required_symbols": { "type": "array", "items": { "type": "string" } },
+    "budget": { "type": "object" }
+  },
+  "additionalProperties": true
+}

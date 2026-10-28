@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/release-security-manifest.schema.json",
+  "type": "object",
+  "required": ["release", "commit", "security_profile", "artifact_digest", "results", "sign_offs"],
+  "properties": {
+    "release": { "type": "string" },
+    "commit": { "type": "string" },
+    "security_profile": { "type": "string" },
+    "artifact_digest": { "type": "string" },
+    "sbom_path": { "type": "string" },
+    "provenance_slsa_level": { "type": "string" },
+    "results": {
+      "type": "object",
+      "required": ["secrets", "sast", "sca", "tenancy"],
+      "properties": {
+        "secrets": {
+          "type": "object",
+          "required": ["status", "artifact"],
+          "properties": {
+            "status": { "enum": ["pass", "blocked"] },
+            "artifact": { "type": "string" }
+          }
+        },
+        "sast": {
+          "type": "object",
+          "required": ["status", "artifact"],
+          "properties": {
+            "status": { "enum": ["pass", "blocked", "waived"] },
+            "artifact": { "type": "string" }
+          }
+        },
+        "sca": {
+          "type": "object",
+          "required": ["status", "artifact"],
+          "properties": {
+            "status": { "enum": ["pass", "blocked", "waived"] },
+            "artifact": { "type": "string" }
+          }
+        },
+        "tenancy": {
+          "type": "object",
+          "required": ["status", "artifact"],
+          "properties": {
+            "status": { "enum": ["pass", "blocked", "not_applicable"] },
+            "artifact": { "type": "string" }
+          }
+        },
+        "dast": {
+          "type": "object",
+          "properties": {
+            "status": { "enum": ["pass", "blocked", "not_applicable"] },
+            "artifact": { "type": "string" }
+          }
+        },
+        "agentic": {
+          "type": "object",
+          "properties": {
+            "status": { "enum": ["pass", "blocked", "not_applicable"] },
+            "artifact": { "type": "string" }
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "exceptions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "owner", "approver", "expires_at", "compensating_controls"],
+        "properties": {
+          "id": { "type": "string" },
+          "owner": { "type": "string" },
+          "approver": { "type": "string" },
+          "expires_at": { "type": "string" },
+          "compensating_controls": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "remediation_ticket": { "type": "string" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "sign_offs": {
+      "type": "object",
+      "required": ["security_reviewer", "release_gate"],
+      "properties": {
+        "security_reviewer": { "type": "string" },
+        "release_gate": { "type": "string" },
+        "signature_digest": { "type": "string" }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}

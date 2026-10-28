@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/viewer-extension-package.schema.json",
+  "title": "Prumo Viewer Extension Package Metadata",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "manifest_digest", "files", "signature"],
+  "properties": {
+    "format": { "const": "prumo.viewer.archive/v1" },
+    "manifest_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "files": {
+      "type": "array",
+      "maxItems": 2048,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "size", "digest"],
+        "properties": {
+          "path": { "type": "string", "minLength": 1 },
+          "size": { "type": "integer", "minimum": 0, "maximum": 16777216 },
+          "digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+        }
+      }
+    },
+    "signature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "key_id", "digest", "signature"],
+      "properties": {
+        "algorithm": { "const": "ed25519" },
+        "key_id": { "type": "string", "pattern": "^[a-f0-9]{32}$" },
+        "digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "signature": { "type": "string", "pattern": "^[a-f0-9]{128}$" }
+      }
+    }
+  }
+}

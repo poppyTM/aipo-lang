@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/mapping-candidate.schema.json",
+  "$comment": "F-G04: semantic documentation mapping candidates and proposed bindings.",
+  "type": "object",
+  "required": ["version", "candidates", "bindings"],
+  "properties": {
+    "version": { "type": "integer", "const": 1 },
+    "candidates": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/mapping_candidate" }
+    },
+    "bindings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/candidate_binding" }
+    }
+  },
+  "$defs": {
+    "mapping_candidate": {
+      "type": "object",
+      "required": ["id", "contract_id", "sources", "confidence", "evidence", "authority", "status"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "contract_id": { "type": "string", "minLength": 1 },
+        "sources": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 1
+        },
+        "confidence": { "enum": ["factual", "high", "medium", "low"] },
+        "evidence": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1
+        },
+        "rationale": { "type": "string" },
+        "authority": { "type": "string" },
+        "status": { "enum": ["candidate", "accepted", "rejected"] }
+      },
+      "additionalProperties": false
+    },
+    "candidate_binding": {
+      "type": "object",
+      "required": ["contract_id", "sources", "ownership", "authority"],
+      "properties": {
+        "contract_id": { "type": "string", "minLength": 1 },
+        "sources": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "ownership": { "type": "string" },
+        "authority": { "type": "string" },
+        "evidence": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

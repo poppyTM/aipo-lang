@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/evidence.schema.json",
+  "type": "object",
+  "required": [
+    "id",
+    "type",
+    "producer",
+    "timestamp",
+    "status",
+    "goal_id"
+  ],
+  "properties": {
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" },
+    "type": {
+      "enum": [
+        "test",
+        "build",
+        "benchmark",
+        "lint",
+        "security-scan",
+        "screenshot",
+        "artifact",
+        "review",
+        "command",
+        "manual-verification",
+        "external-reference",
+        "harness_run"
+      ]
+    },
+    "producer": { "type": "string", "minLength": 1 },
+    "timestamp": { "type": "string", "minLength": 1 },
+    "status": { "type": "string", "minLength": 1 },
+    "goal_id": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" },
+    "task_id": { "type": ["string", "null"] },
+    "run_id": { "type": ["string", "null"] },
+    "attempt_id": { "type": ["string", "null"] },
+    "command": { "type": ["string", "null"] },
+    "artifact": { "type": ["string", "null"] },
+    "path": { "type": ["string", "null"] },
+    "hash": { "type": ["string", "null"] },
+    "environment": { "type": ["object", "null"] },
+    "provenance": {
+      "oneOf": [
+        { "type": "string" },
+        { "type": "object" },
+        { "type": "null" }
+      ]
+    },
+    "confidence": {
+      "enum": ["low", "medium", "high", "unknown", null]
+    },
+    "related_acceptance": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "related_gate": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "metadata": { "type": "object" }
+  },
+  "additionalProperties": true
+}

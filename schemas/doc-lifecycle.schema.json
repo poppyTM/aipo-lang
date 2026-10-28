@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/doc-lifecycle.schema.json",
+  "title": "Prumo Documentation Lifecycle Registry",
+  "description": "Canonical deprecation, release-gate and version-policy registry (W20). Declares which version lines current documentation may reference, so \"a current document must not present a removed version as available\" is machine-checked instead of reviewed by habit.",
+  "type": "object",
+  "required": ["version", "deprecated"],
+  "properties": {
+    "version": { "type": "string", "description": "The product version this registry describes." },
+    "release_gates": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Human-readable conditions documentation must satisfy before a release."
+    },
+    "version_policy": {
+      "type": "object",
+      "required": ["current"],
+      "properties": {
+        "current": { "type": "string", "pattern": "^v?\\d+\\.\\d+(\\.\\d+)?" },
+        "supported": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Version lines still supported besides the current one."
+        },
+        "deprecated": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Version lines still narrated but on their way out."
+        },
+        "removed": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Version lines current documentation must not present as available."
+        },
+        "historical_exempt": {
+          "type": "boolean",
+          "description": "When true, documents the authority map classifies as historical may reference removed lines."
+        }
+      },
+      "additionalProperties": false
+    },
+    "deprecated": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "reason"],
+        "properties": {
+          "path": { "type": "string" },
+          "replacement": { "type": "string" },
+          "since": { "type": "string" },
+          "reason": { "type": "string" },
+          "removal": { "type": "string" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "mutations": {
+      "type": "object",
+      "properties": {
+        "allowed": { "type": "array", "items": { "type": "string" } },
+        "require_approval": { "type": "boolean" },
+        "note": { "type": "string" }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}

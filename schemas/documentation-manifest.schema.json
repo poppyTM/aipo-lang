@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/documentation-manifest.schema.json",
+  "type": "object",
+  "required": ["version", "generated_at", "source_revision", "units", "projections"],
+  "properties": {
+    "version": { "type": "integer", "minimum": 1 },
+    "generated_at": { "type": "string" },
+    "source_revision": { "type": "string" },
+    "derived": { "type": "boolean", "const": true },
+    "units": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "kind", "authority", "status"],
+        "properties": {
+          "id": { "type": "string" },
+          "kind": { "type": "string" },
+          "authority": { "enum": ["canonical", "projection"] },
+          "status": { "type": "string" },
+          "locale": { "type": "string" },
+          "visibility": { "enum": ["public", "project", "internal", "restricted", "confidential"] }
+        },
+        "additionalProperties": true
+      }
+    },
+    "projections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "surface", "unit_id", "status"],
+        "properties": {
+          "id": { "type": "string" },
+          "surface": { "type": "string" },
+          "unit_id": { "type": "string" },
+          "status": { "enum": ["current", "needs-update", "stale", "superseded"] },
+          "fingerprint": { "type": "string" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "counts": { "type": "object", "additionalProperties": true }
+  },
+  "additionalProperties": true
+}

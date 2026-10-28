@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/documentation-evidence-requirement.schema.json",
+  "type": "object",
+  "required": ["id", "requirement_id", "evidence_type"],
+  "properties": {
+    "id": { "type": "string", "pattern": "^evidreq:" },
+    "requirement_id": { "type": "string", "description": "Claim or requirement ID this evidence must satisfy (never a bare count)." },
+    "evidence_type": { "enum": ["test", "benchmark", "ci", "manual-review", "artifact", "screenshot", "log", "conformance"] },
+    "target_revision": { "type": "string", "description": "Revision the evidence must prove." },
+    "producer": { "type": "string" },
+    "freshness": { "enum": ["current", "stale", "unknown"] },
+    "optional": { "type": "boolean" },
+    "artifact": { "type": "string" },
+    "verification": { "enum": ["unverified", "verified", "failed"] }
+  },
+  "additionalProperties": true
+}

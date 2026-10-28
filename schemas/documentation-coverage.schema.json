@@ -1,0 +1,8 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://raw.githubusercontent.com/raillen/prumo/main/schemas/documentation-coverage.schema.json",
+  "type":"object",
+  "required":["contract_id","state","sources","missing_knowledge","blocking_questions","warnings"],
+  "properties":{"contract_id":{"type":"string"},"state":{"enum":["missing","partial","implementation-ready","verified","stale","not-applicable"]},"sources":{"type":"array","items":{"type":"string"}},"missing_knowledge":{"type":"array","items":{"type":"string"}},"blocking_questions":{"type":"array","items":{"type":"string"}},"warnings":{"type":"array","items":{"type":"string"}}},
+  "additionalProperties":false
+}
