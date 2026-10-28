@@ -17,7 +17,7 @@ Add user tutorials, how-to guides, reference and explanations under `docs/user/`
 - [Estudos e fontes pinadas](studies/index.md)
 - [Evidência e gates não executados da reconstrução](evidence/P07-G01-runtime-hardening.md)
 
-P07-G01, P07-G02 e P07-G03 estão DONE. A release v0.1.0 foi publicada como estável em 2026-10-28 com artefatos para Linux, Windows e macOS; evidência em [P07-G03](evidence/P07-G03-release.md). P08-G01 registra a baseline de performance da Matriz 2 em [P08-G01](evidence/P08-G01/README.md). P09-G01 acompanha a paridade Wasm/RegVM; o primeiro slice adiciona `len` global ao Wasm (16/36 programas, 5/26 exemplos).
+P07-G01, P07-G02 e P07-G03 estão DONE. A release v0.1.0 foi publicada como estável em 2026-10-28 com artefatos para Linux, Windows e macOS; evidência em [P07-G03](evidence/P07-G03-release.md). P08-G01 registra a baseline de performance da Matriz 2 em [P08-G01](evidence/P08-G01/README.md). P09-G01 acompanha a paridade Wasm/RegVM; W1a adiciona `len` global e operações de List ao Wasm (16/36 programas, 5/26 exemplos).
 
 ## I want to develop/contribute
 

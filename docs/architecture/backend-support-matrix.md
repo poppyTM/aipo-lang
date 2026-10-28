@@ -18,7 +18,7 @@
 | Stack VM | 36/36 | 0 | 36/36 | Referência de semântica |
 | RegVM | 20/36 | 16/36 | 36/36 | Fallback: métodos de ordem superior, handlers de falha e IR não representável |
 | JavaScript | 36/36 | 0 | 36/36 | Bundle ESM; requer Node com ESM |
-| WebAssembly | 16/36 | — | — | Subset; falhas de compilação emitem `AIPO_COMPILE_WASM_UNSUPPORTED`; host, métodos de string/coleção e provas de tipo dinâmicas ainda limitam |
+| WebAssembly | 16/36 | — | — | Subset; falhas de compilação emitem `AIPO_COMPILE_WASM_UNSUPPORTED`; host, métodos higher-order, módulos string/math e provas de tipo dinâmicas ainda limitam |
 
 ## Exemplos executáveis
 

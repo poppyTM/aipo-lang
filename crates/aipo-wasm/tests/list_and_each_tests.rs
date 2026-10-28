@@ -191,3 +191,165 @@ fn sizes() -> Int {
 
     assert_eq!(f.call(&mut store, ()).unwrap(), 10);
 }
+
+#[test]
+fn test_list_first_last_contains_and_is_empty() {
+    let code = r#"
+fn first_value() -> Int {
+  let xs = [10, 20, 30]
+  return xs.first()
+}
+
+fn last_value() -> Int {
+  let xs = [10, 20, 30]
+  return xs.last()
+}
+
+fn has_20() -> Bool {
+  let xs = [10, 20, 30]
+  return xs.contains(20)
+}
+
+fn has_99() -> Bool {
+  let xs = [10, 20, 30]
+  return xs.contains(99)
+}
+
+fn empty() -> Bool {
+  let xs = []
+  return xs.is_empty()
+}
+
+fn non_empty() -> Bool {
+  let xs = [1]
+  return xs.is_empty()
+}
+"#;
+    let (mut store, instance) = instantiate_aipo(code);
+    let first = instance
+        .get_typed_func::<(), i64>(&mut store, "first_value")
+        .expect("first");
+    let last = instance
+        .get_typed_func::<(), i64>(&mut store, "last_value")
+        .expect("last");
+    let has_20 = instance
+        .get_typed_func::<(), i32>(&mut store, "has_20")
+        .expect("has_20");
+    let has_99 = instance
+        .get_typed_func::<(), i32>(&mut store, "has_99")
+        .expect("has_99");
+    let empty = instance
+        .get_typed_func::<(), i32>(&mut store, "empty")
+        .expect("empty");
+    let non_empty = instance
+        .get_typed_func::<(), i32>(&mut store, "non_empty")
+        .expect("non_empty");
+
+    assert_eq!(first.call(&mut store, ()).unwrap(), 10);
+    assert_eq!(last.call(&mut store, ()).unwrap(), 30);
+    assert_eq!(has_20.call(&mut store, ()).unwrap(), 1);
+    assert_eq!(has_99.call(&mut store, ()).unwrap(), 0);
+    assert_eq!(empty.call(&mut store, ()).unwrap(), 1);
+    assert_eq!(non_empty.call(&mut store, ()).unwrap(), 0);
+}
+
+#[test]
+fn test_list_mutation_methods() {
+    let code = r#"
+fn insert_then_get() -> Int {
+  let xs = [1, 2, 3]
+  xs.insert(1, 9)
+  return xs[1]
+}
+
+fn remove_last_len() -> Int {
+  let xs = [1, 2, 3]
+  xs.remove_last()
+  return len(xs)
+}
+
+fn remove_at_get() -> Int {
+  let xs = [1, 2, 3]
+  xs.remove_at(1)
+  return xs[1]
+}
+
+fn remove_value() -> Bool {
+  let xs = [1, 2, 3]
+  xs.remove(2)
+  return xs.contains(2)
+}
+
+fn clear_len() -> Int {
+  let xs = [1, 2, 3]
+  xs.clear()
+  return len(xs)
+}
+"#;
+    let (mut store, instance) = instantiate_aipo(code);
+    let insert = instance
+        .get_typed_func::<(), i64>(&mut store, "insert_then_get")
+        .expect("insert");
+    let remove_last = instance
+        .get_typed_func::<(), i64>(&mut store, "remove_last_len")
+        .expect("remove_last");
+    let remove_at = instance
+        .get_typed_func::<(), i64>(&mut store, "remove_at_get")
+        .expect("remove_at");
+    let remove_value = instance
+        .get_typed_func::<(), i32>(&mut store, "remove_value")
+        .expect("remove");
+    let clear = instance
+        .get_typed_func::<(), i64>(&mut store, "clear_len")
+        .expect("clear");
+
+    assert_eq!(insert.call(&mut store, ()).unwrap(), 9);
+    assert_eq!(remove_last.call(&mut store, ()).unwrap(), 2);
+    assert_eq!(remove_at.call(&mut store, ()).unwrap(), 3);
+    assert_eq!(remove_value.call(&mut store, ()).unwrap(), 0);
+    assert_eq!(clear.call(&mut store, ()).unwrap(), 0);
+}
+
+#[test]
+fn test_list_count_find_and_reverse() {
+    let code = r#"
+fn count_three() -> Int {
+  let xs = [3, 1, 3, 2]
+  return xs.count(3)
+}
+
+fn find_two() -> Int {
+  let xs = [3, 1, 2]
+  return xs.find(2)
+}
+
+fn find_missing() -> Int {
+  let xs = [3, 1, 2]
+  return xs.find(9)
+}
+
+fn reverse_first() -> Int {
+  let xs = [1, 2, 3]
+  xs.reverse()
+  return xs.first()
+}
+"#;
+    let (mut store, instance) = instantiate_aipo(code);
+    let count = instance
+        .get_typed_func::<(), i64>(&mut store, "count_three")
+        .expect("count");
+    let find = instance
+        .get_typed_func::<(), i64>(&mut store, "find_two")
+        .expect("find");
+    let missing = instance
+        .get_typed_func::<(), i64>(&mut store, "find_missing")
+        .expect("missing");
+    let reverse = instance
+        .get_typed_func::<(), i64>(&mut store, "reverse_first")
+        .expect("reverse");
+
+    assert_eq!(count.call(&mut store, ()).unwrap(), 2);
+    assert_eq!(find.call(&mut store, ()).unwrap(), 2);
+    assert_eq!(missing.call(&mut store, ()).unwrap(), -1);
+    assert_eq!(reverse.call(&mut store, ()).unwrap(), 3);
+}
