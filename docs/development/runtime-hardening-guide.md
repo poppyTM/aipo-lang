@@ -69,7 +69,7 @@ Para obter exatamente uma revisão, prefira o SHA do commit mostrado no PR. Uma 
 
 ### 3.2 Compilar
 
-O workspace declara `rust-version = "1.96"`, alinhado ao grafo Wasmtime `49.0.2`/Cranelift `0.136.2` do lockfile. A reconciliação usou Rust `1.99.1`; a matriz de MSRV por perfil continua sendo um gate separado.
+O workspace declara `rust-version = "1.96"`, alinhado ao grafo Wasmtime `49.0.4`/Cranelift `0.136.4` do lockfile. A reconciliação usou Rust `1.99.1`; a matriz de MSRV por perfil continua sendo um gate separado.
 
 Build padrão do CLI:
 

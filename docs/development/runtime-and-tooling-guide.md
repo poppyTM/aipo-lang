@@ -18,7 +18,7 @@ Leia também a [evidência desta rodada](../evidence/P07-G02/README.md), o [estu
 
 ## 2. Instalação e perfis
 
-O MSRV passa de **Rust 1.85 para 1.96**. O lockfile existente inclui Wasmtime 49.0.2 e Cranelift 0.136.2, que declaram Rust 1.96. A declaração anterior não representava esse grafo de dependências. A mudança também exigiu ajustes de estilo apontados pelo Clippy, principalmente simplificação de condicionais; os lints não foram enfraquecidos.
+O MSRV passa de **Rust 1.85 para 1.96**. O lockfile existente inclui Wasmtime 49.0.4 e Cranelift 0.136.4, que declaram Rust 1.96. A declaração anterior não representava esse grafo de dependências. A mudança também exigiu ajustes de estilo apontados pelo Clippy, principalmente simplificação de condicionais; os lints não foram enfraquecidos.
 
 ```sh
 # Toolchain mínimo do workspace

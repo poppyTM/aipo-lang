@@ -14,6 +14,7 @@ O formato baseia-se no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 - `aipo build --target js` grava `package.json` com `"type": "module"`, permitindo `node app.js` no diretório de saída.
 - Novo diagnóstico estável `AIPO_COMPILE_WASM_UNSUPPORTED` separa limitação do backend Wasm de fault de runtime e orienta `--engine=vm`.
 - Documentação reconciliada: README/MSRV/Node, inventário de 24 crates, layout de `Value` (16 bytes neste alvo), SYNTAX, conformance 28–36, testing strategy, contratos de crates, links e matriz de backends.
+- Wasmtime atualizado de 49.0.2 para 49.0.4 (RUSTSEC-2026-0379), com Cranelift 0.136.4; testes e MSRV 1.96 revalidados.
 - `aipo-bench` foi atualizado para a sintaxe atual (`Tipo:metodo`, `init`, `invariant`); `--quick` completou no HEAD com 49 amostras, classificadas como ruidosas pelo próprio runner.
 - Workspace completo verificado com 1.130 testes, incluindo Poppy, eGUI e game host; Clippy, rustfmt, rustdoc estrito, validadores do portal e build VitePress passaram. P07-G01/P07-G02 permanecem DRAFT.
 
