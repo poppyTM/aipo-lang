@@ -7287,6 +7287,34 @@ fn compile_expr(
                 return Ok(WasmType::I64);
             }
 
+            // Case 0.4: Global `len(value)` builtin. The Wasm backend already
+            // implements the `.len` property for every supported container;
+            // lowering the call to that property keeps one implementation.
+            if let HirExpr::Identifier(name, _) = &**callee
+                && name == "len"
+                && args.len() == 1
+                && args[0].name.is_none()
+                && functions.builtin_is_unshadowed(name)
+            {
+                let prop = HirExpr::Dot(Box::new(args[0].value.clone()), "len".to_string(), *span);
+                return compile_expr(
+                    &prop,
+                    func,
+                    locals,
+                    functions,
+                    control_stack,
+                    structs,
+                    static_strings,
+                    table_indices,
+                    anon_map,
+                    indirect_sigs,
+                    alloc_func_idx,
+                    async_helpers,
+                    struct_depth,
+                    call_depth,
+                );
+            }
+
             // Case 0.5: Enum tuple variant constructor call: `Enum.Variant(...)`
             if let HirExpr::Dot(receiver, variant_name, _) = &**callee
                 && let HirExpr::Identifier(enum_name, _) = &**receiver

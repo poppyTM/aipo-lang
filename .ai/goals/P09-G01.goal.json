@@ -1,0 +1,75 @@
+{
+  "acceptance": [
+    "Wasm compiles and runs the full conformance corpus and all runnable examples without AIPO_COMPILE_WASM_UNSUPPORTED.",
+    "RegVM executes the full conformance corpus without fallback for language features; remaining fallback is limited to documented host services.",
+    "VM, RegVM, JS and Wasm agree on stdout, failures and diagnostics for the differential corpus.",
+    "Collection, string, math, conversion, async and failure-handling features are covered by Wasm/Reg tests.",
+    "Coverage and known limits are recorded in the backend matrix and progress panel.",
+    "Full workspace, MSRV 1.96, strict docs and site gates remain green."
+  ],
+  "constraints": [
+    "No regression in Stack VM/JS semantics.",
+    "Do not hide unsupported constructs behind generic runtime faults.",
+    "Every new backend feature needs a conformance or differential test.",
+    "Keep Prumo validate/doctor clean."
+  ],
+  "context": {
+    "budget_profile": "medium",
+    "max_delegation_depth": 1
+  },
+  "dependencies": [
+    "P07-G03",
+    "P08-G01"
+  ],
+  "evidence": [],
+  "gates": {
+    "build": "required",
+    "documentation_impact": "required",
+    "project_intelligence": "required",
+    "review": "required",
+    "tests": "required"
+  },
+  "history": [
+    {
+      "at": "2026-10-28T17:10:54.052871189Z",
+      "event": "created",
+      "state": "DRAFT"
+    },
+    {
+      "at": "2026-10-28T17:10:56.672834999Z",
+      "event": "state-transition",
+      "from": "DRAFT",
+      "reason": "",
+      "to": "PLANNED"
+    },
+    {
+      "at": "2026-10-28T17:10:57.211587428Z",
+      "event": "state-transition",
+      "from": "PLANNED",
+      "reason": "",
+      "to": "LOCKED"
+    },
+    {
+      "at": "2026-10-28T17:10:57.30681013Z",
+      "event": "state-transition",
+      "from": "LOCKED",
+      "reason": "",
+      "to": "EXECUTING"
+    }
+  ],
+  "id": "P09-G01",
+  "lock": {
+    "digest": "a07657bdf0dac5fed7bacebddd97e8ea63035f684b5c9e84dc29f0adf349c6af",
+    "locked_at": "2026-10-28T17:10:57.211585564Z",
+    "revision": 1
+  },
+  "non_goals": [
+    "Full cross-platform performance certification.",
+    "Post-v1 product features beyond backend/VM parity."
+  ],
+  "objective": "Close the language feature and backend parity gaps for Wasm and RegVM, with differential tests and no undocumented fallback or unsupported construct.",
+  "phase": "P09",
+  "revision": 1,
+  "state": "EXECUTING",
+  "title": "Wasm and RegVM parity completion"
+}
