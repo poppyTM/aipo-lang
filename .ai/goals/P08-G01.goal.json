@@ -1,0 +1,97 @@
+{
+  "acceptance": [
+    "PERF-01: environment, CPU pinning, load, commit, binary hashes and noise caveat are recorded.",
+    "PERF-02: VM and RegVM are compared end-to-end on arithmetic, collections, fields, recursion and strings, with fallback documented.",
+    "PERF-11: Wasm compile/run timings are recorded and unsupported workloads are named with AIPO_COMPILE_WASM_UNSUPPORTED.",
+    "PERF-12: available cross-language runtimes (Aipo, Python, Node, Rust) are compared; unavailable runtimes are recorded as unavailable.",
+    "Raw JSON evidence and a human-readable matrix are committed under docs/evidence/P08-G01/.",
+    "Documentation links the new baseline and states that this is not a dedicated runner."
+  ],
+  "constraints": [
+    "Do not claim a dedicated-runner baseline; record the shared-host limitation.",
+    "Do not hide the Wasm unsupported workload or unavailable reference runtimes.",
+    "Do not use the measurements as a regression gate without a dedicated environment."
+  ],
+  "context": {
+    "budget_profile": "medium",
+    "max_delegation_depth": 1
+  },
+  "dependencies": [
+    "P07-G03"
+  ],
+  "evidence": [
+    "EV-P08-G01-BASELINE"
+  ],
+  "gates": {
+    "build": "required",
+    "documentation_impact": "required",
+    "project_intelligence": "required",
+    "review": "required",
+    "tests": "required"
+  },
+  "history": [
+    {
+      "at": "2026-10-28T04:38:33.240683663Z",
+      "event": "created",
+      "state": "DRAFT"
+    },
+    {
+      "at": "2026-10-28T04:38:33.263619587Z",
+      "event": "state-transition",
+      "from": "DRAFT",
+      "reason": "",
+      "to": "PLANNED"
+    },
+    {
+      "at": "2026-10-28T04:38:33.268632352Z",
+      "event": "state-transition",
+      "from": "PLANNED",
+      "reason": "",
+      "to": "LOCKED"
+    },
+    {
+      "at": "2026-10-28T04:38:33.27325441Z",
+      "event": "state-transition",
+      "from": "LOCKED",
+      "reason": "",
+      "to": "EXECUTING"
+    },
+    {
+      "at": "2026-10-28T04:38:33.277172972Z",
+      "event": "state-transition",
+      "from": "EXECUTING",
+      "reason": "",
+      "to": "VERIFYING"
+    },
+    {
+      "at": "2026-10-28T04:38:33.281219866Z",
+      "event": "state-transition",
+      "from": "VERIFYING",
+      "reason": "",
+      "to": "REVIEWING"
+    },
+    {
+      "at": "2026-10-28T04:39:02.002516349Z",
+      "event": "state-transition",
+      "from": "REVIEWING",
+      "reason": "",
+      "to": "DONE"
+    }
+  ],
+  "id": "P08-G01",
+  "lock": {
+    "digest": "8d4c2ed358aa0194b911ddf8e15bc071df8b22038f2b422c747730591a6caa65",
+    "locked_at": "2026-10-28T04:38:33.268629016Z",
+    "revision": 1
+  },
+  "non_goals": [
+    "Temporal regression gating on shared CI runners.",
+    "Installing every optional reference runtime in this round.",
+    "Optimizing any backend in this goal."
+  ],
+  "objective": "Execute and record PERF-01, PERF-02, PERF-11 and PERF-12 on the best available isolated CPU, with reproducible data and explicit limits.",
+  "phase": "P08",
+  "revision": 1,
+  "state": "DONE",
+  "title": "Performance Matrix 2 baseline"
+}
