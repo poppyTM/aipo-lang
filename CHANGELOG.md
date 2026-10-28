@@ -39,7 +39,7 @@ O formato baseia-se no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 
 ## [0.1.0] - 2026-10-28
 
-Primeira release certificada da linguagem Aipo, com escopo language-first conforme ADP-008.
+Primeira release certificada da linguagem Aipo, com escopo language-first conforme ADP-008. Release publicada: https://github.com/poppyTM/aipo-lang/releases/tag/v0.1.0
 
 ### Entregue
 

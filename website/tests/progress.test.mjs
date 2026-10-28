@@ -34,8 +34,8 @@ test('accent- and case-insensitive search and combined filters', () => {
 test('counters match the source of truth, no separate percentage state', () => {
   const count = totals(original.tasks)
   assert.equal(count.TODO, 0)
-  assert.equal(count['IN PROGRESS'], 32)
-  assert.equal(count.DONE, 1)
+  assert.equal(count['IN PROGRESS'], 31)
+  assert.equal(count.DONE, 2)
 })
 test('rejects completing a checkpoint without evidence', () => {
   const data=clone()
