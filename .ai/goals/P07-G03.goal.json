@@ -22,7 +22,9 @@
     "P07-G01",
     "P07-G02"
   ],
-  "evidence": [],
+  "evidence": [
+    "EV-P07-G03-RELEASE"
+  ],
   "gates": {
     "build": "required",
     "documentation_impact": "required",
@@ -70,6 +72,13 @@
       "from": "VERIFYING",
       "reason": "",
       "to": "REVIEWING"
+    },
+    {
+      "at": "2026-10-28T04:21:06.456180041Z",
+      "event": "state-transition",
+      "from": "REVIEWING",
+      "reason": "",
+      "to": "DONE"
     }
   ],
   "id": "P07-G03",
@@ -87,6 +96,6 @@
   "objective": "Certify and publish Aipo v0.1.0 with green quality gates, clean Prumo validate/doctor, reconciled documentation, reproducible artifacts and signed evidence.",
   "phase": "P07",
   "revision": 1,
-  "state": "REVIEWING",
+  "state": "DONE",
   "title": "Release v0.1.0 certification"
 }

@@ -3,7 +3,7 @@
   "repository": "poppyTM/aipo-lang",
   "branch": "main",
   "baselineSha": "ab5fbc055803d018d63e9565a3283b278b79c5f3",
-  "updated": "2026-10-27",
+  "updated": "2026-10-28",
   "scope": "Acompanhamento de checkpoints auditáveis; não representa porcentagem de implementação total da linguagem nem tempo restante. Reconciliado em 2026-10-27.",
   "phases": [
     {
@@ -1999,9 +1999,9 @@
         "/engineering/runtime-and-tooling"
       ],
       "baseline": "Estado P06/P07 histórico não prova release estável. P07-G02: MSRV 1.96, perfis/packaging workflows e checksum/instalador definidos; outras plataformas não certificadas.",
-      "next": "Executar os gates pertinentes quando autorizado; conservar os limites e casos negativos documentados em P07-G02.",
-      "updated": "2026-10-27",
-      "status": "IN PROGRESS",
+      "next": "Release v0.1.0 publicada em 2026-10-28; manter o pipeline verde e repetir a certificação em releases futuras.",
+      "updated": "2026-10-28",
+      "status": "DONE",
       "checkpoints": [
         {
           "title": "Implementação, decisão ou material existente localizado",
@@ -2020,8 +2020,8 @@
         },
         {
           "title": "Aceite completo e atualização sincronizada dos consumidores",
-          "completed": false,
-          "evidence": null
+          "completed": true,
+          "evidence": "audit-reference-status"
         }
       ],
       "gates": [
@@ -2260,10 +2260,12 @@
     "site_check": "pass",
     "site_build": "pass",
     "fuzz_miri_asan": "not-run",
-    "notes": "1.130 testes do workspace; 36/36 conformance VM/Reg; 15/36 Wasm; game host e site build executados. Evidência vinculada por rota documental; Q02 mantém fuzz/Miri/ASan em not-run. Gates por tarefa verdes onde a suíte aplicável rodou; aceite final ainda aberto. MSRV 1.96 e perfis shell/web/embedded verificados. Wasmtime 49.0.4 corrige RUSTSEC-2026-0379.",
+    "notes": "1.130 testes do workspace; 36/36 conformance VM/Reg; 15/36 Wasm; game host e site build executados. Evidência vinculada por rota documental; Q02 mantém fuzz/Miri/ASan em not-run. Gates por tarefa verdes onde a suíte aplicável rodou; aceite final ainda aberto. MSRV 1.96 e perfis shell/web/embedded verificados. Wasmtime 49.0.4 corrige RUSTSEC-2026-0379. Release v0.1.0 publicada como estável (Release Pipeline 40631045953).",
     "msrv_1_96": "pass",
     "profiles_shell_web_embedded": "pass",
     "wasmtime": "49.0.4",
-    "advisories": "pass"
+    "advisories": "pass",
+    "release_v0_1_0": "pass",
+    "release_url": "https://github.com/poppyTM/aipo-lang/releases/tag/v0.1.0"
   }
 }
