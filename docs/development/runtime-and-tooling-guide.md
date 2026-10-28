@@ -2,7 +2,7 @@
 
 **Rodada:** P07-G02 · **Data:** 2026-10-09 · **Base:** `f0a0d70d176be031cd4b600fde1df6179429fb9a`.
 
-Este guia descreve a implementação das cinco frentes solicitadas após a revisão P07-G01. A implementação está disponível para revisão; o objetivo Prumo permanece `DRAFT`. **Os testes não foram executados, por instrução explícita do usuário.** Compilar os alvos de testes confirma que eles compilam; não confirma seus resultados. Os exemplos abaixo são instruções de uso, não relatos de execução.
+Este guia descreve a implementação das cinco frentes solicitadas após a revisão P07-G01. A implementação está integrada à `main`; o objetivo Prumo permanece `DRAFT`. A reconciliação de 2026-10-27 executou o workspace completo (1.130 testes), conformance VM/Reg, Poppy, eGUI, game host, validadores do portal e build VitePress; fuzz, Miri e ASan continuam pendentes. Os exemplos abaixo são instruções de uso, não uma nova certificação universal.
 
 Leia também a [evidência desta rodada](../evidence/P07-G02/README.md), o [estudo de fontes](../studies/runtime-and-tooling-follow-up.md), os [perfis reais](../architecture/embedded-and-shell-profile.md) e o [guia anterior](runtime-hardening-guide.md). A documentação é Markdown dentro do repositório, disponível pelo GitHub.
 
@@ -52,7 +52,7 @@ aipo run src/main.aipo --engine=reg
 aipo plan src/main.aipo
 ```
 
-`aipo plan` compila sem executar e escreve JSON com `engine` e `reason`. O plano usa Reg nativo somente quando o emitter e o verifier aceitam todo o IR. Construção e acesso a membros usam o plano canônico para compartilhar contratos, métodos e serviços da VM. A ausência de uma capacidade Reg gera uma razão explícita para o plano canônico; nenhuma instrução é descartada para simular suporte.
+`aipo plan` compila sem executar e escreve JSON com `engine` e `reason`. O plano tenta o Reg nativo quando o emitter e o verifier aceitam o IR; usa a VM canônica quando o emissor rejeita a construção ou quando o programa depende de métodos de ordem superior ou handlers de falha, que ainda não têm paridade nativa. A ausência de uma capacidade Reg gera uma razão explícita; nenhuma instrução é descartada para simular suporte. Em 2026-10-27, 20/36 programas de conformance selecionaram Reg nativamente e todos os 36 produziram a saída esperada com `--engine=reg`.
 
 `analyze_to_reg_module` continua sendo a API estrita: retorna erro quando falta suporte nativo. `analyze_to_execution_plan` retorna a alternativa explicitamente tipada. Hosts como `--host=headless-test` usam o contexto canônico mesmo no perfil Reg, porque seus callbacks dependem desse contexto.
 
@@ -218,6 +218,8 @@ Strings/Bytes retornados pela ABI canônica são snapshots do runtime. Libere co
 
 O teste `is` usa tipo semântico conhecido, não o tipo de armazenamento Wasm. `i32` pode armazenar Bool ou pointer; `i64` não prova Int. None em `is T?` corresponde; demais valores usam comparação fundamental/nominal. Expressões, parâmetros sem prova, nullable, chamadas ambíguas ou bindings de elementos com tipo desconhecido geram diagnóstico orientando usar a VM.
 
+Quando `compile_hir` rejeita uma construção fora do subset, o CLI emite `AIPO_COMPILE_WASM_UNSUPPORTED` com o span do erro e a nota `use --engine=vm`. Esse código é de compilação, não um fault de runtime.
+
 Foi removido um ramo antecipado legado que usava tipos físicos e tornava a checagem semântica posterior inalcançável. Agora há um único caminho: provar o valor, resolver um destino estático não sombreado e avaliar o lado esquerdo uma vez, preservando seus efeitos. O catálogo de funções acompanha bindings globais e tipos declarados para não confundir nomes com o prelude.
 
 Aliases como `let T = Int`, parâmetros/globals/funções que sombreiam `Int`, destinos desconhecidos e expressões dinâmicas no lado direito são rejeitados no Wasm com orientação para usar `--engine=vm`. `Function` não foi inventado como TypeTag: o nome de diagnóstico de um valor chamável não é um tipo fundamental disponível no prelude. Provas de chamadas `String`/`task.spawn` também exigem nomes não sombreados. Operações numéricas com operandos desconhecidos e concatenação de strings não recebem fatos de tipo falsos.
@@ -299,4 +301,4 @@ Use [os dados brutos e o procedimento](../evidence/P07-G02/README.md). O exemplo
 
 Comece pelas fronteiras observáveis: resultado/diagnóstico, ordem de efeitos, identidade e lifespan dos valores, budget e comportamento em falha. Reutilize a semântica de `Value` e os serviços canônicos. Implemente na ordem: verifier/coleções → linker/snapshot → Session/reload → embedding → ferramentas → distribuição.
 
-Confira os casos adicionados em `reg_verifier.rs`, `guest_transactions.rs`, `persistent_session.rs`, as fixtures 35/36 e as provas Wasm. Eles foram escritos para futuras execuções, **não executados nesta rodada**. Não reescreva snapshots para encobrir divergência. Os comandos efetivamente realizados e suas limitações estão na evidência; o objetivo não deve passar a `DONE` sem os gates e aprovações reais.
+Confira os casos adicionados em `reg_verifier.rs`, `guest_transactions.rs`, `persistent_session.rs`, as fixtures 33–36 e as provas Wasm. A reconciliação de 2026-10-27 executou o corpus VM/Reg, os testes Poppy/eGUI, o game host e o workspace completo; fuzz, Miri e ASan continuam pendentes. Não reescreva snapshots para encobrir divergência. O objetivo não deve passar a `DONE` sem os gates e aprovações reais.

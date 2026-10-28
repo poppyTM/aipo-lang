@@ -32,7 +32,7 @@ Documentação, implementação e testes devem evoluir juntos, mas não são a m
 - [Estratégia de teste](https://github.com/poppy-team/aipo-lang/blob/main/docs/development/testing-strategy.md).
 - [Evidência da revisão P07-G01](https://github.com/poppy-team/aipo-lang/blob/main/docs/evidence/P07-G01-runtime-hardening.md).
 
-**Limite desta entrega:** a documentação foi criada em uma branch separada. Não reivindicar execução da suite Rust, conformance ou build do website até esses comandos serem efetivamente executados.
+**Limite desta entrega:** a reconciliação de 2026-10-27 executou o workspace completo (1.130 testes), conformance VM/Reg, Poppy, eGUI, game host, validadores estáticos do portal e build VitePress. A matriz multiplataforma ainda depende de runners próprios; não a trate como certificada.
 
 
 ## Contrato de progresso nos PRs

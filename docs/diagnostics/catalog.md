@@ -24,8 +24,9 @@
 | Code | Severity | Trigger |
 | --- | --- | --- |
 | AIPO_COMPILE_REG_UNSUPPORTED | error | Experimental register lowering cannot safely represent an IR operation, function or encoding operand |
+| AIPO_COMPILE_WASM_UNSUPPORTED | error | Current WebAssembly backend cannot compile a construct in its supported subset |
 
-O título está disponível em EN/PT-BR. A CLI inclui a razão técnica em uma nota e sugere `--engine=vm`. Não é uma nova regra de sintaxe; descreve uma limitação do backend. Veja o [guia de reimplementação](../development/runtime-hardening-guide.md).
+Os títulos estão disponíveis em EN/PT-BR. A CLI inclui a razão técnica em uma nota e sugere `--engine=vm`. Não são novas regras de sintaxe; descrevem limitações de backend. Veja o [guia de reimplementação](../development/runtime-hardening-guide.md) e a [matriz de suporte](../architecture/backend-support-matrix.md).
 
 ### Source (AIPO_SRC_*)
 | Code | Severity | Trigger |

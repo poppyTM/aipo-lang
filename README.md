@@ -14,7 +14,7 @@ io.println(greet("world"))
 
 ## Start here (30 seconds)
 
-You need a Rust toolchain compatible with the enabled features and Node 20+ for JavaScript tooling. Rust 1.85 is the declared MSRV; the full Wasmtime dependency graph needs separate verification.
+You need Rust 1.96 (the declared MSRV) and Node 20+ for JavaScript tooling. On Linux, the full workspace test gate also requires `libasound2-dev` for the game host; the default-members gate does not.
 
 1. Build the CLI:
    ```bash
@@ -24,14 +24,19 @@ You need a Rust toolchain compatible with the enabled features and Node 20+ for 
    ```bash
    cargo run -q -p aipo-cli -- run examples/24_idiomatic_aipo_showcase.aipo
    ```
-3. Run the test suite:
+3. Run the language test suite:
    ```bash
-   cargo run -q -p aipo-cli -- test
+   cargo test
+   ```
+   To include the host/game crates on Linux:
+   ```bash
+   sudo apt-get install libasound2-dev
+   cargo test --workspace
    ```
 
 ## Documentation: practical and accessible website
 
-The reorganized documentation portal lives at [`website/`](website/README.md): a reader-first manual of 20 topics, 26 complete examples copied from the repository, source-backed module API listings, a reference, and engineering documentation separated from usage guidance. Run `cd website && npm install && npm run dev` to preview it. The historical `docs/` tree and executable conformance corpus remain in place until consumer migration and syntax/authority reconciliation are complete. [Migration ledger](website/MIGRATION.md).
+The reorganized documentation portal lives at [`website/`](website/README.md): a reader-first manual of 21 pages, 27 learning chapters, 26 complete examples copied from the repository, source-backed module API listings, a reference, and engineering documentation separated from usage guidance. Run `cd website && npm install && npm run dev` to preview it. The historical `docs/` tree and executable conformance corpus remain in place until consumer migration and syntax/authority reconciliation are complete. [Migration ledger](website/MIGRATION.md).
 
 ## Developer Tooling & Commands
 
@@ -40,7 +45,7 @@ The reorganized documentation portal lives at [`website/`](website/README.md): a
 | **Run Program** | `aipo run <file.aipo>` | Executes via VM or WebAssembly JIT (`--wasm`) |
 | **Run Tests** | `aipo test [path] [--filter <pattern>]` | Automated test runner with temporal/PRNG isolation |
 | **Type & Semantic Check** | `aipo check <file.aipo>` | Instant static analysis without execution |
-| **Build Bundle / Wasm** | `aipo build <file.aipo> [--target <js\|wasm>]` | Emits JS bundle (`dist/app.js`) or Wasm binary (`dist/app.wasm`) |
+| **Build Bundle / Wasm** | `aipo build <file.aipo> [--target <js\|wasm>]` | Emits an ESM bundle (`app.js`, `aipo-runtime.js`, source map and `package.json`) or a Wasm binary (`app.wasm`) |
 | **Code Formatting** | `aipo fmt <files...> [--check]` | Opinionated canonical formatter (CI audit with `--check`) |
 | **Package Management** | `aipo package <lock\|audit\|cache>` | Hermetic lockfiles, SHA pinning, and offline caching |
 | **Bytecode / Wasm Disasm** | `aipo disasm <file.aibc\|file.wasm>` | Disassembles to readable bytecode or WAT text |
@@ -75,6 +80,7 @@ The [runtime usage and reimplementation guide (Portuguese)](docs/development/run
 | `docs/canon/` | The language rules (what wins arguments) |
 | `docs/waves/` | Plans per delivery wave |
 | `docs/evidence/` | Proof that each goal was done |
+| `docs/architecture/backend-support-matrix.md` | Measured VM/Reg/JS/Wasm coverage |
 | `docs/reference/cli.md` | Command manual |
 | `examples/` | Sample programs |
 
@@ -99,13 +105,15 @@ context). The local entry points are:
 
 ## Quality gates
 
-Run all of these. All must be green.
+Run all of these. All must be green. On Linux, `cargo test --workspace` and Clippy
+`--all-targets` need `libasound2-dev`; `prumo validate`/`prumo doctor` require the
+Prumo CLI to be installed.
 
 ```bash
 cargo fmt --all -- --check
-cargo clippy --workspace --all-targets -- -D warnings
-cargo test --workspace
-cargo doc --workspace --no-deps
+cargo clippy --workspace --all-targets --locked -- -D warnings
+cargo test --workspace --locked
+RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --locked
 prumo validate . && prumo doctor .
 ```
 

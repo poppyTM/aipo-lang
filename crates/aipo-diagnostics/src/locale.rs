@@ -96,6 +96,12 @@ impl DiagnosticCode {
             (Locale::PtBr, Self::AIPO_COMPILE_REG_UNSUPPORTED) => {
                 "programa não suportado pelo backend experimental de registradores"
             }
+            (Locale::En, Self::AIPO_COMPILE_WASM_UNSUPPORTED) => {
+                "construct is unsupported by the current WebAssembly backend"
+            }
+            (Locale::PtBr, Self::AIPO_COMPILE_WASM_UNSUPPORTED) => {
+                "construção não suportada pelo backend WebAssembly atual"
+            }
             // Source
             (Locale::En, Self::AIPO_SRC_INVALID_UTF8) => "invalid UTF-8 sequence in source file",
             (Locale::PtBr, Self::AIPO_SRC_INVALID_UTF8) => {

@@ -11,16 +11,17 @@
 
 ```bash
 cargo fmt --all -- --check
-cargo check --workspace --all-targets
-cargo clippy --workspace --all-targets --all-features -- -D warnings
-cargo test --workspace --all-targets   # includes conformance, differential (Node >= 20), fuzz smoke, UI goldens, examples
-cargo doc --workspace --no-deps
-cargo build -p aipo-bench             # benchmark compilation only
+cargo clippy --workspace --all-targets --locked -- -D warnings
+cargo test --workspace --locked   # conformance, differential (Node >= 20), host, UI goldens, examples
+RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --locked
+cargo build -p aipo-bench         # benchmark compilation only
 prumo validate . && prumo doctor .
 ```
 
-Rationale: everything here completes in ~1–2 minutes and is deterministic
-(fixed seeds; no wall-clock assertions).
+On Linux, install `libasound2-dev` before the Clippy/test steps so
+`aipo-game-host` links. Node 20+ is required for the JS differential suites.
+`cargo build -p aipo-bench` and the Prumo commands are local gates; the current
+GitHub workflow runs the Rust gates above.
 
 ## Tier `nightly` (scheduled)
 

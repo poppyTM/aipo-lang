@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "repository": "poppyTM/aipo-lang",
   "branch": "main",
-  "baselineSha": "7ab1538d1c1f2dde67e01527649c9a7eebd2ed4c",
-  "updated": "2026-10-09",
-  "scope": "Acompanhamento de checkpoints auditáveis; não representa porcentagem de implementação total da linguagem nem tempo restante.",
+  "baselineSha": "ab5fbc055803d018d63e9565a3283b278b79c5f3",
+  "updated": "2026-10-27",
+  "scope": "Acompanhamento de checkpoints auditáveis; não representa porcentagem de implementação total da linguagem nem tempo restante. Reconciliado em 2026-10-27.",
   "phases": [
     {
       "id": "architecture",
@@ -574,6 +574,18 @@
         "docs/development/runtime-and-tooling-guide.md",
         "docs/evidence/P07-G02/README.md"
       ]
+    },
+    "reconciliation-2026-10-27": {
+      "revision": "ab5fbc055803d018d63e9565a3283b278b79c5f3",
+      "kind": "test-run",
+      "document": "/engineering/decisions/",
+      "summary": "Reconciliação executada: cargo test --workspace 1130 passed (incluindo Poppy, eGUI e game host), conformance VM/Reg 36/36, validadores estáticos do portal, 13 testes do painel e build VitePress. Rustdoc estrito corrigido; Wasm e Reg medidos e registrados na matriz de backends. Execução sobre HEAD ab5fbc0 + alterações desta reconciliação (árvore não commitada).",
+      "sourcePaths": [
+        "PROJECT_STATE.md",
+        "docs/architecture/backend-support-matrix.md",
+        "crates/aipo-cli/tests/reg_conformance.rs",
+        "website/public/progress/tasks.json"
+      ]
     }
   },
   "tasks": [
@@ -588,7 +600,7 @@
       ],
       "baseline": "Sem modelar compilação Wasm como se dependesse universalmente da IR.",
       "next": "Mapa de ownership versionado e consumidores identificados.",
-      "updated": "2026-10-09",
+      "updated": "2026-10-27",
       "status": "DONE",
       "checkpoints": [
         {
@@ -626,7 +638,7 @@
       ],
       "baseline": "Especificação-alvo não é prova de suporte na implementação.",
       "next": "Matriz por constructo e exemplos executados nos destinos suportados.",
-      "updated": "2026-10-09",
+      "updated": "2026-10-27",
       "status": "IN PROGRESS",
       "checkpoints": [
         {
@@ -670,7 +682,7 @@
       ],
       "baseline": "Decisão ADP-008 publicada; release não certificada. P07-G02: Perfis/MSRV e distribuição manual implementados; release pública e certificação multiplataforma continuam pendentes.",
       "next": "Executar os gates pertinentes quando autorizado; conservar os limites e casos negativos documentados em P07-G02.",
-      "updated": "2026-10-09",
+      "updated": "2026-10-27",
       "status": "IN PROGRESS",
       "checkpoints": [
         {
@@ -713,7 +725,7 @@
       ],
       "baseline": "aipo-source e aipo-diagnostics existem.",
       "next": "Bateria de span/Unicode em todos os destinos.",
-      "updated": "2026-10-09",
+      "updated": "2026-10-27",
       "status": "IN PROGRESS",
       "checkpoints": [
         {
@@ -756,7 +768,7 @@
       ],
       "baseline": "Fixture negativa existe; não rodada nesta inspeção.",
       "next": "Conformance negativa e fuzz do lexer na revisão corrente.",
-      "updated": "2026-10-09",
+      "updated": "2026-10-27",
       "status": "IN PROGRESS",
       "checkpoints": [
         {
@@ -799,7 +811,7 @@
       ],
       "baseline": "Parser efetivamente contém cheque de profundidade.",
       "next": "Diferencial AST→HIR e casos de recuperação reproduzíveis.",
-      "updated": "2026-10-09",
+      "updated": "2026-10-27",
       "status": "IN PROGRESS",
       "checkpoints": [
         {
@@ -842,7 +854,7 @@
       ],
       "baseline": "HIR localizado; paridade de lowerings não auditada integralmente.",
       "next": "Casos de escopo, lowering e backends validados.",
-      "updated": "2026-10-09",
+      "updated": "2026-10-27",
       "status": "IN PROGRESS",
       "checkpoints": [
         {
@@ -885,7 +897,7 @@
       ],
       "baseline": "Evidências históricas não certificam o HEAD atual.",
       "next": "Diagnósticos de contratos e casos negativos regressivos executados.",
-      "updated": "2026-10-09",
+      "updated": "2026-10-27",
       "status": "IN PROGRESS",
       "checkpoints": [
         {
@@ -928,7 +940,7 @@
       ],
       "baseline": "Core IR e bytecode separados existem.",
       "next": "Invariantes, roundtrip e compatibilidade medidos.",
-      "updated": "2026-10-09",
+      "updated": "2026-10-27",
       "status": "IN PROGRESS",
       "checkpoints": [
         {
@@ -972,7 +984,7 @@
       ],
       "baseline": "Tests/hostile presente, sem execução recente aqui. P07-G02: RegVerifier valida operandos, pools, CFG, inicialização e scopes; linker append-only verifica candidatas.",
       "next": "Executar os gates pertinentes quando autorizado; conservar os limites e casos negativos documentados em P07-G02.",
-      "updated": "2026-10-09",
+      "updated": "2026-10-27",
       "status": "IN PROGRESS",
       "checkpoints": [
         {
@@ -1016,7 +1028,7 @@
       ],
       "baseline": "VM presente; cobertura integral não foi reexecutada. P07-G02: Collection/Dict têm revisão estrutural; HeapSnapshot restaura aliases, layout, journal e células.",
       "next": "Executar os gates pertinentes quando autorizado; conservar os limites e casos negativos documentados em P07-G02.",
-      "updated": "2026-10-09",
+      "updated": "2026-10-27",
       "status": "IN PROGRESS",
       "checkpoints": [
         {
@@ -1060,7 +1072,7 @@
       ],
       "baseline": "Relatório P07-G01 descreve lacunas reais na RegVM. P07-G02: ExecutionPlan usa Reg verificado ou VM canônica com razão; janelas vivas, Rc e constantes por módulo implementados.",
       "next": "Executar os gates pertinentes quando autorizado; conservar os limites e casos negativos documentados em P07-G02.",
-      "updated": "2026-10-09",
+      "updated": "2026-10-27",
       "status": "IN PROGRESS",
       "checkpoints": [
         {
@@ -1104,7 +1116,7 @@
       ],
       "baseline": "Wave 3 tem histórico; regressões atuais pendentes. P07-G02: Scheduler/tasks/resultados/IDs e upvalues preservados entre unidades; rollback inclui raízes de tarefas.",
       "next": "Executar os gates pertinentes quando autorizado; conservar os limites e casos negativos documentados em P07-G02.",
-      "updated": "2026-10-09",
+      "updated": "2026-10-27",
       "status": "IN PROGRESS",
       "checkpoints": [
         {
@@ -1148,7 +1160,7 @@
       ],
       "baseline": "Implementação existe mas referência nova ainda é resumida. P07-G02: Payloads de coleções migrados, guards em callbacks e serviços de shell ampliados; std permanece obrigatória.",
       "next": "Executar os gates pertinentes quando autorizado; conservar os limites e casos negativos documentados em P07-G02.",
-      "updated": "2026-10-09",
+      "updated": "2026-10-27",
       "status": "IN PROGRESS",
       "checkpoints": [
         {
@@ -1191,7 +1203,7 @@
       ],
       "baseline": "Registros históricos de paridade subset.",
       "next": "Suite diferencial JS atual e coverage report reproduzível.",
-      "updated": "2026-10-09",
+      "updated": "2026-10-27",
       "status": "IN PROGRESS",
       "checkpoints": [
         {
@@ -1235,7 +1247,7 @@
       ],
       "baseline": "Aipo Wasm possui compilador, emissor e runner; P07 registra gates pendentes. P07-G02: Ramo físico de is removido; provas semânticas rejeitam aliases/shadowing; limites/cache Wasm separados.",
       "next": "Executar os gates pertinentes quando autorizado; conservar os limites e casos negativos documentados em P07-G02.",
-      "updated": "2026-10-09",
+      "updated": "2026-10-27",
       "status": "IN PROGRESS",
       "checkpoints": [
         {
@@ -1279,7 +1291,7 @@
       ],
       "baseline": "Testes existem; não pressupor cobertura universal. P07-G02: Plano explícito separa cobertura do perfil e subset Reg nativo; fixtures 35/36 escritas, não executadas.",
       "next": "Executar os gates pertinentes quando autorizado; conservar os limites e casos negativos documentados em P07-G02.",
-      "updated": "2026-10-09",
+      "updated": "2026-10-27",
       "status": "IN PROGRESS",
       "checkpoints": [
         {
@@ -1323,7 +1335,7 @@
       ],
       "baseline": "Entrada CLI delega a aipo_cli::run. P07-G02: new/watch/profile/debug/plan/LSP básico e Session persistente implementados; testes de protocolo não executados.",
       "next": "Executar os gates pertinentes quando autorizado; conservar os limites e casos negativos documentados em P07-G02.",
-      "updated": "2026-10-09",
+      "updated": "2026-10-27",
       "status": "IN PROGRESS",
       "checkpoints": [
         {
@@ -1366,7 +1378,7 @@
       ],
       "baseline": "Harness de equivalência já existe.",
       "next": "Roundtrip de formatação com corpus verificado.",
-      "updated": "2026-10-09",
+      "updated": "2026-10-27",
       "status": "IN PROGRESS",
       "checkpoints": [
         {
@@ -1410,7 +1422,7 @@
       ],
       "baseline": "Implementação de package resolver e testes de integração existem. P07-G02: Vendor offline exige lock/cache verificáveis, recusa symlinks e exporta manifest/lock locais mais SHA-256.",
       "next": "Executar os gates pertinentes quando autorizado; conservar os limites e casos negativos documentados em P07-G02.",
-      "updated": "2026-10-09",
+      "updated": "2026-10-27",
       "status": "IN PROGRESS",
       "checkpoints": [
         {
@@ -1453,7 +1465,7 @@
       ],
       "baseline": "Evidência P03-G01 histórica publicada.",
       "next": "Escapes, use-after-free, permissões e inputs hostis testados.",
-      "updated": "2026-10-09",
+      "updated": "2026-10-27",
       "status": "IN PROGRESS",
       "checkpoints": [
         {
@@ -1497,7 +1509,7 @@
       ],
       "baseline": "Crate C ABI e testes Rust/C estão presentes. P07-G02: C begin/pump/abort, linker/offsets, budgets/erros Reg e busy/reentry; header compilável C11/C++17.",
       "next": "Executar os gates pertinentes quando autorizado; conservar os limites e casos negativos documentados em P07-G02.",
-      "updated": "2026-10-09",
+      "updated": "2026-10-27",
       "status": "IN PROGRESS",
       "checkpoints": [
         {
@@ -1540,7 +1552,7 @@
       ],
       "baseline": "Poppy é integração opcional, não dependência da release v0.1.0.",
       "next": "Seed determinism e failure injection reexecutados.",
-      "updated": "2026-10-09",
+      "updated": "2026-10-27",
       "status": "IN PROGRESS",
       "checkpoints": [
         {
@@ -1584,7 +1596,7 @@
       ],
       "baseline": "Presença das crates não comprova maturidade ou escopo de release. P07-G02: Shell/REPL persistente, multilinha/histórico/completion e migração; perfis sem JIT ou embedded com std.",
       "next": "Executar os gates pertinentes quando autorizado; conservar os limites e casos negativos documentados em P07-G02.",
-      "updated": "2026-10-09",
+      "updated": "2026-10-27",
       "status": "IN PROGRESS",
       "checkpoints": [
         {
@@ -1628,7 +1640,7 @@
       ],
       "baseline": "docs/conformance é parte da estratégia de teste; não remover. P07-G02: Regressões e fixtures novas escritas/compiladas, sem execução por instrução explícita do usuário.",
       "next": "Executar os gates pertinentes quando autorizado; conservar os limites e casos negativos documentados em P07-G02.",
-      "updated": "2026-10-09",
+      "updated": "2026-10-27",
       "status": "IN PROGRESS",
       "checkpoints": [
         {
@@ -1672,7 +1684,7 @@
       ],
       "baseline": "Políticas e histórico existem; reexecução não feita neste trabalho. P07-G02: Fronteiras Reg/C/Wasm verificadas e instalador rejeita traversal/symlinks; fuzz/Miri/ASan/audit não executados.",
       "next": "Executar os gates pertinentes quando autorizado; conservar os limites e casos negativos documentados em P07-G02.",
-      "updated": "2026-10-09",
+      "updated": "2026-10-27",
       "status": "IN PROGRESS",
       "checkpoints": [
         {
@@ -1716,7 +1728,7 @@
       ],
       "baseline": "Histórico de medições não pode ser extrapolado ao HEAD. P07-G02: Driver pareado e coleta final Rust 1.96 com 480 amostras: 4,80x Int e 4,55x String neste microbenchmark; dados brutos/hashes publicados, sem claim global.",
       "next": "Executar os gates pertinentes quando autorizado; conservar os limites e casos negativos documentados em P07-G02.",
-      "updated": "2026-10-09",
+      "updated": "2026-10-27",
       "status": "IN PROGRESS",
       "checkpoints": [
         {
@@ -1760,7 +1772,7 @@
       ],
       "baseline": "Estado P06/P07 histórico não prova release estável. P07-G02: MSRV 1.96, perfis/packaging workflows e checksum/instalador definidos; outras plataformas não certificadas.",
       "next": "Executar os gates pertinentes quando autorizado; conservar os limites e casos negativos documentados em P07-G02.",
-      "updated": "2026-10-09",
+      "updated": "2026-10-27",
       "status": "IN PROGRESS",
       "checkpoints": [
         {
@@ -1803,7 +1815,7 @@
       ],
       "baseline": "Nesta alteração, implementação do painel aguarda execução dos gates de CI.",
       "next": "Validador + testes + build website da revisão integrados no CI.",
-      "updated": "2026-10-09",
+      "updated": "2026-10-27",
       "status": "IN PROGRESS",
       "checkpoints": [
         {
@@ -1846,7 +1858,7 @@
       ],
       "baseline": "485 arquivos antigos, incluindo corpus e evidências que ainda importam.",
       "next": "Inventário completo de links/consumidores e paridade antes de qualquer delete.",
-      "updated": "2026-10-09",
+      "updated": "2026-10-27",
       "status": "IN PROGRESS",
       "checkpoints": [
         {
@@ -1889,7 +1901,7 @@
       ],
       "baseline": "Os 26 capítulos antigos agora apontam ao manual atualizado por assunto e a fontes reais. O novo manual possui 20 tópicos, existem 26 páginas de exemplos com código copiado do repositório e 18 páginas de APIs nativas. O checker editorial compara os exemplos com o código. Isso não certifica execução dos exemplos na linguagem nem os trechos da biblioteca por backend.",
       "next": "Executar e registrar os exemplos Aipo na revisão corrente; criar provas por backend para cada página e ampliar assinaturas de API verificadas.",
-      "updated": "2026-10-09",
+      "updated": "2026-10-27",
       "status": "IN PROGRESS",
       "checkpoints": [
         {
@@ -1932,7 +1944,7 @@
       ],
       "baseline": "Site novo possui EN parcial; docs/en não pode ser apagado.",
       "next": "Traduções revisadas e caminhos antigos redirecionados.",
-      "updated": "2026-10-09",
+      "updated": "2026-10-27",
       "status": "IN PROGRESS",
       "checkpoints": [
         {
@@ -1975,7 +1987,7 @@
       ],
       "baseline": "Contrato editorial ampliado para Começar → Manual → Exemplos → Referência, leitura focada, fonte atual de exemplos, menor densidade visual e preferências de leitura. Gate estático de acessibilidade adicionado, mas auditoria humana por leitor de tela/zoom e revisão cognitiva continuam pendentes.",
       "next": "Executar auditoria de navegação teclado, Orca/NVDA/VoiceOver, zoom 200%, reflow mobile e sessões com usuários neurodivergentes; registrar falhas e resultados.",
-      "updated": "2026-10-09",
+      "updated": "2026-10-27",
       "status": "IN PROGRESS",
       "checkpoints": [
         {
@@ -2007,5 +2019,19 @@
         }
       ]
     }
-  ]
+  ],
+  "audit": {
+    "date": "2026-10-27",
+    "revision": "ab5fbc055803d018d63e9565a3283b278b79c5f3",
+    "workspace_tests": "pass",
+    "conformance_vm_reg": "pass",
+    "wasm_subset": "partial",
+    "clippy": "pass",
+    "rustfmt": "pass",
+    "rustdoc": "pass",
+    "site_check": "pass",
+    "site_build": "pass",
+    "fuzz_miri_asan": "not-run",
+    "notes": "1.130 testes do workspace; 36/36 conformance VM/Reg; 15/36 Wasm; game host e site build executados. Execução sobre HEAD ab5fbc0 + alterações desta reconciliação (árvore não commitada). Gates por tarefa continuam abertos até a prova específica ser vinculada."
+  }
 }

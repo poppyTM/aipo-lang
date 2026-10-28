@@ -3,6 +3,20 @@
 Todas as alterações notáveis deste projeto são documentadas neste arquivo.
 O formato baseia-se no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/) e adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
+> **Versionamento:** a versão publicada do workspace e da CLI é **0.1.0** (`Cargo.toml`, `aipo --version`).
+> Rótulos internos de trilha, como o antigo `0.11.0` abaixo, não são versões de pacote; foram preservados
+> como histórico e renomeados para `Unreleased`.
+
+## Reconciliação documental e de backend — 2026-10-27
+
+- O plano de execução agora tenta o Reg nativo primeiro e faz fallback explícito para a VM em métodos de ordem superior, handlers de falha e IR não representável. A conformance VM/Reg cobre 36/36 programas com saída igual; 20/36 usam Reg nativamente.
+- O RegVM trunca a janela de iteração no retorno de cada ativação, corrigindo o vazamento de guard em retornos antecipados (exemplo `25_snake_game`).
+- `aipo build --target js` grava `package.json` com `"type": "module"`, permitindo `node app.js` no diretório de saída.
+- Novo diagnóstico estável `AIPO_COMPILE_WASM_UNSUPPORTED` separa limitação do backend Wasm de fault de runtime e orienta `--engine=vm`.
+- Documentação reconciliada: README/MSRV/Node, inventário de 24 crates, layout de `Value` (16 bytes neste alvo), SYNTAX, conformance 28–36, testing strategy, contratos de crates, links e matriz de backends.
+- `aipo-bench` foi atualizado para a sintaxe atual (`Tipo:metodo`, `init`, `invariant`); `--quick` completou no HEAD com 49 amostras, classificadas como ruidosas pelo próprio runner.
+- Workspace completo verificado com 1.130 testes, incluindo Poppy, eGUI e game host; Clippy, rustfmt, rustdoc estrito, validadores do portal e build VitePress passaram. P07-G01/P07-G02 permanecem DRAFT.
+
 ## Runtime e ferramentas — P07-G02, 2026-10-09
 
 - RegVerifier valida operandos/pools/targets, inicialização definida pelo CFG e escopos. `ExecutionPlan` seleciona Reg verificado ou serviços canônicos com motivo explícito, sem descartar IR.
@@ -11,7 +25,7 @@ O formato baseia-se no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 - C ABI liga unidades e acrescenta begin/pump/abort, budgets/erros Reg e recusa de runtime ocupado. Wasm ganha prova semântica conservadora para `is`, rejeição de aliases/shadowing, limites separados de memória/saída/fuel e cache LRU por Engine.
 - CLI recebe new/watch/profile/debug/plan/LSP e vendor offline. Perfis shell/web/embedded, MSRV 1.96, scripts de empacotamento/instalação/checksum e workflows de compilação/distribuição manual.
 - Chamadas Reg movem somente janelas vivas e reutilizam constantes/provas do módulo; protocolo pareado e CSV publicados. Medições e checks têm escopo e revisão descritos na evidência.
-- Guia completo de uso/reimplementação e continuidade dos nove estudos pinados. Goal permanece DRAFT: testes não executados por instrução do usuário, sem merge ou release pública.
+- Guia completo de uso/reimplementação e continuidade dos nove estudos pinados. Na entrega original o goal permaneceu DRAFT e os testes não foram executados por instrução do usuário. O PR #30 foi integrado depois; o goal continua DRAFT até a certificação dos gates, e nenhuma release pública foi publicada.
 
 ## Revisão de runtime — reconstrução de 2026-10-09
 
@@ -22,7 +36,7 @@ O formato baseia-se no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0
 - Estudos com nove SHAs completos, fetch/lock fora do repo, guia de uso/reimplementação, compatibilidade, limitações e roteiro de medição.
 - Publicação em draft. Testes não executados nesta reconstrução por pedido do usuário; resultados de arquivos temporários perdidos não certificam esta revisão.
 
-## [0.11.0] - Em desenvolvimento (Trilha WebAssembly & Self-Hosting)
+## [Unreleased] - Trilha WebAssembly & Self-Hosting
 
 - **Substrato de Execução WebAssembly & C ABI (ADP-009, ADP-013)**:
   - **Expansão do Backend WebAssembly (`crates/aipo-wasm`)**:

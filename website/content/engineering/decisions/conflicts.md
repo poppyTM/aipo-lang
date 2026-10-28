@@ -5,6 +5,19 @@ title: Conflitos de autoridade identificados
 
 Este registro conserva **evidências de inconsistência editorial**, não decide sem autorização questões de semântica de linguagem.
 
+## Autoridade vigente por tema
+
+| Tema | Fonte canônica | Estado |
+| --- | --- | --- |
+| Estado da implementação | `PROJECT_STATE.md` + `.ai/goals/` | Atualizado na reconciliação de 2026-10-27; goals P07 seguem DRAFT |
+| Sintaxe implementada | `SYNTAX.md` + testes do parser | Normativo para a superfície atual; `fixed` é legado aceito |
+| Arquitetura e crates | `docs/architecture/crates.md` + `docs/crates/crate-contracts.md` | Derivado de `cargo metadata` |
+| Conformance | `docs/conformance/README.md` + fixtures | Executável; 36 programas e 29 diagnósticos |
+| Diagnósticos | `docs/diagnostics/catalog.md` + `aipo-diagnostics` | Códigos estáveis |
+| Progresso e evidência | `website/public/progress/tasks.json` | Painel auditável; baseline revisado em 2026-10-27 |
+| Documentos legados | `docs/en/`, `docs/journal/`, `docs/evidence/` | Históricos; não certificam o HEAD |
+| Release | `docs/adp/ADP-008-v0.1.0-language-release.md` + `PROJECT_STATE.md` | `v0.1.0` ainda não certificada |
+
 ## ADP-003 — Execução de scripts não confiáveis
 
 - `docs/decisions/adp-003.md`: “Aprovado & Implementado”.
@@ -21,9 +34,9 @@ Este registro conserva **evidências de inconsistência editorial**, não decide
 
 ## ADR-001 — Nova sintaxe x parser
 
-A sintaxe aprovada em `docs/decisions/adr-001-canonical-syntax.md` difere do lexer/parser histórico (end/div/impl/satisfy/self!). `SYNTAX.md` declara explicitamente que a superfície nova é alvo. O manual público contém exemplos de diferentes gerações.
+O parser atual removeu `end`, `div`, `self!`, `impl` e `satisfy`; `Tipo:metodo`, `var self`, `{ }` e `#!` são a superfície canônica. `fixed` continua aceito como forma legada. A matriz completa está em [`SYNTAX.md`](https://github.com/poppyTM/aipo-lang/blob/main/SYNTAX.md) §16 e é fixada pelos testes do parser.
 
-**Conciliação necessária:** matriz de features por versão/backend e migração dos exemplos acompanhada de conformance.
+**Pendência:** remover definitivamente `fixed` exige atualizar fixtures de conformance e exemplos; não fazer isso sem um ADP e uma migração única.
 
 ## Exemplos e conteúdo introdutório
 
@@ -33,7 +46,7 @@ A sintaxe aprovada em `docs/decisions/adr-001-canonical-syntax.md` difere do lex
 
 ## Estado de verificação
 
-O merge de runtime P07-G01 entregou implementação e documentação, mas registrou testes não executados. O portal deve diferenciar “código disponível” de “testes verificados”.
+A reconciliação de 2026-10-27 executou o workspace completo (1.130 testes), conformance VM/Reg, Poppy, eGUI, game host, validadores estáticos do portal e build VitePress. Código disponível, teste executado e release certificada continuam sendo estados diferentes.
 
 ## Política de resolução
 

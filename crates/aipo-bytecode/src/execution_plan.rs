@@ -1,6 +1,6 @@
 //! Explicit selection between native register execution and canonical semantics.
 use crate::{BytecodeModule, RegCompiledModule, RegEmitter};
-use aipo_ir::{CoreInst, CoreModule};
+use aipo_ir::CoreModule;
 use serde::{Deserialize, Serialize};
 
 /// A compilation plan. Canonical execution retains full language semantics.
@@ -31,19 +31,43 @@ impl ExecutionPlan {
 /// # Errors
 /// Returns canonical bytecode verification errors if neither plan can be generated.
 pub fn compile_execution_plan(core: &CoreModule) -> Result<ExecutionPlan, Vec<String>> {
-    let shared_services = !core.structs.is_empty()
-        || core
-            .functions
-            .iter()
-            .chain(std::iter::once(&core.top_level))
-            .any(|function| {
-                function
-                    .instructions
-                    .iter()
-                    .any(|inst| matches!(inst, CoreInst::GetField(..) | CoreInst::SetField(..)))
-            });
-    let reason = if shared_services {
-        "member access and construction use the canonical method and contract services".into()
+    const HIGHER_ORDER_METHODS: &[&str] = &[
+        "filter",
+        "transform",
+        "map",
+        "sort_by",
+        "any",
+        "all",
+        "flat_map",
+        "reduce",
+    ];
+    let uses_higher_order = core
+        .functions
+        .iter()
+        .chain(std::iter::once(&core.top_level))
+        .any(|function| {
+            function.instructions.iter().any(|inst| {
+                matches!(
+                    inst,
+                    aipo_ir::CoreInst::GetField(name, _)
+                        if HIGHER_ORDER_METHODS.contains(&name.as_str())
+                )
+            })
+        });
+    let uses_failure_control = core
+        .functions
+        .iter()
+        .chain(std::iter::once(&core.top_level))
+        .any(|function| {
+            function
+                .instructions
+                .iter()
+                .any(|inst| matches!(inst, aipo_ir::CoreInst::PushHandler(..)))
+        });
+    let reason = if uses_higher_order {
+        "higher-order collection methods require --engine=vm".into()
+    } else if uses_failure_control {
+        "failure handlers require --engine=vm".into()
     } else {
         match RegEmitter::new().compile_module(core) {
             Ok(module) => return Ok(ExecutionPlan::Register(Box::new(module))),

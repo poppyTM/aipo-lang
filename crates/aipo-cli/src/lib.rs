@@ -2288,19 +2288,27 @@ fn compile_to_wasm(
     match aipo_wasm::compile_hir(&resolved.program) {
         Ok(bytes) => (Some(bytes), diagnostics),
         Err(err) => {
-            diagnostics.push(Diagnostic::error(
-                DiagnosticCode::AIPO_RT_TYPE_MISMATCH,
-                format!("wasm compilation failed: {err}"),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::AIPO_COMPILE_WASM_UNSUPPORTED,
+                    format!("wasm compilation failed: {err}"),
+                )
+                .with_primary_span(source, err.span())
+                .with_note("use --engine=vm for the full language surface"),
+            );
             (None, diagnostics)
         }
     }
     #[cfg(not(feature = "wasm"))]
     {
-        diagnostics.push(Diagnostic::error(
-            DiagnosticCode::AIPO_RT_TYPE_MISMATCH,
-            "WebAssembly compiler is disabled in this build (wasm feature not enabled)".to_string(),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::AIPO_COMPILE_WASM_UNSUPPORTED,
+                "WebAssembly compiler is disabled in this build (wasm feature not enabled)"
+                    .to_string(),
+            )
+            .with_note("rebuild with the `wasm` feature or use --engine=vm"),
+        );
         (None, diagnostics)
     }
 }
@@ -2822,6 +2830,7 @@ fn build_bundle(
                                 ("app.js", bundle.app_js.as_str()),
                                 ("aipo-runtime.js", bundle.runtime_js.as_str()),
                                 ("app.js.map", bundle.source_map.as_str()),
+                                ("package.json", "{\n  \"type\": \"module\"\n}\n"),
                             ] {
                                 if let Err(error) = std::fs::write(dir.join(name), contents) {
                                     let _ = writeln!(
@@ -2832,7 +2841,7 @@ fn build_bundle(
                                     return EXIT_USAGE;
                                 }
                             }
-                            let _ = writeln!(out, "built 3 files to {}", dir.display());
+                            let _ = writeln!(out, "built 4 files to {}", dir.display());
                             return EXIT_SUCCESS;
                         }
                     }

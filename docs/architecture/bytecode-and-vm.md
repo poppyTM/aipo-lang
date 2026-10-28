@@ -18,10 +18,11 @@ O compilador do Aipo pode serializar o bytecode diretamente para um arquivo bin�
 ## Arquitetura da Máquina Virtual (`aipo-vm`)
 
 ### 1. Modelo de Valores (`Value`)
-O tipo `Value` na VM foi otimizado para um tamanho de 48 bytes com variantes empacotadas em `Rc`:
+O layout de `Value` é medido por alvo com `cargo run -p aipo-vm --example layout_probe`.
+Neste workspace x86-64 ele ocupa **16 bytes**; não há promessa portátil de tamanho fixo.
 - Primitivos: `Int(i64)`, `Float(f64)`, `Bool(bool)`, `None`
-- Heap com contagem de referências: `String(Rc<str>)`, `List(Rc<RefCell<Vec<Value>>>)`, `Dict`, `Set`, `Bytes`
-- Objetos de Execução: `Closure`, `BoundMethod`, `TaskHandle`, `HostHandle`
+- Heap com contagem de referências: `String(Rc<str>)`, `List(Rc<RefCell<Collection<Value>>>)`, `Dict`, `Set(Rc<RefCell<Collection<Value>>>)`, `Bytes(Rc<RefCell<Collection<u8>>>)`
+- Objetos de Execução: `Closure`, `StructMethod`, `BoundMethod`, `Task`, `HostHandle`
 
 ### 2. Otimização do Laço de Despacho
 - Instruções decodificadas diretamente via `match` simples, eliminando o custo de `Result` largo de 72 bytes em cada ciclo de CPU.

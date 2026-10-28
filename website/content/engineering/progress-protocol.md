@@ -35,7 +35,7 @@ A UI importa esse JSON como dados locais durante a compilação do VitePress; **
 
 ### Por que a auditoria inicial marca muitos processos como parciais?
 
-O snapshot inicial distingue **implementação identificada** de **execução atual dos testes**. Encontrar `aipo-vm`, `aipo-wasm` ou uma suíte antiga não certifica paridade completa ou zero regressões. O registro [P07-G01](https://github.com/poppyTM/aipo-lang/blob/main/docs/evidence/P07-G01-runtime-hardening.md) afirma expressamente que testes foram deixados sem execução na revisão descrita. Por isso a evidência de presença do código pode encerrar um checkpoint de inventário, mas não o gate de teste. Os percentuais **não são um downgrade automático** de funcionalidades concluídas historicamente.
+O snapshot inicial distingue **implementação identificada** de **execução atual dos testes**. Encontrar `aipo-vm`, `aipo-wasm` ou uma suíte antiga não certifica paridade completa ou zero regressões. O registro [P07-G01](https://github.com/poppyTM/aipo-lang/blob/main/docs/evidence/P07-G01-runtime-hardening.md) afirma expressamente que testes foram deixados sem execução na revisão descrita. A reconciliação de 2026-10-27 executou o workspace completo (1.130 testes), conformance VM/Reg, Poppy, eGUI, game host, validadores do portal e build VitePress; ainda assim, os checkpoints só fecham quando a prova específica de cada tarefa é vinculada. Os percentuais **não são um downgrade automático** de funcionalidades concluídas historicamente.
 
 O único processo `DONE` na baseline inicial é o inventário básico de arquitetura: seu **escopo limitado** é o mapa de crates e boundaries, não a qualidade ou performance da linguagem.
 

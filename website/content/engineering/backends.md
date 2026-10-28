@@ -15,7 +15,11 @@ O compilador Wasm atual recebe HIR diretamente segundo a documentação de harde
 
 ## Register VM
 
-Não use a existência da flag `--engine=reg` como prova de paridade. O emissor precisa gerar erro `AIPO_COMPILE_REG_UNSUPPORTED` com orientação útil quando encontrar uma operação não coberta.
+Não use a existência da flag `--engine=reg` como prova de paridade. O emissor gera `AIPO_COMPILE_REG_UNSUPPORTED` quando encontra uma operação não coberta; o plano canônico usa a VM com motivo explícito. Em 2026-10-27, 20/36 programas de conformance rodaram nativamente em Reg e 16/36 usaram fallback, com saída igual à VM nos 36.
+
+## Matriz medida
+
+A [matriz de suporte por backend](https://github.com/poppyTM/aipo-lang/blob/main/docs/architecture/backend-support-matrix.md) registra os números de VM, Reg, JavaScript, Wasm, C ABI, Poppy, eGUI e game host, com comandos de reprodução e limites.
 
 ## Matriz mínima para cada recurso
 

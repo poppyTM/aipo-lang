@@ -21,7 +21,7 @@ Você pode utilizar o Aipo diretamente pela CLI gerada com Rust. O comando mais 
 | Analisar sem executar | `aipo check main.aipo` |
 | Formatar | `aipo fmt main.aipo` |
 | Conferir formatação | `aipo fmt main.aipo --check` |
-| Descobrir e rodar testes | `aipo test` |
+| Descobrir e rodar testes | `aipo test packages/aipo-ui` |
 | Compilar JavaScript | `aipo build main.aipo --target js --out dist/` |
 | Compilar Wasm | `aipo build main.aipo --target wasm --out dist/` |
 | Desassemblar | `aipo disasm main.aipo` |

@@ -19,7 +19,7 @@ Aipo é projetada para leitura, escrita e manutenção por pessoas neurodivergen
 
 ## 0. TL;DR
 
-- **41 keywords.** Removidas: `end`, `div`, `self!`, `impl`, `satisfy`.
+- **42 keywords + `_` (descarte) = 43 tokens reservados.** Removidas: `end`, `div`, `self!`, `impl`, `satisfy`; `fixed` permanece como forma legada aceita.
 - Bloco abre com `{` e fecha com `}`. **Não existe `end`.**
 - Comentário é `#`. Não existe comentário de bloco.
 - **`//` NÃO é comentário** — é divisão inteira. Use `#`.
@@ -538,7 +538,7 @@ Açúcar multi-sujeito em `is`: `a, b, c is Int` → os três `is Int`.
 
 ---
 
-## 12. Keywords (43)
+## 12. Keywords (42 + `_` = 43 tokens reservados)
 
 | Grupo | Keywords |
 |---|---|
@@ -620,8 +620,9 @@ Histórico e estado de transição da gramática legada para a sintaxe canônica
 | `end` como terminador | **removido** | blocos exigem `{ ... }` exclusivamente |
 | `div` / `div=` | **removido** | `div` é identificador comum; `//` e `//=` são os únicos operadores de divisão inteira |
 | `self!` / `nome!` | **removido** | `var self` e `var nome` exclusivos |
-| `impl Tipo { }` | legado aceito | `Tipo:nome` implementado e canônico |
-| `satisfy T: I` | legado aceito | `#!satisfies` implementado e verificado estaticamente |
+| `impl Tipo { }` | **rejeitado pelo parser** | `Tipo:nome` é a única forma aceita |
+| `satisfy T: I` | **rejeitado pelo parser** | `#!satisfies` é a forma aceita e verificada estaticamente |
+| `fixed` em campo | **legado aceito** | novo código usa campo simples (imutável por padrão); `fixed` permanece por compatibilidade |
 | `fn` dentro de `interface` | **opcional** | interface aceita assinaturas com ou sem `fn` |
 | Campos com anotação de tipo | **implementado** | `campo: Tipo` opcional em structs |
 | `#!` diretivas (`test`, `todo`, `deprecated`, `satisfies`) | **implementado** | lexer, parser, AST, HIR, sema |

@@ -45,9 +45,9 @@ Os snippets nesta tabela são **formas de referência**, não programas completo
 
 ## Sintaxe alvo e pontos de atenção
 
-O arquivo [`SYNTAX.md`](https://github.com/poppyTM/aipo-lang/blob/main/SYNTAX.md) define uma **proposta normativa de V1** e declara explicitamente que ela **não foi integralmente implementada**. Ele descreve mudanças em relação a formas históricas como `end`, `div`, `impl`, `satisfy` e `self!`.
+O arquivo [`SYNTAX.md`](https://github.com/poppyTM/aipo-lang/blob/main/SYNTAX.md) é a referência normativa da sintaxe V1 implementada. As formas `end`, `div`, `self!`, `impl` e `satisfy` foram removidas do parser; `fixed` permanece apenas como forma legada aceita, enquanto campos simples já são imutáveis por padrão.
 
-Os exemplos mantidos no repositório contêm as formas atualmente usadas, incluindo blocos `{ }`, `Tipo:metodo`, `var self` e diretivas `#!`. Não tente substituir automaticamente todos os arquivos antigos sem conferir os testes do parser.
+Os exemplos mantidos no repositório usam blocos `{ }`, `Tipo:metodo`, `var self` e diretivas `#!`. Ao encontrar um arquivo antigo com `impl`, `satisfy`, `end` ou `self!`, trate-o como histórico e confira os testes do parser antes de reutilizá-lo.
 
 **Fonte para verificar:** [fixtures de conformance](https://github.com/poppyTM/aipo-lang/tree/main/docs/conformance/programs), [exemplos reais](/examples/) e [parser Rust](https://github.com/poppyTM/aipo-lang/tree/main/crates/aipo-syntax).
 

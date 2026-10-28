@@ -88,17 +88,17 @@ O Aipo adota códigos de saída determinísticos e padronizados:
 
 ## 2. Testes Automatizados: `aipo test`
 
-O comando `aipo test` é o executor de testes nativo da linguagem. Ele busca recursivamente por arquivos que terminem com `_test.aipo` ou comecem com `test_*.aipo`.
+O comando `aipo test` é o executor de testes nativo da linguagem. Sem argumento, ele varre `tests/` e os arquivos do diretório atual; para um pacote, passe o diretório. Ele reconhece arquivos `*_test.aipo`, `test_*.aipo` e arquivos com diretiva `#!test`. Suítes que chamam `host_*` precisam do bridge de host.
 
 ```bash
-# Executar todos os testes do projeto
-aipo test
+# Executar os testes de um pacote
+aipo test packages/aipo-ui
 
 # Filtrar testes por nome ou caminho
-aipo test --filter auth
+aipo test packages/aipo-ui --filter layout
 
 # Saída legível por máquinas para integrações de CI/CD
-aipo test --message-format=jsonl
+aipo test packages/aipo-ui --message-format=jsonl
 ```
 
 ### Isolamento e Determinismo em Testes
@@ -168,7 +168,7 @@ aipo fmt --check src/
 
 ## 5. Emissão Web e JavaScript: `aipo build`
 
-O compilador Aipo produz código otimizado para o ecossistema Web e Node.js com **paridade diferencial absoluta**:
+O compilador Aipo produz código otimizado para o ecossistema Web e Node.js com paridade diferencial comprovada no corpus:
 
 ```bash
 # Compilar projeto para JavaScript ES2022
@@ -182,6 +182,7 @@ O bundle gerado inclui:
 - `app.js`: Código da aplicação e inicialização do runtime.
 - `aipo-runtime.js`: Shim modular e versionado sem dependências externas.
 - `app.js.map`: Mapa de fontes completo para depuração direta de arquivos `.aipo` no DevTools do navegador.
+- `package.json`: Declara `"type": "module"` para que `node app.js` funcione no diretório de saída.
 
 ---
 
@@ -258,5 +259,5 @@ jobs:
         run: aipo check examples/01_fizzbuzz.aipo
 
       - name: Executar Testes Unitários
-        run: aipo test
+        run: aipo test packages/aipo-ui
 ```

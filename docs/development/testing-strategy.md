@@ -29,12 +29,15 @@
 
 ```bash
 cargo fmt --all -- --check
-cargo check --workspace --all-targets
-cargo clippy --workspace --all-targets --all-features -- -D warnings
-cargo test --workspace --all-targets
-cargo doc --workspace --no-deps
+cargo clippy --workspace --all-targets --locked -- -D warnings
+cargo test --workspace --locked
+RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --locked
 prumo validate . && prumo doctor .
 ```
+
+On Linux, the full workspace gate requires `libasound2-dev` for `aipo-game-host`.
+Without it, use the default-members gate (`cargo test --locked`) and run Poppy/eGUI
+separately. `prumo` gates require the Prumo CLI to be installed.
 
 Risk-gated (when relevant code changes): `cargo miri test` (no Wave 1 unsafe expected),
 fuzz targets, `cargo audit`/`cargo deny`.
@@ -52,9 +55,12 @@ fuzz targets, `cargo audit`/`cargo deny`.
 
 ## Fixtures
 
-- `docs/conformance/fixtures/pass/*.aipo` — must run/compile clean.
-- `docs/conformance/fixtures/fail/**/*.aipo` — must produce the documented diagnostic code.
-- Expected diagnostics live next to fixtures as `*.expected.jsonl`.
+- `docs/conformance/programs/NN_name.aipo` + `NN_name.stdout` — must run and match stdout.
+- `docs/conformance/diagnostics/NN_name.aipo` + `NN_name.code` — must fail with the listed code(s).
+- `docs/conformance/formatting/NN_name.input.aipo` + `NN_name.expected.aipo` — formatter golden corpus.
+- `docs/conformance/modules/<case>/entry.aipo` — multi-file module cases with optional `.stdout`/`.code`.
+- `docs/conformance/ahs/` and `docs/conformance/host/` — host schema and headless capability fixtures.
+- The corpus is the referee; expected diagnostics live next to their fixture, not in a separate tree.
 
 ## Evidence expectations
 

@@ -11,7 +11,7 @@ A Stack VM é o caminho de execução de referência do projeto. Estado de pilha
 
 ## Register VM experimental
 
-A RegVM busca um modelo de execução diferente, mas não tem paridade integral. A revisão de 9 de outubro abordou:
+A RegVM busca um modelo de execução diferente, mas não tem paridade integral. Em 2026-10-27, o plano selecionou Reg nativamente em 20/36 programas de conformance; os demais usaram a VM com motivo explícito e todos os 36 produziram a saída esperada. A revisão de 9 de outubro abordou:
 - retorno e restauração de caller e handlers;
 - operandos de bytecode e jumps;
 - delegação de aritmética e igualdade às regras compartilhadas de `Value`;
@@ -19,7 +19,7 @@ A RegVM busca um modelo de execução diferente, mas não tem paridade integral.
 - iteração de dicionários e guardas;
 - rejeição explícita de operações não suportadas.
 
-O [guia de reimplementação](https://github.com/poppy-team/aipo-lang/blob/main/docs/development/runtime-hardening-guide.md) contém detalhes de código e limites, sem substituir os contratos de especificação.
+O [guia de reimplementação](https://github.com/poppyTM/aipo-lang/blob/main/docs/development/runtime-hardening-guide.md) contém detalhes de código e limites, sem substituir os contratos de especificação. A [matriz de backends](https://github.com/poppyTM/aipo-lang/blob/main/docs/architecture/backend-support-matrix.md) registra a medição atual.
 
 ## Falhas e rollback
 

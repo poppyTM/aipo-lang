@@ -396,7 +396,9 @@ impl RegVm {
         self.constants = func.constants.iter().map(Self::convert_constant).collect();
         self.contracts = func.contracts.clone();
         self.pc = 0;
+        let iteration_depth = self.active_iterations.len();
         let outcome = self.run_loop(&func.instructions);
+        self.active_iterations.truncate(iteration_depth);
         let saved_slice = &self.register_stack[window_start..];
         self.registers[..callee_regs].clone_from_slice(saved_slice);
         self.register_stack.truncate(window_start);
@@ -441,6 +443,8 @@ impl RegVm {
             s.frames.clear();
             s.upvalue_frames.clear();
             s.register_stack.clear();
+            s.active_iterations.clear();
+            s.handler_stack.clear();
             s.pc = 0;
             s.run_loop(&func.instructions)
         })

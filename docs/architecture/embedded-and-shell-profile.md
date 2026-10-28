@@ -19,7 +19,7 @@ Aliases não removem defaults sozinhos. Não foram criados crates por perfil. `e
 
 ## Um frontend, planos de execução explícitos
 
-A VM de pilha é a referência de semântica: valores, contratos, métodos, captures, scheduler, invariantes e falhas. O RegEmitter compila seu subconjunto estritamente; `ExecutionPlan` seleciona Reg nativo quando todo o IR é representável e verificado, ou bytecode canônico com uma razão explícita.
+A VM de pilha é a referência de semântica: valores, contratos, métodos, captures, scheduler, invariantes e falhas. O RegEmitter compila seu subconjunto estritamente; `ExecutionPlan` tenta Reg nativo quando o IR é representável e verificado, ou usa bytecode canônico com uma razão explícita. Métodos de ordem superior e handlers de falha ainda forçam o plano canônico; em 2026-10-27, 20/36 programas de conformance rodaram nativamente em Reg.
 
 Isso permite que `aipo run --engine=reg` use a superfície canônica sem fingir que o interpretador Reg possui todas as capacidades. `aipo plan` mostra a decisão sem executar. A API `analyze_to_reg_module` continua estrita. Contextos de host que exigem a VM também selecionam o plano canônico.
 

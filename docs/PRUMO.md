@@ -17,7 +17,7 @@ Add user tutorials, how-to guides, reference and explanations under `docs/user/`
 - [Estudos e fontes pinadas](studies/index.md)
 - [Evidência e gates não executados da reconstrução](evidence/P07-G01-runtime-hardening.md)
 
-P07-G01 permanece DRAFT; testes dispensados nesta rodada por pedido explícito do usuário. Publicação em PR não equivale à aprovação dos gates ou transição formal de fase.
+P07-G01 e P07-G02 permanecem DRAFT. A reconciliação de 2026-10-27 executou o workspace completo (1.130 testes), conformance VM/Reg, Poppy, eGUI, game host, validadores do portal e build VitePress; o ambiente de auditoria tem `libasound2-dev` instalada. Publicação em PR não equivale à aprovação dos gates ou transição formal de fase.
 
 ## I want to develop/contribute
 
@@ -90,6 +90,11 @@ Gate evidence records live under `docs/evidence/`, one per completed goal:
 - [P02-G03 — Wave 3 infra assíncrona](evidence/P02-G03-wave3-async-syntax-and-diagnostics.md)
 - [P03-G01 — Host ABI: capability model, host values and generational handles](evidence/P03-G01-host-abi.md)
 - [P03-G02 — Poppy adapter and deterministic headless demo](evidence/P03-G02-poppy-adapter-and-headless-demo.md)
+- [P04 — Pacotes, cache, GitHub pinado e vendor](adp/ADP-007-package-identity-and-distribution.md)
+- [P06 — WebAssembly, C ABI e ferramentas](evidence/P07-G02/README.md)
+- [P07-G01 — Runtime hardening](evidence/P07-G01-runtime-hardening.md)
+- [P07-G02 — Runtime, embedding, shell, performance e tooling](evidence/P07-G02/README.md)
+- [Matriz de suporte por backend](architecture/backend-support-matrix.md)
 
 ## Goals
 

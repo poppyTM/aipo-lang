@@ -18,10 +18,11 @@ The Aipo compiler can serialize bytecode chunks directly into an `.aibc` binary 
 ## Virtual Machine Architecture (`aipo-vm`)
 
 ### 1. Value Representation (`Value`)
-The core `Value` enum is compact (48 bytes) with heap variants reference-counted via `Rc`:
+`Value` layout is target-specific and measured with `cargo run -p aipo-vm --example layout_probe`.
+On this x86-64 workspace it is **16 bytes**; there is no portable fixed-size promise.
 - Primitives: `Int(i64)`, `Float(f64)`, `Bool(bool)`, `None`
-- Reference-counted heap variants: `String(Rc<str>)`, `List(Rc<RefCell<Vec<Value>>>)`, `Dict`, `Set`, `Bytes`
-- Execution entities: `Closure`, `BoundMethod`, `TaskHandle`, `HostHandle`
+- Reference-counted heap variants: `String(Rc<str>)`, `List(Rc<RefCell<Collection<Value>>>)`, `Dict`, `Set(Rc<RefCell<Collection<Value>>>)`, `Bytes(Rc<RefCell<Collection<u8>>>)`
+- Execution entities: `Closure`, `StructMethod`, `BoundMethod`, `Task`, `HostHandle`
 
 ### 2. Dispatch Loop Optimization
 - Instructions are decoded directly via flattened `match` branches, eliminating bulky 72-byte `Result` allocations on every CPU cycle.

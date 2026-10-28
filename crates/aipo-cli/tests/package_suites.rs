@@ -77,13 +77,12 @@ fn host_free_package_suites_pass() {
     }
 }
 
-/// Formatter gate for `aipo.ui` only.
+/// Formatter gate for `aipo.ui`.
 ///
-/// The other packages still carry pre-existing formatter drift (most of their
-/// `src/` files), so asserting on them here would fail this gate for reasons
-/// unrelated to the change that introduced it. `aipo.ui` was brought to
-/// `aipo fmt --check` cleanliness in the same change, and this assertion keeps
-/// it there.
+/// All package sources are formatter-clean as of 2026-10-27. Keeping the
+/// explicit `aipo.ui` assertion protects the package that originally drifted
+/// by 148 parse errors, while the full-package check can be expanded later
+/// without changing the regression guard.
 #[test]
 fn aipo_ui_sources_are_formatted() {
     let dir = workspace_root().join("packages/aipo-ui/src");

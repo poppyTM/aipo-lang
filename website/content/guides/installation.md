@@ -6,7 +6,8 @@ title: Instalação e primeiro programa
 ## Pré-requisitos
 
 - Rust e Cargo instalados; o workspace exige Rust 1.96; o lockfile completo inclui Wasmtime/Cranelift com esse mínimo.
-- Git para obter o código; Node.js apenas quando for executar o JavaScript emitido ou desenvolver o site.
+- Node.js 20+ apenas quando for executar o JavaScript emitido ou desenvolver o site.
+- No Linux, `libasound2-dev` para compilar e testar `aipo-game-host`; o conjunto padrão de testes não depende dele.
 
 ## Compilar
 

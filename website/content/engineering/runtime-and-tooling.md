@@ -5,15 +5,15 @@ description: Guia de uso, motivos das mudanças, reimplementação, evidências 
 
 # Runtime e ferramentas: uso e reimplementação
 
-A rodada P07-G02 implementa as cinco frentes de runtime, embedding, shell/perfis, performance e ferramentas. O código está em revisão; testes não foram executados por instrução explícita do usuário. O objetivo permanece DRAFT, sem merge ou release pública.
+A rodada P07-G02 implementa as cinco frentes de runtime, embedding, shell/perfis, performance e ferramentas. Os PRs #30 e #31 foram integrados; o objetivo permanece DRAFT até a certificação dos gates e não houve release pública.
 
-O [guia completo em português](https://github.com/poppyTM/aipo-lang/blob/feat/runtime-and-tooling-completion/docs/development/runtime-and-tooling-guide.md) contém os algoritmos, comandos, APIs Rust/C, migração de clientes, motivos e roteiro de reimplementação. A [evidência](https://github.com/poppyTM/aipo-lang/blob/feat/runtime-and-tooling-completion/docs/evidence/P07-G02/README.md) separa compilação, medições e limites. A [continuidade dos estudos](https://github.com/poppyTM/aipo-lang/blob/feat/runtime-and-tooling-completion/docs/studies/runtime-and-tooling-follow-up.md) relaciona as decisões a nove fontes pinadas.
+O [guia completo em português](https://github.com/poppyTM/aipo-lang/blob/main/docs/development/runtime-and-tooling-guide.md) contém os algoritmos, comandos, APIs Rust/C, migração de clientes, motivos e roteiro de reimplementação. A [evidência](https://github.com/poppyTM/aipo-lang/blob/main/docs/evidence/P07-G02/README.md) separa compilação, medições e limites. A [continuidade dos estudos](https://github.com/poppyTM/aipo-lang/blob/main/docs/studies/runtime-and-tooling-follow-up.md) relaciona as decisões a nove fontes pinadas.
 
 ## Mudanças e critérios abertos
 
 | Frente | Mudança | Limite |
 | --- | --- | --- |
-| Correção | Verifier Reg, fatos de inicialização/escopos, revisão estrutural, `is` Wasm conservador | Conformance/fuzz/Miri/ASan não executados |
+| Correção | Verifier Reg, fatos de inicialização/escopos, revisão estrutural, `is` Wasm conservador | Conformance VM/Reg executada em 2026-10-27; fuzz/Miri/ASan não |
 | Cobertura e embedding | Plano explícito, linker, budgets, C begin/pump/abort, limites/cache Wasm | Reg nativo continua subconjunto; nativos podem bloquear |
 | Sessão e perfis | REPL sem replay, tasks persistentes, reload com migração/rollback, shell/web/embedded | Efeitos externos não são revertidos; embedded ainda usa `std` |
 | Performance | Janelas vivas, corpos Rc, constantes/provas por módulo, benchmark pareado | Microbenchmark não mede toda a linguagem, cold start ou RAM |
