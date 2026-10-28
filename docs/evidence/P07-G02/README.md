@@ -5,7 +5,7 @@
 
 O ambiente foi recuperado e o código foi publicado em `feat/runtime-and-tooling-completion`. A árvore remota do checkpoint foi comparada com a local, seguida da correção final Wasm e integração da `main` `23bab1d2`. O [guia completo](../../development/runtime-and-tooling-guide.md) descreve o que mudou, por que, como usar, compatibilidade e reimplementação.
 
-> **Reconciliação de 2026-10-27 (árvore de trabalho sobre `ab5fbc0`, não commitada):** o workspace completo passou com 1.130 testes (incluindo Poppy, eGUI e game host), conformance VM/Reg com 36/36, validadores do portal com 13 testes e build VitePress; Clippy, rustfmt e rustdoc estrito passaram em Rust 1.99.1. A matriz de MSRV 1.96 em runner dedicado continua pendente. A matriz de backends mede Reg/Wasm e o README foi corrigido. O goal continua DRAFT.
+> **Reconciliação de 2026-10-27 (árvore de trabalho sobre `ab5fbc0`, não commitada):** o workspace completo passou com 1.130 testes (incluindo Poppy, eGUI e game host), conformance VM/Reg com 36/36, validadores do portal com 13 testes e build VitePress; Clippy, rustfmt, rustdoc estrito e testes passaram em Rust 1.96.0; os perfis shell, web e embedded também compilam no MSRV. A matriz multiplataforma continua pendente. A matriz de backends mede Reg/Wasm e o README foi corrigido. O goal continua DRAFT.
 
 ## Resultado das checagens
 

@@ -2260,6 +2260,8 @@
     "site_check": "pass",
     "site_build": "pass",
     "fuzz_miri_asan": "not-run",
-    "notes": "1.130 testes do workspace; 36/36 conformance VM/Reg; 15/36 Wasm; game host e site build executados. Evidência vinculada por rota documental; Q02 mantém fuzz/Miri/ASan em not-run. Gates por tarefa verdes onde a suíte aplicável rodou; aceite final ainda aberto."
+    "notes": "1.130 testes do workspace; 36/36 conformance VM/Reg; 15/36 Wasm; game host e site build executados. Evidência vinculada por rota documental; Q02 mantém fuzz/Miri/ASan em not-run. Gates por tarefa verdes onde a suíte aplicável rodou; aceite final ainda aberto. MSRV 1.96 e perfis shell/web/embedded verificados.",
+    "msrv_1_96": "pass",
+    "profiles_shell_web_embedded": "pass"
   }
 }
