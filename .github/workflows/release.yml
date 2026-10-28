@@ -28,7 +28,7 @@ jobs:
           - os: macos-latest
             target: aarch64-apple-darwin
             archive_ext: tar.gz
-          - os: macos-13
+          - os: macos-15-intel
             target: x86_64-apple-darwin
             archive_ext: tar.gz
           - os: windows-latest
@@ -60,10 +60,7 @@ jobs:
         if: runner.os != 'Windows'
         shell: bash
         run: |
-          TAG="${{ github.ref_name }}"
-          if [ -z "$TAG" ] || [[ "$TAG" != v* ]]; then
-            TAG="${{ inputs.tag_name }}"
-          fi
+          TAG="${{ inputs.tag_name || github.ref_name }}"
           DIST="aipo-${TAG}-${{ matrix.target }}"
           mkdir -p "${DIST}/bin" "${DIST}/lib" "${DIST}/include"
 
@@ -84,16 +81,17 @@ jobs:
           if [ -f LICENSE ]; then cp LICENSE "${DIST}/"; fi
 
           tar -czvf "${DIST}.tar.gz" "${DIST}"
-          shasum -a 256 "${DIST}.tar.gz" > "${DIST}.tar.gz.sha256"
+          if command -v shasum >/dev/null 2>&1; then
+            shasum -a 256 "${DIST}.tar.gz" > "${DIST}.tar.gz.sha256"
+          else
+            sha256sum "${DIST}.tar.gz" > "${DIST}.tar.gz.sha256"
+          fi
 
       - name: Package Artifacts (Windows)
         if: runner.os == 'Windows'
         shell: bash
         run: |
-          TAG="${{ github.ref_name }}"
-          if [ -z "$TAG" ] || [[ "$TAG" != v* ]]; then
-            TAG="${{ inputs.tag_name }}"
-          fi
+          TAG="${{ inputs.tag_name || github.ref_name }}"
           DIST="aipo-${TAG}-${{ matrix.target }}"
           mkdir -p "${DIST}/bin" "${DIST}/lib" "${DIST}/include"
 
@@ -111,7 +109,11 @@ jobs:
           if [ -f LICENSE ]; then cp LICENSE "${DIST}/"; fi
 
           7z a -tzip "${DIST}.zip" "${DIST}"
-          shasum -a 256 "${DIST}.zip" > "${DIST}.zip.sha256"
+          if command -v shasum >/dev/null 2>&1; then
+            shasum -a 256 "${DIST}.zip" > "${DIST}.zip.sha256"
+          else
+            sha256sum "${DIST}.zip" > "${DIST}.zip.sha256"
+          fi
 
       - name: Upload Release Archive Artifact
         uses: actions/upload-artifact@v4
@@ -148,10 +150,10 @@ jobs:
       - name: Create or Update GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name || inputs.tag_name }}
-          name: Aipo Language ${{ github.ref_name || inputs.tag_name }}
+          tag_name: ${{ inputs.tag_name || github.ref_name }}
+          name: Aipo Language ${{ inputs.tag_name || github.ref_name }}
           draft: false
-          prerelease: ${{ contains(github.ref_name, '-') }}
+          prerelease: ${{ contains(inputs.tag_name || github.ref_name, '-') }}
           files: |
             release-assets/*
         env:
