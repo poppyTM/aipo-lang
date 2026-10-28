@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/gate-waiver.schema.json",
+  "type": "object",
+  "required": [
+    "gate_id",
+    "reason",
+    "approved_by",
+    "approved_at"
+  ],
+  "properties": {
+    "gate_id": { "type": "string", "minLength": 1 },
+    "reason": { "type": "string", "minLength": 1 },
+    "approved_by": { "type": "string", "minLength": 1 },
+    "approved_at": { "type": "string", "minLength": 1 },
+    "expires_at": { "type": "string" },
+    "scope": { "type": "string" },
+    "risk_acceptance": {
+      "oneOf": [
+        { "type": "string" },
+        { "type": "object" }
+      ]
+    }
+  },
+  "additionalProperties": true
+}

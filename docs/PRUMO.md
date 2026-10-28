@@ -17,7 +17,7 @@ Add user tutorials, how-to guides, reference and explanations under `docs/user/`
 - [Estudos e fontes pinadas](studies/index.md)
 - [Evidência e gates não executados da reconstrução](evidence/P07-G01-runtime-hardening.md)
 
-P07-G01 e P07-G02 permanecem DRAFT. A reconciliação de 2026-10-27 executou o workspace completo (1.130 testes), conformance VM/Reg, Poppy, eGUI, game host, validadores do portal e build VitePress; o ambiente de auditoria tem `libasound2-dev` instalada. Publicação em PR não equivale à aprovação dos gates ou transição formal de fase.
+P07-G01 e P07-G02 estão DONE. P07-G03 certifica a release v0.1.0: o workspace completo (1.130 testes), conformance VM/Reg, Poppy, eGUI, game host, validadores do portal, build VitePress e Prumo validate/doctor estão verdes; a tag/release é publicada ao final do goal.
 
 ## I want to develop/contribute
 
@@ -95,6 +95,7 @@ Gate evidence records live under `docs/evidence/`, one per completed goal:
 - [P07-G01 — Runtime hardening](evidence/P07-G01-runtime-hardening.md)
 - [P07-G02 — Runtime, embedding, shell, performance e tooling](evidence/P07-G02/README.md)
 - [Matriz de suporte por backend](architecture/backend-support-matrix.md)
+- [Release v0.1.0](releases/v0.1.0.md)
 
 ## Goals
 

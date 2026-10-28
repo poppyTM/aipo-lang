@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/knowledge-manifest.schema.json",
+  "type": "object",
+  "required": ["version", "generated_at", "source_revision", "units"],
+  "properties": {
+    "version": { "type": "integer", "minimum": 1 },
+    "generated_at": { "type": "string" },
+    "source_revision": { "type": "string" },
+    "derived": { "type": "boolean", "const": true, "description": "A manifest is a derived index and never canonical." },
+    "units": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "kind", "authority", "visibility", "locators"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^ku:[a-z0-9][a-z0-9._-]*$" },
+          "kind": { "type": "string" },
+          "title": { "type": "string" },
+          "authority": { "enum": ["canonical", "derived", "external"] },
+          "visibility": { "enum": ["public", "project", "internal", "restricted", "confidential"] },
+          "revision": { "type": "integer", "minimum": 1 },
+          "locators": {
+            "type": "array",
+            "description": "Path/anchor locators mapped to the stable ID; renames append, never replace.",
+            "items": { "type": "string" }
+          },
+          "relationships": { "type": "array" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "counts": {
+      "type": "object",
+      "properties": {
+        "total": { "type": "integer", "minimum": 0 },
+        "by_kind": { "type": "object" },
+        "by_visibility": { "type": "object" }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}

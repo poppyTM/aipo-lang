@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/documentation-brief.schema.json",
+  "type": "object",
+  "required": ["id", "unit_id", "sections", "open_curated"],
+  "properties": {
+    "id": { "type": "string", "pattern": "^brief:" },
+    "unit_id": { "type": "string" },
+    "sections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["title"],
+        "properties": {
+          "title": { "type": "string", "minLength": 1 },
+          "purpose": { "type": "string" },
+          "source_claims": { "type": "array", "items": { "type": "string" } }
+        },
+        "additionalProperties": true
+      }
+    },
+    "open_curated": {
+      "type": "array",
+      "description": "Work the compiler refuses to invent. Each item is an explicit TODO(CURATED).",
+      "items": {
+        "type": "object",
+        "required": ["section", "todo"],
+        "properties": {
+          "section": { "type": "string" },
+          "todo": { "type": "string", "minLength": 1 },
+          "source_pointer": { "type": "string" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "evidence_requirements": { "type": "array", "items": { "type": "string" } },
+    "source_pointers": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/context-item.schema.json",
+  "type": "object",
+  "required": ["id", "kind", "source", "locator"],
+  "properties": {
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" },
+    "kind": {
+      "enum": [
+        "file",
+        "section",
+        "symbol",
+        "test",
+        "schema",
+        "goal",
+        "decision",
+        "issue",
+        "diff",
+        "command-output",
+        "external-reference"
+      ]
+    },
+    "source": { "type": "string", "minLength": 1 },
+    "locator": { "type": "string", "minLength": 1 },
+    "range": {
+      "type": "object",
+      "properties": {
+        "start_line": { "type": "integer", "minimum": 1 },
+        "end_line": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": true
+    },
+    "symbol": { "type": "string" },
+    "reason": { "type": "string" },
+    "priority": { "type": "string" },
+    "estimated_tokens": { "type": "integer", "minimum": 0 },
+    "provenance": {
+      "oneOf": [
+        { "type": "string" },
+        { "type": "object" }
+      ]
+    },
+    "trust": {
+      "enum": ["trusted", "contextual", "untrusted"]
+    },
+    "freshness": { "type": "string" },
+    "digest": { "type": "string" }
+  },
+  "additionalProperties": true
+}

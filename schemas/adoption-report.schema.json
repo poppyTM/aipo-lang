@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/adoption-report.schema.json",
+  "$comment": "F-G06: canonical adoption report clearly separating facts, inferences, proposals, risks, and next steps.",
+  "type": "object",
+  "required": [
+    "version",
+    "repository",
+    "facts_summary",
+    "classification",
+    "profiles",
+    "capabilities",
+    "prumo_artifacts",
+    "doc_bindings",
+    "doc_coverage",
+    "contradictions",
+    "ledger",
+    "risks",
+    "next_steps",
+    "generated_at"
+  ],
+  "properties": {
+    "version": { "type": "integer", "const": 1 },
+    "repository": {
+      "type": "object",
+      "required": ["root"],
+      "properties": {
+        "root": { "type": "string", "minLength": 1 },
+        "branch": { "type": "string" },
+        "revision": { "type": "string" },
+        "dirty": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "facts_summary": {
+      "type": "object",
+      "required": ["total_facts", "files_scanned", "bytes_scanned", "budget_exhausted"],
+      "properties": {
+        "total_facts": { "type": "integer", "minimum": 0 },
+        "files_scanned": { "type": "integer", "minimum": 0 },
+        "bytes_scanned": { "type": "integer", "minimum": 0 },
+        "budget_exhausted": { "type": "boolean" },
+        "by_kind": {
+          "type": "object",
+          "additionalProperties": { "type": "integer" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "classification": {
+      "$ref": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/repository-classification.schema.json"
+    },
+    "profiles": {
+      "type": "array",
+      "items": {
+        "$ref": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/capability-proposal.schema.json#/$defs/profile_candidate"
+      }
+    },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "$ref": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/capability-proposal.schema.json#/$defs/capability_proposal"
+      }
+    },
+    "prumo_artifacts": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "doc_bindings": {
+      "type": "array",
+      "items": {
+        "$ref": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/mapping-candidate.schema.json#/$defs/candidate_binding"
+      }
+    },
+    "doc_coverage": {
+      "type": "object",
+      "required": ["required_contracts", "bound_contracts", "missing_contracts"],
+      "properties": {
+        "required_contracts": { "type": "array", "items": { "type": "string" } },
+        "bound_contracts": { "type": "array", "items": { "type": "string" } },
+        "missing_contracts": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+    "contradictions": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "ledger": {
+      "$ref": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/confidence-ledger.schema.json"
+    },
+    "migration_proposals": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "risks": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "next_steps": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "generated_at": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": false
+}

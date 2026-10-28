@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/documentation-quality-policy.schema.json",
+  "type": "object",
+  "required": ["id", "dimensions", "deterministic_first"],
+  "properties": {
+    "id": { "type": "string", "pattern": "^docquality:" },
+    "dimensions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "enum": ["factual_grounding", "semantic_coverage", "cross_document_consistency", "freshness", "reference_integrity", "example_verification", "information_architecture", "task_findability", "agent_retrieval_quality", "accessibility", "localization", "token_efficiency", "duplication"]
+      }
+    },
+    "blocking": { "type": "array", "items": { "type": "string" }, "description": "Dimensions whose failure blocks completion deterministically." },
+    "deterministic_first": { "const": true },
+    "no_override_deterministic": { "const": true, "description": "A model critic can never override a deterministic failure." },
+    "model_assisted_allowed": { "type": "boolean" },
+    "model_assisted_after_blocking": { "type": "boolean", "description": "Run model checks only when no deterministic blocker remains." },
+    "max_rounds": { "type": "integer", "minimum": 1, "maximum": 10 },
+    "score_threshold": { "type": "number", "minimum": 0, "maximum": 10 },
+    "score_inflation_guard": { "type": "boolean" }
+  },
+  "additionalProperties": true
+}

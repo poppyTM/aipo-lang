@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/agent-instruction-surface.schema.json",
+  "type": "object",
+  "required": ["id", "adapter", "scope", "source_units", "fingerprint", "status"],
+  "properties": {
+    "id": { "type": "string", "pattern": "^agent-surface:" },
+    "adapter": { "enum": ["agents-md", "copilot", "cursor", "claude", "skill-md", "generic"] },
+    "scope": { "type": "string", "description": "Path scope the surface applies to; nested scopes take precedence." },
+    "canonical": { "const": false, "description": "A vendor agent surface is a projection and never canonical." },
+    "canonical_source": { "type": "string" },
+    "source_units": { "type": "array", "items": { "type": "string" } },
+    "token_budget": { "type": "integer", "minimum": 1, "description": "Instruction token ceiling for this scope." },
+    "fingerprint": { "type": "string" },
+    "generated_revision": { "type": "string" },
+    "generated_at": { "type": "string" },
+    "status": { "enum": ["compiled", "verified", "current", "source-changed", "stale"] },
+    "protected_regions": { "type": "array", "items": { "type": "string" }, "description": "Curated regions the compiler must never overwrite." }
+  },
+  "additionalProperties": true
+}

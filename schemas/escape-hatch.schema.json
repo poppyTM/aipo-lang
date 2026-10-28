@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/escape-hatch.schema.json",
+  "title": "Prumo Escape Hatch Registry",
+  "description": "Schema for registering, tracking, and auditing low-level escape hatches, unsafe operations, and rule suppressions in an Prumo project.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "escape_hatches"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "project": {
+      "type": "string"
+    },
+    "default_policy": {
+      "type": "string",
+      "enum": ["deny", "quarantine", "audit"]
+    },
+    "escape_hatches": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "language",
+          "file",
+          "hatch_type",
+          "justification",
+          "safety_invariants"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9._-]+$"
+          },
+          "language": {
+            "type": "string",
+            "enum": [
+              "cpp", "c", "asm", "c3", "d", "zig", "odin",
+              "rust", "go", "swift", "csharp", "java", "kotlin", "dart", "elixir",
+              "typescript", "javascript", "python", "ruby", "php", "lua", "bash",
+              "sql", "graphql", "glsl", "hlsl", "wgsl", "dockerfile", "terraform", "yaml", "json"
+            ]
+          },
+          "file": {
+            "type": "string"
+          },
+          "line_range": {
+            "type": "array",
+            "items": { "type": "integer", "minimum": 1 },
+            "minItems": 2,
+            "maxItems": 2
+          },
+          "hatch_type": {
+            "type": "string",
+            "enum": [
+              "unsafe_block",
+              "raw_cast",
+              "raw_pointer_arithmetic",
+              "naked_allocation",
+              "direct_memory_access",
+              "suppression_comment",
+              "c_style_cast",
+              "unvetted_ffi",
+              "concurrency_override",
+              "goto_statement",
+              "banned_api"
+            ]
+          },
+          "justification": {
+            "type": "string",
+            "minLength": 10
+          },
+          "safety_invariants": {
+            "type": "string",
+            "minLength": 10
+          },
+          "quarantine_boundary": {
+            "type": "string"
+          },
+          "reviewer": {
+            "type": "string"
+          },
+          "approved_at": {
+            "type": "string"
+          },
+          "expires_at": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["active", "deprecated", "revoked", "quarantined"]
+          }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": false
+}

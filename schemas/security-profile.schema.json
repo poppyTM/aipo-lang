@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/security-profile.schema.json",
+  "type": "object",
+  "required": ["version", "profile", "allowed_capabilities", "gates"],
+  "properties": {
+    "version": { "type": "integer", "minimum": 1 },
+    "profile": {
+      "enum": ["MINIMAL", "STANDARD", "SAAS", "HIGH_ASSURANCE", "AGENTIC"]
+    },
+    "description": { "type": "string" },
+    "allowed_capabilities": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "forbidden_capabilities": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "gates": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "budgets": {
+      "type": "object",
+      "properties": {
+        "user_requests_per_minute": { "type": "integer", "minimum": 1 },
+        "tenant_concurrency": { "type": "integer", "minimum": 1 },
+        "max_fanout_per_request": { "type": "integer", "minimum": 1 },
+        "llm_tokens_per_day": { "type": "integer", "minimum": 1 },
+        "emails_per_day": { "type": "integer", "minimum": 0 },
+        "export_bytes_per_day": { "type": "integer", "minimum": 0 },
+        "paid_api_cost_daily_usd": { "type": "number", "minimum": 0 }
+      },
+      "additionalProperties": true
+    },
+    "enforce_sandbox": { "type": "boolean" },
+    "require_independent_verification": { "type": "boolean" },
+    "require_signed_release": { "type": "boolean" }
+  },
+  "additionalProperties": true
+}

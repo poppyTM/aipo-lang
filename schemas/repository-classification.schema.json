@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/repository-classification.schema.json",
+  "$comment": "F-G02: evidence-driven repository classification output.",
+  "type": "object",
+  "required": ["version", "signals"],
+  "properties": {
+    "version": { "type": "integer", "const": 1 },
+    "signals": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/signal" }
+    },
+    "languages": { "type": "array", "items": { "type": "string" } },
+    "toolchains": { "type": "array", "items": { "type": "string" } },
+    "app_types": { "type": "array", "items": { "type": "string" } },
+    "frameworks": { "type": "array", "items": { "type": "string" } },
+    "persistence": { "type": "array", "items": { "type": "string" } },
+    "capabilities": { "type": "array", "items": { "type": "string" } },
+    "testing": { "type": "array", "items": { "type": "string" } },
+    "deployment": { "type": "array", "items": { "type": "string" } },
+    "doc_roles": { "type": "array", "items": { "type": "string" } },
+    "ai_harness": { "type": "array", "items": { "type": "string" } },
+    "security": { "type": "array", "items": { "type": "string" } }
+  },
+  "$defs": {
+    "signal": {
+      "type": "object",
+      "required": ["dimension", "value", "confidence", "evidence"],
+      "properties": {
+        "dimension": {
+          "enum": [
+            "language",
+            "toolchain",
+            "app-type",
+            "framework",
+            "persistence",
+            "capability",
+            "testing",
+            "deployment",
+            "doc-role",
+            "ai-harness",
+            "security"
+          ]
+        },
+        "value": { "type": "string", "minLength": 1 },
+        "confidence": { "enum": ["factual", "high", "medium", "low"] },
+        "evidence": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,92 @@
+{
+  "acceptance": [
+    "Workspace fmt, Clippy, tests, rustdoc strict, shell/web/embedded profiles and MSRV 1.96 are green.",
+    "Conformance corpus passes on VM and Reg with identical output; JS parity and the documented Wasm subset are recorded.",
+    "Game host, Poppy, eGUI, C ABI header sync and package tests pass.",
+    "README, CHANGELOG, PROJECT_STATE, backend matrix and progress panel describe v0.1.0 without overclaiming parity.",
+    "Prumo validate and doctor finish cleanly.",
+    "Tag v0.1.0 and a GitHub release are published with the certified commit and known limitations.",
+    "Evidence records link the release to the test, docs and repository revision."
+  ],
+  "constraints": [
+    "Do not publish or tag before all quality gates are green.",
+    "Do not claim Wasm, Reg or cross-platform parity beyond measured evidence.",
+    "Record skipped fuzz/Miri/ASan and historical performance limits explicitly.",
+    "No secrets or credentials in release artifacts."
+  ],
+  "context": {
+    "budget_profile": "medium",
+    "max_delegation_depth": 1
+  },
+  "dependencies": [
+    "P07-G01",
+    "P07-G02"
+  ],
+  "evidence": [],
+  "gates": {
+    "build": "required",
+    "documentation_impact": "required",
+    "project_intelligence": "required",
+    "review": "required",
+    "tests": "required"
+  },
+  "history": [
+    {
+      "at": "2026-10-28T03:12:28.669913724Z",
+      "event": "created",
+      "state": "DRAFT"
+    },
+    {
+      "at": "2026-10-28T03:12:34.872467691Z",
+      "event": "state-transition",
+      "from": "DRAFT",
+      "reason": "",
+      "to": "PLANNED"
+    },
+    {
+      "at": "2026-10-28T03:12:34.87606731Z",
+      "event": "state-transition",
+      "from": "PLANNED",
+      "reason": "",
+      "to": "LOCKED"
+    },
+    {
+      "at": "2026-10-28T03:12:34.879603459Z",
+      "event": "state-transition",
+      "from": "LOCKED",
+      "reason": "",
+      "to": "EXECUTING"
+    },
+    {
+      "at": "2026-10-28T03:12:34.883269433Z",
+      "event": "state-transition",
+      "from": "EXECUTING",
+      "reason": "",
+      "to": "VERIFYING"
+    },
+    {
+      "at": "2026-10-28T03:12:34.887123191Z",
+      "event": "state-transition",
+      "from": "VERIFYING",
+      "reason": "",
+      "to": "REVIEWING"
+    }
+  ],
+  "id": "P07-G03",
+  "lock": {
+    "digest": "760c143d35d42521c1713dc0fee5663c11d6d5d9d1a701519741fe2b5dcc5ddd",
+    "locked_at": "2026-10-28T03:12:34.876063843Z",
+    "revision": 1
+  },
+  "non_goals": [
+    "Full Wasm parity beyond the documented subset.",
+    "Full Reg native parity for higher-order methods and failure handlers.",
+    "Fuzz, Miri and ASan certification in this release.",
+    "Post-v1 engines, editors and public package registry."
+  ],
+  "objective": "Certify and publish Aipo v0.1.0 with green quality gates, clean Prumo validate/doctor, reconciled documentation, reproducible artifacts and signed evidence.",
+  "phase": "P07",
+  "revision": 1,
+  "state": "REVIEWING",
+  "title": "Release v0.1.0 certification"
+}

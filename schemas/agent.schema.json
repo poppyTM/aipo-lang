@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/agent.schema.json",
+  "type": "object",
+  "required": ["id", "name", "purpose"],
+  "properties": {
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" },
+    "name": { "type": "string", "minLength": 1 },
+    "version": { "type": "integer", "minimum": 1 },
+    "purpose": { "type": "string", "minLength": 1 },
+    "core": { "type": ["boolean", "string"] },
+    "inputs": { "type": "array", "items": { "type": "string" } },
+    "outputs": { "type": "array", "items": { "type": "string" } },
+    "required_skills": { "type": "array", "items": { "type": "string" } },
+    "optional_skills": { "type": "array", "items": { "type": "string" } },
+    "requires_skills_any": { "type": "array", "items": { "type": "string" } },
+    "select": {
+      "type": "object",
+      "properties": {
+        "project_types": { "type": "array", "items": { "type": "string" } },
+        "stack_any": { "type": "array", "items": { "type": "string" } },
+        "features_any": { "type": "array", "items": { "type": "string" } },
+        "risk_any": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": true
+    },
+    "allowed_capabilities": { "type": "array", "items": { "type": "string" } },
+    "required_capabilities": { "type": "array", "items": { "type": "string" } },
+    "required_evidence": { "type": "array", "items": { "type": "string" } },
+    "may_delegate": { "type": ["boolean", "string"] },
+    "max_delegation_depth": { "type": "integer", "minimum": 0 },
+    "handoff_to": { "type": "array", "items": { "type": "string" } },
+    "risk_level": { "enum": ["low", "medium", "high", "critical"] },
+    "review_requirement": { "type": "string" },
+    "permissions": { "type": "object" },
+    "instructions": { "type": "string" },
+    "stop_conditions": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}

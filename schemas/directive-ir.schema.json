@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://prumo.dev/schemas/directive-ir.schema.json",
+  "title": "DirectiveIR",
+  "description": "Canonical intermediate representation compiled by Directive Compiler for governed agent and LLM execution.",
+  "type": "object",
+  "required": [
+    "directive_ir_version",
+    "project_id",
+    "repository_revision",
+    "goal_id",
+    "task_id",
+    "authority_snapshot",
+    "scope_firewall",
+    "permission_envelope",
+    "tool_capabilities",
+    "budget_envelope",
+    "required_evidence",
+    "quality_gates",
+    "stop_conditions"
+  ],
+  "properties": {
+    "directive_ir_version": { "type": "string", "enum": ["1.0.0"] },
+    "project_id": { "type": "string" },
+    "workspace_root": { "type": "string" },
+    "repository_revision": { "type": "string" },
+    "goal_id": { "type": "string" },
+    "plan_id": { "type": "string" },
+    "task_id": { "type": "string" },
+    "authority_snapshot": {
+      "type": "object",
+      "required": ["active_decisions", "active_requirements", "active_constraints"],
+      "properties": {
+        "active_decisions": { "type": "array", "items": { "type": "string" } },
+        "active_requirements": { "type": "array", "items": { "type": "string" } },
+        "active_constraints": { "type": "array", "items": { "type": "string" } },
+        "superseded_records": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "scope_firewall": {
+      "type": "object",
+      "required": ["in_scope", "out_of_scope"],
+      "properties": {
+        "in_scope": { "type": "array", "items": { "type": "string" } },
+        "out_of_scope": { "type": "array", "items": { "type": "string" } },
+        "incidental_scope": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "unknowns_and_assumptions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["kind", "description"],
+        "properties": {
+          "kind": { "type": "string", "enum": ["unknown", "assumption"] },
+          "description": { "type": "string" },
+          "source": { "type": "string" }
+        }
+      }
+    },
+    "mutation_boundaries": {
+      "type": "object",
+      "properties": {
+        "allowed_paths": { "type": "array", "items": { "type": "string" } },
+        "forbidden_paths": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "permission_envelope": {
+      "type": "object",
+      "required": ["allowed_actions", "forbidden_actions"],
+      "properties": {
+        "allowed_actions": { "type": "array", "items": { "type": "string" } },
+        "forbidden_actions": { "type": "array", "items": { "type": "string" } },
+        "requires_approval": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "tool_capabilities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "side_effect_class"],
+        "properties": {
+          "name": { "type": "string" },
+          "side_effect_class": { "type": "string", "enum": ["read_only", "idempotent_mutation", "stateful_mutation", "destructive"] },
+          "timeout_ms": { "type": "integer" },
+          "result_budget_bytes": { "type": "integer" }
+        }
+      }
+    },
+    "model_route": {
+      "type": "object",
+      "properties": {
+        "route_class": { "type": "string", "enum": ["ROUTE-CHEAP", "ROUTE-PRIMARY", "ROUTE-FALLBACK"] },
+        "provider": { "type": "string" },
+        "model": { "type": "string" }
+      }
+    },
+    "workforce_binding": {
+      "type": "object",
+      "properties": {
+        "role": { "type": "string" },
+        "actor": { "type": "string" }
+      }
+    },
+    "budget_envelope": {
+      "type": "object",
+      "required": ["hard_limit_cents", "review_reserve_cents"],
+      "properties": {
+        "hard_limit_cents": { "type": "integer" },
+        "soft_limit_cents": { "type": "integer" },
+        "review_reserve_cents": { "type": "integer" },
+        "currency": { "type": "string" }
+      }
+    },
+    "required_skills": { "type": "array", "items": { "type": "string" } },
+    "required_evidence": { "type": "array", "items": { "type": "string" } },
+    "quality_gates": { "type": "array", "items": { "type": "string" } },
+    "stop_conditions": { "type": "array", "items": { "type": "string" } },
+    "documentation_delta_contract": {
+      "type": "object",
+      "properties": {
+        "required_doc_updates": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "source_digests": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    }
+  }
+}

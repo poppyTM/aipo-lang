@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/systems-profile.schema.json",
+  "type": "object",
+  "required": ["version", "profile", "allowed_capabilities", "gauntlet_stages"],
+  "properties": {
+    "version": { "type": "integer", "minimum": 1 },
+    "profile": {
+      "enum": [
+        "MINIMAL",
+        "STANDARD",
+        "SAAS",
+        "AGENTIC",
+        "HIGH_ASSURANCE",
+        "SYSTEMS_MINIMAL",
+        "SYSTEMS_STANDARD",
+        "COMPILER",
+        "PERFORMANCE",
+        "REALTIME",
+        "GRAPHICS",
+        "GAME_ENGINE",
+        "SCIENTIFIC",
+        "KERNEL",
+        "HIGH_ASSURANCE_SYSTEMS"
+      ]
+    },
+    "description": { "type": "string" },
+    "allowed_capabilities": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "forbidden_capabilities": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "gauntlet_stages": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "hardware_requirements": {
+      "type": "object",
+      "properties": {
+        "cpu_cores_minimum": { "type": "integer" },
+        "memory_mb_minimum": { "type": "integer" },
+        "gpu_required": { "type": "boolean" },
+        "isolated_vm_required": { "type": "boolean" }
+      },
+      "additionalProperties": true
+    },
+    "requires_independent_verification": { "type": "boolean" },
+    "requires_reproducible_build": { "type": "boolean" }
+  },
+  "additionalProperties": true
+}

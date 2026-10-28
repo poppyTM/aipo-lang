@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/gate.schema.json",
+  "type": "object",
+  "required": [
+    "id",
+    "name",
+    "type",
+    "required",
+    "required_evidence"
+  ],
+  "properties": {
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" },
+    "name": { "type": "string", "minLength": 1 },
+    "type": {
+      "enum": [
+        "test",
+        "build",
+        "security",
+        "performance",
+        "accessibility",
+        "review",
+        "manual",
+        "custom"
+      ]
+    },
+    "required": { "type": ["boolean", "string"] },
+    "required_when": {
+      "type": "object",
+      "properties": {
+        "risk_any": { "type": "array", "items": { "type": "string" } },
+        "features_any": { "type": "array", "items": { "type": "string" } },
+        "project_types": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": true
+    },
+    "predicate": { "type": "string" },
+    "required_evidence": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "executor": { "type": "string" },
+    "failure_policy": {
+      "oneOf": [
+        { "type": "string" },
+        { "type": "object" }
+      ]
+    },
+    "waiver_policy": {
+      "oneOf": [
+        { "type": "string" },
+        { "type": "object" }
+      ]
+    },
+    "status": {
+      "enum": ["pending", "running", "passed", "failed", "waived"]
+    }
+  },
+  "additionalProperties": true
+}

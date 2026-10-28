@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/gauntlet-policy.schema.json",
+  "type": "object",
+  "required": ["mode", "max_rounds", "critic_isolation", "stopping"],
+  "properties": {
+    "mode": { "enum": ["off", "auto", "force"], "default": "off" },
+    "max_rounds": { "type": "integer", "minimum": 1, "maximum": 10 },
+    "critic_isolation": { "type": "boolean", "description": "Critics receive isolated context; they never see the implementer transcript." },
+    "critic_can_override_deterministic": { "const": false, "description": "Deterministic failures are never overridden by a model critic." },
+    "dimensions": {
+      "type": "array",
+      "items": {
+        "enum": ["factual_grounding", "semantic_coverage", "cross_document_consistency", "freshness", "reference_integrity", "example_verification", "information_architecture", "task_findability", "agent_retrieval_quality", "accessibility", "localization", "token_efficiency", "duplication"]
+      }
+    },
+    "activation": {
+      "type": "array",
+      "description": "When mode is auto, which changes activate the gauntlet.",
+      "items": {
+        "type": "object",
+        "required": ["trigger", "mode"],
+        "properties": {
+          "trigger": { "enum": ["public-api.changed", "ui.major.changed", "security.behavior.changed", "migration.breaking", "docs.authority.migrated", "release.prepared", "agent.instructions.changed"] },
+          "mode": { "enum": ["off", "auto", "force"] }
+        },
+        "additionalProperties": true
+      }
+    },
+    "stopping": {
+      "type": "object",
+      "required": ["gates_passed", "no_critical_findings"],
+      "properties": {
+        "gates_passed": { "type": "boolean" },
+        "no_critical_findings": { "type": "boolean" },
+        "max_rounds": { "type": "integer", "minimum": 1 },
+        "budget_tokens": { "type": "integer", "minimum": 1 },
+        "no_improvement_rounds": { "type": "integer", "minimum": 1 },
+        "score_threshold": { "type": "number", "minimum": 0, "maximum": 10 }
+      },
+      "additionalProperties": true
+    },
+    "score_inflation_guard": { "type": "boolean", "description": "Score cannot rise without resolved findings/evidence." }
+  },
+  "additionalProperties": true
+}

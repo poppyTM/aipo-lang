@@ -1,0 +1,274 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/ui-interface-map.schema.json",
+  "title": "UiInterfaceMap",
+  "description": "Complete map of a user interface: the composition tree, where each element sits, and how elements interconnect. Canonical artifact for the ui.component-contracts, ui.information-architecture, ui.screen-inventory and ui.layout obligations. Structure and intent are declared; symbols, enumerations and uncoverage are derived from the implementation, and a declared node always wins over a derived one.",
+  "type": "object",
+  "required": ["id", "version", "surface", "platforms", "tree"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^ui:",
+      "description": "Stable identifier, `ui:<surface>`."
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "surface": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The surface this map describes. Must match a surface in the state matrix."
+    },
+    "note": {
+      "type": "string"
+    },
+    "platforms": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "enum": ["tui", "desktop", "web", "mobile"]
+      },
+      "description": "Platforms this map is authoritative for. Geometry is per-platform; semantic placement is shared."
+    },
+    "states_source": {
+      "type": "string",
+      "description": "Path to the state matrix whose state vocabulary this map references."
+    },
+    "tokens_source": {
+      "type": "string",
+      "description": "Path to the design token set whose tokens this map references."
+    },
+    "derivation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sources": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Glob patterns the deriver reads. An empty list disables derivation for this map."
+        },
+        "mode": {
+          "enum": ["fill-gaps", "verify-only"],
+          "description": "`fill-gaps` adds nodes the declaration omits; `verify-only` reports them as findings without adding. Both fail on divergence between a declared and a derived node."
+        }
+      }
+    },
+    "tree": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/definitions/node"
+      }
+    },
+    "edges": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/edge"
+      }
+    }
+  },
+  "definitions": {
+    "node": {
+      "type": "object",
+      "required": ["id", "kind", "slot"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^node:",
+          "description": "Unique within the map. Stable, because edges and impact reports name it."
+        },
+        "kind": {
+          "enum": [
+            "shell",
+            "region",
+            "pane",
+            "list",
+            "input",
+            "text",
+            "button",
+            "menu",
+            "status",
+            "overlay",
+            "spinner"
+          ],
+          "description": "What the element is. Closed vocabulary so a renderer can style any map without discovering new kinds at runtime."
+        },
+        "label": {
+          "type": "string",
+          "description": "The text a user actually sees. Required for every kind that renders text; a component with no label is an omission, not a styling choice."
+        },
+        "role": {
+          "type": "string",
+          "description": "What the element is for, in the interface's own terms."
+        },
+        "intent": {
+          "type": "string",
+          "description": "The user need this element serves. Not a restatement of role."
+        },
+        "slot": {
+          "$ref": "#/definitions/slot"
+        },
+        "size_classes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": ["compact", "standard", "wide"]
+          },
+          "description": "Size classes where this element exists at all. An element absent from a class is a deliberate reflow, not an accident."
+        },
+        "states": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          },
+          "description": "States this element can be in, drawn from the state matrix vocabulary."
+        },
+        "tokens": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          },
+          "description": "Design tokens this element paints with."
+        },
+        "inputs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "How the user operates this element: a chord, `pointer`, or `paste`. Mouse is never the only route."
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/node"
+          }
+        },
+        "implementation": {
+          "$ref": "#/definitions/implementation"
+        },
+        "origin": {
+          "enum": ["declared", "derived"],
+          "description": "Set by the compiler, not by the author."
+        }
+      }
+    },
+    "slot": {
+      "type": "object",
+      "required": ["region", "order", "align"],
+      "additionalProperties": false,
+      "description": "Where the element sits, semantically. A terminal has no stable pixel geometry, so position is expressed as a region plus an order and an alignment; a platform that does have pixels may add geometry.",
+      "properties": {
+        "region": {
+          "enum": ["root", "header", "body", "footer", "sidebar", "overlay"],
+          "description": "Region of the containing element this child occupies."
+        },
+        "order": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Position within the region. Distinct values make the layout order total, so two renderers cannot disagree."
+        },
+        "align": {
+          "enum": ["start", "center", "end", "stretch"]
+        },
+        "weight": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Relative share of the region when the parent divides space."
+        },
+        "stack": {
+          "enum": ["row", "column", "absolute"],
+          "description": "How this element arranges its own children."
+        },
+        "condition": {
+          "type": "string",
+          "description": "When this element is present. Mutually exclusive siblings share a position only by declaring a condition; two unconditional siblings may not, because nothing would tell a renderer which to draw."
+        },
+        "geometry": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Optional pixel geometry, declared per platform and only where pixels are stable. Absent for terminal surfaces on purpose.",
+          "properties": {
+            "platform": {
+              "enum": ["desktop", "web", "mobile"]
+            },
+            "x": { "type": "number" },
+            "y": { "type": "number" },
+            "width": { "type": "number" },
+            "height": { "type": "number" },
+            "unit": {
+              "enum": ["px", "rem", "dp"]
+            }
+          }
+        }
+      }
+    },
+    "implementation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "symbol": {
+          "type": "string",
+          "description": "Code symbol implementing this element. Resolved against the repository unless status is not-implemented."
+        },
+        "path": {
+          "type": "string",
+          "description": "File the symbol lives in, when it is not discoverable by name."
+        },
+        "evidence": {
+          "type": "string",
+          "description": "Golden frame, snapshot or test proving this element renders."
+        },
+        "status": {
+          "enum": ["implemented", "not-implemented", "partial"],
+          "description": "`not-implemented` is how the map describes a planned element without claiming it exists."
+        },
+        "absent_reason": {
+          "type": "string",
+          "description": "Required when status is not-implemented: why the element is described but not built."
+        }
+      }
+    },
+    "edge": {
+      "type": "object",
+      "required": ["kind", "from", "to"],
+      "additionalProperties": false,
+      "description": "A non-hierarchical interconnection between two elements. The tree carries composition; edges carry everything that would be lost if it were forced into the tree: focus order, data flow, events, overlays and navigation.",
+      "properties": {
+        "kind": {
+          "enum": [
+            "focus",
+            "data",
+            "event",
+            "overlay",
+            "navigates-to",
+            "blocks"
+          ]
+        },
+        "from": {
+          "type": "string",
+          "pattern": "^node:"
+        },
+        "to": {
+          "type": "string",
+          "pattern": "^node:"
+        },
+        "label": {
+          "type": "string",
+          "description": "What crosses the edge, in domain terms."
+        },
+        "condition": {
+          "type": "string",
+          "description": "When the edge is live, when it is not unconditional."
+        }
+      }
+    }
+  }
+}

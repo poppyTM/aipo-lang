@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/documentation-spec.schema.json",
+  "type": "object",
+  "required": ["id", "source_locale", "audiences", "profiles", "surfaces"],
+  "properties": {
+    "id": { "type": "string", "pattern": "^docspec:[a-z0-9][a-z0-9._-]*$" },
+    "source_locale": { "type": "string", "pattern": "^[a-z]{2}(-[A-Z]{2})?$" },
+    "audiences": { "type": "array", "minItems": 1, "items": { "enum": ["user", "developer", "operator", "agent"] } },
+    "profiles": { "type": "array", "items": { "type": "string" } },
+    "surfaces": { "type": "array", "items": { "enum": ["repository", "implementation", "reference", "agent", "site", "ai-retrieval", "api-reference", "release"] } },
+    "quality_policy": { "type": "string" },
+    "visibility_policy": { "type": "string", "description": "Default projection visibility ceiling." },
+    "locales": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}

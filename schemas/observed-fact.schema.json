@@ -1,0 +1,22 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://raw.githubusercontent.com/raillen/prumo/main/schemas/observed-fact.schema.json",
+  "$comment":"F-G01: scanner observed fact — a single verifiable piece of repository evidence.",
+  "type":"object",
+  "required":["id","kind","key","source","extraction"],
+  "properties":{
+    "id":{"type":"string","minLength":1},
+    "kind":{"enum":["file","manifest","config","doc","ci","test","schema","adr","agent-rules","git-metadata","other"]},
+    "key":{"type":"string","minLength":1},
+    "value":{"type":"string"},
+    "source":{"type":"string","minLength":1,"description":"Relative file path or git ref"},
+    "source_hash":{"type":"string"},
+    "location":{"type":"string","description":"Line range, JSON path, or section within source"},
+    "extraction":{"enum":["static-presence","filename-pattern","content-parse","manifest-field","git-command","directory-structure"]},
+    "confidence":{"enum":["factual","high","medium","low"]},
+    "revision":{"type":"string","description":"Git commit SHA at scan time"},
+    "scanned_at":{"type":"string","format":"date-time"},
+    "metadata":{"type":"object","additionalProperties":true}
+  },
+  "additionalProperties":false
+}

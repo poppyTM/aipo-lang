@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/event.schema.json",
+  "type": "object",
+  "required": [
+    "id",
+    "type",
+    "timestamp",
+    "producer",
+    "payload"
+  ],
+  "properties": {
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" },
+    "type": { "type": "string", "minLength": 1 },
+    "timestamp": { "type": "string", "minLength": 1 },
+    "project_id": { "type": ["string", "null"] },
+    "goal_id": { "type": ["string", "null"] },
+    "plan_id": { "type": ["string", "null"] },
+    "task_id": { "type": ["string", "null"] },
+    "run_id": { "type": ["string", "null"] },
+    "attempt_id": { "type": ["string", "null"] },
+    "producer": { "type": "string", "minLength": 1 },
+    "payload": { "type": "object" },
+    "schema_version": { "type": "integer", "minimum": 1 }
+  },
+  "additionalProperties": true
+}

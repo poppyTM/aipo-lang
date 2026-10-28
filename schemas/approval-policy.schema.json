@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/approval-policy.schema.json",
+  "type": "object",
+  "required": ["version", "require_approval"],
+  "properties": {
+    "version": { "type": "integer", "minimum": 1 },
+    "require_approval": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "approvers": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "timeout_seconds": { "type": "integer", "minimum": 0 },
+    "fallback": {
+      "enum": ["deny", "escalate", "pause"]
+    },
+    "forbidden_actions": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "scope": { "type": "string" }
+  },
+  "additionalProperties": true
+}

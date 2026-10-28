@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/attempt.schema.json",
+  "type": "object",
+  "required": [
+    "id",
+    "run_id",
+    "number",
+    "agent_role",
+    "skill_set",
+    "model_profile",
+    "execution_backend",
+    "started_at",
+    "status"
+  ],
+  "properties": {
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" },
+    "run_id": { "type": "string", "minLength": 1 },
+    "number": { "type": "integer", "minimum": 1 },
+    "agent_role": { "type": "string", "minLength": 1 },
+    "skill_set": { "type": "array", "items": { "type": "string" } },
+    "model_profile": { "type": "string", "minLength": 1 },
+    "execution_backend": { "type": "string", "minLength": 1 },
+    "started_at": { "type": "string", "minLength": 1 },
+    "finished_at": { "type": "string" },
+    "status": {
+      "enum": [
+        "RUNNING",
+        "SUCCESS",
+        "FAILED",
+        "TIMED_OUT",
+        "CANCELLED"
+      ]
+    },
+    "error": { "type": "string" },
+    "retry_reason": { "type": "string" },
+    "tokens": { "type": "object" },
+    "cost": { "type": "object" },
+    "artifacts": { "type": "array" },
+    "evidence": { "type": "array" }
+  },
+  "additionalProperties": true
+}

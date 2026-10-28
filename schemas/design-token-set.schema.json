@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/design-token-set.schema.json",
+  "type": "object",
+  "required": ["version", "tiers", "tokens"],
+  "properties": {
+    "version": { "type": "integer", "minimum": 1 },
+    "tiers": {
+      "type": "array",
+      "minItems": 3,
+      "items": { "enum": ["primitive", "semantic", "component"] },
+      "description": "Three-tier system: primitive → semantic → component."
+    },
+    "tokens": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "tier", "type", "value"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^token:[a-z0-9][a-z0-9._-]*$" },
+          "tier": { "enum": ["primitive", "semantic", "component"] },
+          "type": { "enum": ["color", "space", "typography", "radius", "border", "motion", "size"] },
+          "value": { "type": "string", "description": "Raw value or a reference to another token (e.g. token:color.surface)." },
+          "inherits": { "type": "string", "description": "Parent token ID for theme/override chains." },
+          "description": { "type": "string" },
+          "deprecated": { "type": "boolean" },
+          "replaced_by": { "type": "string" },
+          "platforms": { "type": "array", "items": { "enum": ["tui", "desktop", "web", "cli"] } },
+          "capability_fallback": { "type": "string", "description": "TUI fallback when the terminal lacks the capability (e.g. no color/unicode)." },
+          "contrast": {
+            "type": "object",
+            "properties": {
+              "against": { "type": "string" },
+              "ratio": { "type": "number", "minimum": 1, "maximum": 21 },
+              "wcag": { "enum": ["AA", "AAA"] }
+            },
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "themes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "extends"],
+        "properties": {
+          "id": { "type": "string" },    "extends": {
+      "type": "string",
+      "pattern": "^(theme:[a-z0-9][a-z0-9._-]*)?$",
+      "description": "Parent theme ID, or empty for a root theme. A theme extends a theme: naming a token here is a defect, because the reference cannot resolve."
+    },
+          "overrides": { "type": "object" },
+          "high_contrast": { "type": "boolean" },
+          "reduced_motion": { "type": "boolean" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "density": { "type": "array", "items": { "enum": ["comfortable", "compact", "dense"] } }
+  },
+  "additionalProperties": true
+}

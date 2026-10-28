@@ -1,0 +1,6 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://raw.githubusercontent.com/raillen/prumo/main/schemas/prumo-package.schema.json",
+  "type":"object","required":["id","version","type","protocol_range","permissions"],
+  "properties":{"id":{"type":"string"},"version":{"type":"string"},"type":{"enum":["skill","connector","test-provider","experience-provider","publication-adapter"]},"protocol_range":{"type":"string"},"platform":{"type":"array","items":{"type":"string"}},"dependencies":{"type":"array","items":{"type":"string"}},"permissions":{"type":"array","items":{"type":"string"}},"runtime":{"type":"object"},"checksum":{"type":"string"},"provenance":{"type":"object"}},"additionalProperties":true
+}

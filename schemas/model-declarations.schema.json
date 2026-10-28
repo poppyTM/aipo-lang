@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/model-declarations.schema.json",
+  "title": "Model declarations",
+  "description": "What the models a workspace uses can do, as its author declares it. Placed at .prumo/models.json. It is a declaration and never a measurement: no provider publishes its models' features in a form a client can read, so the harness reports what somebody wrote down and marks everything else as undeclared. An absent feature is the absence of a claim, not a denial.",
+  "type": "object",
+  "required": ["models"],
+  "properties": {
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Format revision, so a reader can tell an old file from a new one."
+    },
+    "models": {
+      "type": "object",
+      "description": "Model id (as the provider names it) → what it can do.",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "boolean",
+            "description": "Serves prose. Absent means nobody claimed it."
+          },
+          "reasoning": {
+            "type": "boolean",
+            "description": "Reports its reasoning, separately from the answer."
+          },
+          "vision": {
+            "type": "boolean",
+            "description": "Reads images. This is the flag the harness gates an image reference on: a model that does not declare it receives the reference as text."
+          },
+          "tools": {
+            "type": "boolean",
+            "description": "Accepts tool calls."
+          },
+          "audio": {
+            "type": "boolean",
+            "description": "Reads audio."
+          },
+          "context_tokens": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "The window the model accepts, when the author knows it. A client that receives no window reports what a run spent and no share of a budget."
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

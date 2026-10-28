@@ -1,0 +1,8 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://raw.githubusercontent.com/raillen/prumo/main/schemas/documentation-readiness.schema.json",
+  "type":"object",
+  "required":["ready","blocking_contracts","blocking_questions","warnings","applicable_contracts","coverage"],
+  "properties":{"ready":{"type":"boolean"},"goal":{"type":"string"},"blocking_contracts":{"type":"array","items":{"type":"string"}},"blocking_questions":{"type":"array","items":{"type":"string"}},"warnings":{"type":"array","items":{"type":"string"}},"applicable_contracts":{"type":"array","items":{"type":"string"}},"coverage":{"type":"array","items":{"$ref":"documentation-coverage.schema.json"}}},
+  "additionalProperties":false
+}

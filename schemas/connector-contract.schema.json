@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/connector-contract.schema.json",
+  "title": "ConnectorContract",
+  "description": "Machine-readable contract specifying connector capabilities, enforcement level, hooks, and lifecycle behavior",
+  "type": "object",
+  "required": ["id", "version", "protocol_range", "capabilities", "enforcement"],
+  "properties": {
+    "id": { "type": "string" },
+    "version": { "type": "string" },
+    "protocol_range": { "type": "string" },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "advise",
+          "restrict_tools",
+          "pre_tool_block",
+          "post_tool_verify",
+          "isolate_subagents",
+          "session_hooks",
+          "native_plugin",
+          "commands",
+          "subagents"
+        ]
+      }
+    },
+    "enforcement": {
+      "type": "string",
+      "enum": ["advisory", "standard", "strict"]
+    },
+    "hooks": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "install": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "cleanup": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}

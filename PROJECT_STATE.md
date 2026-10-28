@@ -1,6 +1,6 @@
 # Current Project State
 
-> **Reconciliação de auditoria, 2026-10-27:** o repositório foi reauditado sobre `ab5fbc0` + as correções desta reconciliação (árvore não commitada), contra o código, o corpus executável e o portal. O workspace completo passou com 1.130 testes, incluindo Poppy, eGUI e game host; a `libasound2-dev` foi instalada no ambiente de auditoria. Clippy, rustfmt e rustdoc estrito também passaram, o build VitePress foi concluído e a matriz MSRV 1.96 (fmt, Clippy, 1.130 testes, doc e perfis shell/web/embedded) ficou verde. O gate de documentação estrita foi corrigido; o plano Reg agora seleciona nativamente 20/36 programas de conformance e usa a VM canônica com motivo explícito nos demais; o build JS grava `package.json` ESM; o catálogo ganhou `AIPO_COMPILE_WASM_UNSUPPORTED`. P07-G01 e P07-G02 continuam **DRAFT** até a certificação de todos os gates. Ver [matriz de backends](docs/architecture/backend-support-matrix.md) e [painel de progresso](website/public/progress/tasks.json).
+> **Reconciliação de auditoria, 2026-10-27:** o repositório foi reauditado sobre `ab5fbc0` + as correções desta reconciliação (árvore não commitada), contra o código, o corpus executável e o portal. O workspace completo passou com 1.130 testes, incluindo Poppy, eGUI e game host; a `libasound2-dev` foi instalada no ambiente de auditoria. Clippy, rustfmt e rustdoc estrito também passaram, o build VitePress foi concluído e a matriz MSRV 1.96 (fmt, Clippy, 1.130 testes, doc e perfis shell/web/embedded) ficou verde. O gate de documentação estrita foi corrigido; o plano Reg agora seleciona nativamente 20/36 programas de conformance e usa a VM canônica com motivo explícito nos demais; o build JS grava `package.json` ESM; o catálogo ganhou `AIPO_COMPILE_WASM_UNSUPPORTED`. P07-G01 e P07-G02 foram certificados como **DONE**; P07-G03 (release v0.1.0) está em REVIEWING até a publicação da tag. Ver [matriz de backends](docs/architecture/backend-support-matrix.md) e [painel de progresso](website/public/progress/tasks.json).
 
 > **Rodada P07-G02 (DRAFT), 2026-10-09:** implementação das cinco frentes publicada em `feat/runtime-and-tooling-completion`, com base P07-G01 e integração da `main` atual. Verifier Reg, revisões estruturais, planos explícitos, linker, sessão/scheduler persistentes, reload transacional guest, C cooperativo, provas/limites Wasm, ferramentas, perfis e distribuição. Testes não executados na entrega original; o PR #30 foi integrado em 2026-10-10. Não há certificação universal de paridade ou release. Veja [guia](docs/development/runtime-and-tooling-guide.md), [evidência](docs/evidence/P07-G02/README.md) e [estudos](docs/studies/runtime-and-tooling-follow-up.md). Os estados históricos abaixo não certificam esta revisão.
 
@@ -8,9 +8,9 @@
 
 - Project: **aipo**
 - Prumo: **0.6.0**
-- Current phase: **P07 — Runtime, embedding, shell, performance e tooling**
-- Active goal: **P07-G02 — Runtime, embedding, shell, performance and tooling completion (DRAFT)**
-- Last completed goal: **P06-G06 — Ferramental CLI, Host ABI & WASI (Marcos 1 a 6 concluídos)**
+- Current phase: **P07 — Release v0.1.0**
+- Active goal: **P07-G03 — Release v0.1.0 certification (REVIEWING)**
+- Last completed goal: **P07-G02 — Runtime, embedding, shell, performance and tooling completion**
 - Completed slices:
   - **S1 (P00-G01)**: Workspace, `aipo-source`, `aipo-diagnostics`
   - **S2 (P00-G02)**: Lexer Core (`aipo-lexer`)
@@ -83,7 +83,7 @@
     - Tipos de valor em C (`aipo_value_t`), handles geracionais (`aipo_handle_t`) com detecção de `AIPO_ERR_STALE_HANDLE`, callbacks nativos (`aipo_host_fn_t`), gating de capacidades (`grant`/`revoke`), e diagnóstico em `aipo_last_error`.
     - Suíte de 8 testes de integração exaustivos cobrindo todo o ciclo de vida, primitivas, callbacks, handles, erros e segurança contra ponteiros nulos.
 - Context methodology: **Lean Progressive Context (LPC)**
-- Last updated: `2026-10-27T00:00:00Z`
+- Last updated: `2026-10-28T00:00:00Z`
 - **Fio Vertical Fino Wasm (Marco 1 / P06-G01)**:
   - Crate `aipo-wasm` integrada ao workspace com emissor de seções Wasm (`WasmEmitter`), mapeamento de tipos (`WasmType`, `WasmFnType`), e compilador de HIR para Wasm (`compile_hir`).
   - Suporte a funções aritméticas com contratos estáticos (`Int`, `Float`, `Bool`) e inferência de retorno.
@@ -244,7 +244,7 @@ Todos os subsistemas essenciais do runtime de jogos (`aipo.game`) foram finaliza
 6. Máquina de Estados e Animação de Sprites 2D (`animation.aipo`)
 7. Sistema de Partículas 2D com Física e Presets (`particles.aipo`)
 
-Próxima etapa imediata: fechar os gates de release `v0.1.0` — executar Clippy/rustfmt no MSRV 1.96 e registrar a evidência final no painel; a suíte completa já passou com `libasound2-dev`. Depois disso, retomar a **Game Engine Visual Completa** (Editor Visual, Árvore de Cenas, Inspetor de Propriedades, Viewport Interativo, Editor de Nós e Integração de Tooling).
+Próxima etapa imediata: publicar a tag/release `v0.1.0`, registrar a evidência final e fechar P07-G03 como DONE. Depois disso, retomar a **Game Engine Visual Completa** (Editor Visual, Árvore de Cenas, Inspetor de Propriedades, Viewport Interativo, Editor de Nós e Integração de Tooling).
 
 ## Recovery order
 

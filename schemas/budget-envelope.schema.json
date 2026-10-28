@@ -1,0 +1,6 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://raw.githubusercontent.com/raillen/prumo/main/schemas/budget-envelope.schema.json",
+  "type":"object","required":["version","scope","limits","usage"],
+  "properties":{"version":{"type":"integer","const":1},"scope":{"type":"string"},"limits":{"type":"object","additionalProperties":{"type":"number","minimum":0}},"usage":{"type":"object","additionalProperties":{"type":"number","minimum":0}},"reservations":{"type":"array","items":{"type":"object"}},"mode":{"enum":["soft","hard"]}},"additionalProperties":true
+}

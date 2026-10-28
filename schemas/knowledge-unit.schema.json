@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/knowledge-unit.schema.json",
+  "type": "object",
+  "required": ["id", "kind", "revision", "authority", "visibility", "provenance", "relationships"],
+  "properties": {
+    "id": { "type": "string", "pattern": "^ku:[a-z0-9][a-z0-9._-]*$" },
+    "kind": {
+      "enum": ["requirement", "claim", "decision", "constraint", "risk", "assumption", "open-question", "source", "finding", "evidence", "research", "memory"]
+    },
+    "title": { "type": "string", "minLength": 1 },
+    "revision": { "type": "integer", "minimum": 1 },
+    "authority": { "enum": ["canonical", "derived", "external"] },
+    "visibility": { "enum": ["public", "project", "internal", "restricted", "confidential"] },
+    "sensitivity": { "enum": ["none", "personal", "business", "secret"] },
+    "owner": { "enum": ["generated", "prumo-maintained", "human-maintained", "external-import"] },
+    "audiences": { "type": "array", "items": { "enum": ["user", "developer", "operator", "agent"] } },
+    "locale": { "type": "string", "pattern": "^[a-z]{2}(-[A-Z]{2})?$" },
+    "freshness": {
+      "type": "object",
+      "properties": {
+        "mode": { "enum": ["trigger-based", "dependency-digest", "time-to-live", "manual"] },
+        "ttl_days": { "type": "integer", "minimum": 0 },
+        "source_digest": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "provenance": {
+      "type": "object",
+      "required": ["source"],
+      "properties": {
+        "source": { "type": "string", "minLength": 1 },
+        "revision": { "type": "string" },
+        "generated_at": { "type": "string" },
+        "fingerprint": { "type": "string" },
+        "supersedes": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "relationships": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["kind", "target"],
+        "properties": {
+          "kind": {
+            "enum": ["documents", "explains", "references", "implements", "verifies", "supersedes", "contradicts", "projects_to", "translated_as", "illustrated_by", "affects", "requires", "supported_by"]
+          },
+          "target": { "type": "string", "minLength": 1 },
+          "note": { "type": "string" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "symbol_refs": { "type": "array", "items": { "type": "string" } },
+    "schema_refs": { "type": "array", "items": { "type": "string" } },
+    "projections": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}

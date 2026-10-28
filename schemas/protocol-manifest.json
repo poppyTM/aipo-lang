@@ -1,0 +1,178 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "HarnessProtocolManifest",
+  "description": "Versioned IDL baseline for the Prumo Harness local protocol. Generated from internal/harness/protocol; do not hand-edit without updating Manifest() \u2014 manifest_test.go enforces equality.",
+  "type": "object",
+  "required": [
+    "version",
+    "min_compatible",
+    "transport",
+    "ops",
+    "schemas",
+    "errors"
+  ],
+  "properties": {
+    "version": {
+      "type": "string"
+    },
+    "min_compatible": {
+      "type": "string"
+    },
+    "transport": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "ops": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "args"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "args": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "x-manifest": {
+    "version": "0.4.0",
+    "min_compatible": "0.1.0",
+    "transport": [
+      "unix-socket+jsonl (local)"
+    ],
+    "ops": [
+      {
+        "name": "start",
+        "args": [
+          "goal"
+        ]
+      },
+      {
+        "name": "status",
+        "args": [
+          "run_id"
+        ]
+      },
+      {
+        "name": "list",
+        "args": []
+      },
+      {
+        "name": "events",
+        "args": [
+          "run_id"
+        ]
+      },
+      {
+        "name": "cancel",
+        "args": [
+          "run_id"
+        ]
+      },
+      {
+        "name": "steer",
+        "args": [
+          "run_id",
+          "message"
+        ]
+      },
+      {
+        "name": "schedule",
+        "args": [
+          "goal"
+        ]
+      },
+      {
+        "name": "unschedule",
+        "args": [
+          "job_id"
+        ]
+      },
+      {
+        "name": "jobs",
+        "args": []
+      },
+      {
+        "name": "protocol",
+        "args": []
+      },
+      {
+        "name": "approve",
+        "args": [
+          "run_id",
+          "request_id"
+        ]
+      },
+      {
+        "name": "deny",
+        "args": [
+          "run_id",
+          "request_id"
+        ]
+      },
+      {
+        "name": "models",
+        "args": []
+      },
+      {
+        "name": "diff",
+        "args": [
+          "run_id",
+          "path"
+        ]
+      },
+      {
+        "name": "subscribe",
+        "args": [
+          "run_id"
+        ]
+      }
+    ],
+    "schemas": [
+      "schemas/harness-checkpoint.schema.json",
+      "schemas/harness-handoff.schema.json",
+      "schemas/agent-event.schema.json"
+    ],
+    "errors": [
+      "unknown op",
+      "invalid json",
+      "goal required",
+      "run_id required",
+      "unknown run",
+      "corrupt record",
+      "no events for run",
+      "run already active",
+      "run not active",
+      "no tool executor configured",
+      "client version required",
+      "permission request required",
+      "no pending permission",
+      "path required",
+      "cursor beyond event log"
+    ]
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/experience-handoff.schema.json",
+  "title": "Handoff",
+  "description": "State transfer contract between autonomous agents or sessions without conversational transcripts",
+  "type": "object",
+  "required": ["id", "from", "to", "summary"],
+  "properties": {
+    "id": { "type": "string" },
+    "from": { "type": "string" },
+    "to": { "type": "string" },
+    "run_id": { "type": "string" },
+    "goal_id": { "type": "string" },
+    "status": {
+      "type": "string",
+      "enum": ["pending", "transferred", "acknowledged", "rejected"]
+    },
+    "summary": {
+      "type": "object",
+      "required": ["session_id", "completed", "current", "blockers", "next_steps"],
+      "properties": {
+        "session_id": { "type": "string" },
+        "run_id": { "type": "string" },
+        "completed": { "type": "array", "items": { "type": "string" } },
+        "current": { "type": "array", "items": { "type": "string" } },
+        "blockers": { "type": "array", "items": { "type": "string" } },
+        "next_steps": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+    "claims": { "type": "array", "items": { "type": "string" } },
+    "active_decisions": { "type": "array", "items": { "type": "string" } },
+    "open_questions": { "type": "array", "items": { "type": "string" } },
+    "evidence": { "type": "array", "items": { "type": "string" } },
+    "created_at": { "type": "string" },
+    "acknowledged_at": { "type": "string" }
+  },
+  "additionalProperties": false
+}

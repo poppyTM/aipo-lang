@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/context-policy.schema.json",
+  "type": "object",
+  "required": ["version", "levels", "default_budget", "default_level"],
+  "properties": {
+    "version": { "type": "integer", "minimum": 1 },
+    "levels": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "items": { "enum": ["L0", "L1", "L2", "L3", "L4"] },
+      "description": "L0 pointer → L4 full disclosure."
+    },
+    "default_level": { "enum": ["L0", "L1", "L2", "L3", "L4"] },
+    "default_budget": { "type": "integer", "minimum": 1 },
+    "max_budget": { "type": "integer", "minimum": 1 },
+    "dedup": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "prefer": { "enum": ["canonical", "projection"] },
+        "min_similarity": { "type": "number", "minimum": 0, "maximum": 1 }
+      },
+      "additionalProperties": true
+    },
+    "require_explainability": { "type": "boolean", "description": "Every included item must carry a selection reason." },
+    "measure_instruction_tokens": { "type": "boolean", "description": "Report instruction/adapter token overhead separately." }
+  },
+  "additionalProperties": true
+}

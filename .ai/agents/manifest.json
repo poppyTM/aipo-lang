@@ -1,41 +1,5 @@
 {
-  "generated_by": {
-    "prumo": "0.2.0"
-  },
-  "agents": [
-    "architect",
-    "debugger",
-    "documentation-maintainer",
-    "explorer",
-    "implementer",
-    "release-verifier",
-    "reviewer",
-    "tester"
-  ],
-  "reasons": {
-    "architect": [
-      "core"
-    ],
-    "debugger": [
-      "core"
-    ],
-    "documentation-maintainer": [
-      "core"
-    ],
-    "explorer": [
-      "core"
-    ],
-    "implementer": [
-      "core"
-    ],
-    "release-verifier": [
-      "core"
-    ],
-    "reviewer": [
-      "core"
-    ],
-    "tester": [
-      "core"
-    ]
-  }
+  "agents": [],
+  "updated": "2026-10-28T03:15:00Z",
+  "version": "0.6.0"
 }

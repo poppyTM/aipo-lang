@@ -1,0 +1,8 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://raw.githubusercontent.com/raillen/prumo/main/schemas/documentation-delta.schema.json",
+  "type":"object",
+  "required":["state","source","contracts","documents","reason","evidence"],
+  "properties":{"id":{"type":"string","minLength":1},"version":{"type":"integer","minimum":1},"state":{"enum":["proposed","reviewed","accepted","rejected","applied"]},"source":{"type":"string"},"contracts":{"type":"array","items":{"type":"string"}},"documents":{"type":"array","items":{"type":"string"}},"reason":{"type":"string"},"evidence":{"type":"array","items":{"type":"string"}},"created_at":{"type":"string","minLength":1},"updated_at":{"type":"string","minLength":1}},
+  "additionalProperties":false
+}

@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/tool-manifest.schema.json",
+  "type": "object",
+  "required": ["server_id", "name", "schema_digest", "description_digest", "permissions"],
+  "properties": {
+    "server_id": { "type": "string" },
+    "server_identity": { "type": "string" },
+    "name": { "type": "string" },
+    "version": { "type": "string" },
+    "schema_digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "description_digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "implementation_digest": { "type": "string" },
+    "permissions": {
+      "type": "object",
+      "properties": {
+        "network": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "filesystem": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "secrets": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "shell": { "type": "boolean" }
+      },
+      "additionalProperties": true
+    },
+    "constraints": {
+      "type": "object",
+      "properties": {
+        "tenant_scoped": { "type": "boolean" },
+        "requires_user_confirmation": { "type": "boolean" },
+        "max_execution_time_seconds": { "type": "integer" }
+      },
+      "additionalProperties": true
+    },
+    "approved_at": { "type": "string" },
+    "expires_at": { "type": "string" }
+  },
+  "additionalProperties": true
+}

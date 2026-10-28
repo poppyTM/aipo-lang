@@ -1,0 +1,6 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://raw.githubusercontent.com/raillen/prumo/main/schemas/tool-descriptor.schema.json",
+  "type":"object","required":["id","version","kind","trust"],
+  "properties":{"id":{"type":"string"},"version":{"type":"integer","minimum":1},"kind":{"enum":["read-only","idempotent","side-effecting","destructive"]},"trust":{"enum":["core","trusted","untrusted"]},"filesystem_scope":{"type":"array","items":{"type":"string"}},"network_egress":{"type":"array","items":{"type":"string"}},"credential_scope":{"type":"array","items":{"type":"string"}},"timeout_ms":{"type":"integer","minimum":0},"output_limit":{"type":"integer","minimum":0}},"additionalProperties":true
+}

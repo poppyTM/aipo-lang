@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/documentation-plan.schema.json",
+  "type": "object",
+  "required": ["id", "goal_id", "base_revision", "units"],
+  "properties": {
+    "id": { "type": "string", "pattern": "^docplan:" },
+    "goal_id": { "type": "string", "minLength": 1 },
+    "base_revision": { "type": "string", "minLength": 1 },
+    "units": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["unit_id", "action", "reason"],
+        "properties": {
+          "unit_id": { "type": "string" },
+          "action": { "enum": ["create", "update", "no-op", "deprecate", "archive"] },
+          "reason": { "type": "string", "minLength": 1 },
+          "projections": { "type": "array", "items": { "type": "string" } }
+        },
+        "additionalProperties": true
+      }
+    },
+    "translations": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+    "media": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+    "agent_surfaces": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+    "required_evidence": { "type": "array", "items": { "type": "string" } },
+    "not_applicable": {
+      "type": "array",
+      "description": "Explicit N/A decisions. Silent omission is forbidden.",
+      "items": {
+        "type": "object",
+        "required": ["surface", "reason"],
+        "properties": { "surface": { "type": "string" }, "reason": { "type": "string", "minLength": 1 } },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}

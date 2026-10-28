@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/capability-proposal.schema.json",
+  "$comment": "F-G03: candidate capability and profile proposals from repository classification.",
+  "type": "object",
+  "required": ["version", "capabilities", "profiles"],
+  "properties": {
+    "version": { "type": "integer", "const": 1 },
+    "capabilities": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/capability_proposal" }
+    },
+    "profiles": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/profile_candidate" }
+    }
+  },
+  "$defs": {
+    "capability_proposal": {
+      "type": "object",
+      "required": ["id", "capability", "confidence", "evidence", "status"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "capability": { "type": "string", "minLength": 1 },
+        "source": { "type": "string" },
+        "confidence": { "enum": ["factual", "high", "medium", "low"] },
+        "evidence": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+        "rationale": { "type": "string" },
+        "status": { "enum": ["proposed", "accepted", "rejected"] }
+      },
+      "additionalProperties": false
+    },
+    "profile_candidate": {
+      "type": "object",
+      "required": ["id", "profile", "confidence", "capabilities", "evidence"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "profile": { "type": "string", "minLength": 1 },
+        "confidence": { "enum": ["factual", "high", "medium", "low"] },
+        "capabilities": { "type": "array", "items": { "type": "string" } },
+        "contracts": { "type": "array", "items": { "type": "string" } },
+        "evidence": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+        "rationale": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

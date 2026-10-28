@@ -1,0 +1,6 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://raw.githubusercontent.com/raillen/prumo/main/schemas/prumo-migration.schema.json",
+  "type":"object","required":["id","from_version","to_version","preconditions","affected_artifacts"],
+  "properties":{"id":{"type":"string"},"from_version":{"type":"string"},"to_version":{"type":"string"},"preconditions":{"type":"array","items":{"type":"string"}},"backup_strategy":{"type":"string"},"affected_artifacts":{"type":"array","items":{"type":"string"}},"reversible":{"type":"boolean"},"rollback":{"type":"string"}},"additionalProperties":true
+}

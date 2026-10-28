@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/raillen/prumo/main/schemas/performance-evidence.schema.json",
+  "type": "object",
+  "required": ["apiVersion", "kind", "metadata", "claim", "environment", "protocol", "baseline", "candidate", "results"],
+  "properties": {
+    "apiVersion": { "const": "prumo.dev/v1alpha1" },
+    "kind": { "const": "PerformanceEvidence" },
+    "metadata": {
+      "type": "object",
+      "required": ["id", "commit"],
+      "properties": {
+        "id": { "type": "string" },
+        "commit": { "type": "string" },
+        "generatedAt": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "claim": {
+      "type": "object",
+      "required": ["type", "component", "statement", "direction"],
+      "properties": {
+        "type": { "type": "string" },
+        "component": { "type": "string" },
+        "statement": { "type": "string" },
+        "direction": { "enum": ["lower-is-better", "higher-is-better"] },
+        "requiredImprovementPercent": { "type": "number" }
+      },
+      "additionalProperties": true
+    },
+    "environment": {
+      "type": "object",
+      "required": ["hardware", "os", "toolchain"],
+      "properties": {
+        "hardware": {
+          "type": "object",
+          "required": ["cpu"],
+          "properties": {
+            "cpu": { "type": "object" },
+            "gpu": { "type": "object" },
+            "memory": { "type": "object" }
+          },
+          "additionalProperties": true
+        },
+        "os": { "type": "object" },
+        "toolchain": {
+          "type": "object",
+          "required": ["compiler", "version", "flags"],
+          "properties": {
+            "compiler": { "type": "string" },
+            "version": { "type": "string" },
+            "flags": { "type": "array", "items": { "type": "string" } }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    },
+    "protocol": {
+      "type": "object",
+      "required": ["dataset", "warmupIterations", "measuredIterations", "repetitions"],
+      "properties": {
+        "dataset": {
+          "type": "object",
+          "required": ["id", "hash"],
+          "properties": {
+            "id": { "type": "string" },
+            "hash": { "type": "string" }
+          }
+        },
+        "warmupIterations": { "type": "integer", "minimum": 0 },
+        "measuredIterations": { "type": "integer", "minimum": 1 },
+        "repetitions": { "type": "integer", "minimum": 1 },
+        "cpuAffinity": { "type": "string" },
+        "governor": { "type": "string" },
+        "backgroundLoadPolicy": { "type": "string" },
+        "randomizedOrder": { "type": "boolean" }
+      },
+      "additionalProperties": true
+    },
+    "baseline": {
+      "type": "object",
+      "required": ["artifact"],
+      "properties": {
+        "artifact": { "type": "string" }
+      }
+    },
+    "candidate": {
+      "type": "object",
+      "required": ["artifact"],
+      "properties": {
+        "artifact": { "type": "string" }
+      }
+    },
+    "results": {
+      "type": "object",
+      "required": ["status"],
+      "properties": {
+        "status": { "enum": ["PASS", "BLOCK", "EXCEPTION", "UNSPECIFIED"] },
+        "median": { "type": ["number", "null"] },
+        "p50": { "type": ["number", "null"] },
+        "p95": { "type": ["number", "null"] },
+        "p99": { "type": ["number", "null"] },
+        "variance": { "type": ["number", "null"] },
+        "speedupRatio": { "type": ["number", "null"] }
+      },
+      "additionalProperties": true
+    },
+    "evidence": {
+      "type": "object",
+      "properties": {
+        "rawSamples": { "type": "string" },
+        "profilerTrace": { "type": "string" },
+        "assemblyDiff": { "type": "string" },
+        "irDiff": { "type": "string" },
+        "counters": { "type": "object" }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}

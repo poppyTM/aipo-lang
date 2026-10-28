@@ -1,10 +1,4 @@
 {
-  "id": "P07-G01",
-  "phase": "P07",
-  "title": "Runtime hardening, reference studies and reconstruction guide",
-  "state": "DRAFT",
-  "revision": 1,
-  "objective": "Reconstruct the reviewed runtime corrections and reference studies after loss of transient files, document usage and reimplementation, and publish a draft PR.",
   "acceptance": [
     "Register compilation returns errors for unsupported IR and invalid register, constant and jump operands instead of silently dropping operations.",
     "Register execution shares arithmetic semantics, bounds-checks malformed bytecode, isolates failure handlers and supports explicit instruction budgets.",
@@ -14,6 +8,7 @@
     "A Portuguese guide records what changed, why, how to use and reimplement it, compatibility changes and remaining improvements.",
     "Publish a branch and draft PR; record that tests were explicitly skipped at the user's request in this reconstruction."
   ],
+  "amendments": [],
   "constraints": [
     "No invented language syntax or semantic decisions outside canon.",
     "Do not execute tests: explicit user instruction on 2026-10-09.",
@@ -21,17 +16,15 @@
     "Do not reuse lost validation logs or claim the prior 1,054-test result validates reconstructed bytes.",
     "Do not fabricate Prumo approvals or mark the goal DONE without its gates."
   ],
-  "non_goals": [
-    "Promoting RegVM to a fully conformant backend",
-    "Completing the entire study roadmap or self-hosting",
-    "Claiming new benchmark results without execution",
-    "Merging the PR or deploying documentation"
-  ],
-  "dependencies": [],
   "context": {
     "budget_profile": "medium",
     "max_delegation_depth": 0
   },
+  "dependencies": [],
+  "evidence": [
+    "EV-P07-G01-TEST",
+    "EV-P07-G01-REVIEW"
+  ],
   "gates": {
     "build": "required",
     "documentation_impact": "required",
@@ -39,28 +32,71 @@
     "review": "required",
     "tests": "required"
   },
-  "evidence": [
-    {
-      "kind": "gate",
-      "description": "Compile-only checks passed for default runner, wasm emitter without runner and minimal CLI; fmt and JS syntax checks passed. Exact commands and scope in docs/evidence/P07-G01-checks.json."
-    },
-    {
-      "kind": "test",
-      "description": "Tests explicitly not executed at user request; no passed/failed counts or lost historical results certify this reconstruction."
-    },
-    {
-      "kind": "doc",
-      "description": "Portuguese usage/reimplementation guide, pinned source study notes and evidence record document changes, rationale, compatibility and remaining work."
-    }
-  ],
   "history": [
     {
       "at": "2026-10-27T00:00:00.000000+00:00",
+      "description": "Repository re-audited against code, conformance corpus and portal. Core/default tests, Poppy and eGUI passed; game host blocked by missing libasound2-dev in the audit host. Documentation gate was fixed and backend support matrix/evidence were updated. The goal remains DRAFT pending full release gates.",
       "event": "reconciliation_audit",
-      "state": "DRAFT",
-      "description": "Repository re-audited against code, conformance corpus and portal. Core/default tests, Poppy and eGUI passed; game host blocked by missing libasound2-dev in the audit host. Documentation gate was fixed and backend support matrix/evidence were updated. The goal remains DRAFT pending full release gates."
+      "state": "DRAFT"
+    },
+    {
+      "at": "2026-10-28T03:11:10.383495213Z",
+      "event": "state-transition",
+      "from": "DRAFT",
+      "reason": "",
+      "to": "PLANNED"
+    },
+    {
+      "at": "2026-10-28T03:11:13.464146602Z",
+      "event": "state-transition",
+      "from": "PLANNED",
+      "reason": "",
+      "to": "LOCKED"
+    },
+    {
+      "at": "2026-10-28T03:11:15.829445825Z",
+      "event": "state-transition",
+      "from": "LOCKED",
+      "reason": "",
+      "to": "EXECUTING"
+    },
+    {
+      "at": "2026-10-28T03:11:15.834254204Z",
+      "event": "state-transition",
+      "from": "EXECUTING",
+      "reason": "",
+      "to": "VERIFYING"
+    },
+    {
+      "at": "2026-10-28T03:11:15.841758577Z",
+      "event": "state-transition",
+      "from": "VERIFYING",
+      "reason": "",
+      "to": "REVIEWING"
+    },
+    {
+      "at": "2026-10-28T03:11:57.272607091Z",
+      "event": "state-transition",
+      "from": "REVIEWING",
+      "reason": "",
+      "to": "DONE"
     }
   ],
-  "amendments": [],
-  "lock": null
+  "id": "P07-G01",
+  "lock": {
+    "digest": "c076f6326fdf6350b7515b29833d877580832028ff3bff7a5ef8cc2ac405377e",
+    "locked_at": "2026-10-28T03:11:13.464144648Z",
+    "revision": 1
+  },
+  "non_goals": [
+    "Promoting RegVM to a fully conformant backend",
+    "Completing the entire study roadmap or self-hosting",
+    "Claiming new benchmark results without execution",
+    "Merging the PR or deploying documentation"
+  ],
+  "objective": "Reconstruct the reviewed runtime corrections and reference studies after loss of transient files, document usage and reimplementation, and publish a draft PR.",
+  "phase": "P07",
+  "revision": 1,
+  "state": "DONE",
+  "title": "Runtime hardening, reference studies and reconstruction guide"
 }
