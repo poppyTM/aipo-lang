@@ -17,7 +17,7 @@ aipo-ir = { path = "../aipo-ir" }
 aipo-lexer = { path = "../aipo-lexer" }
 aipo-source = { path = "../aipo-source" }
 wasm-encoder = { version = "0.261", default-features = false, features = ["std"] }
-wasmprinter = "0.261"
+wasmprinter = "0.262"
 wasmtime = { version = "49.0", default-features = false, features = ["cranelift", "runtime", "std"], optional = true }
 
 [build-dependencies]
