@@ -249,6 +249,7 @@ dependencies = [
  "aipo-syntax",
  "aipo-testkit",
  "aipo-vm",
+ "serde",
  "serde_json",
 ]
 

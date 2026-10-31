@@ -21,7 +21,7 @@
 #![warn(missing_docs)]
 
 use aipo_ir::{CoreConstant, CoreFunction, CoreInst, CoreModule};
-use serde_json::{Value as Json, json};
+use serde_json::json;
 
 /// Version of the emitted runtime shim.
 ///
@@ -48,8 +48,12 @@ pub struct JsBundle {
 /// `main.aipo`); `source_text` is its content, used to size line mappings.
 #[must_use]
 pub fn emit_js(source_name: &str, source_text: &str, module: &CoreModule) -> JsBundle {
-    let module_json = module_to_json(module);
-    let module_str = serde_json::to_string(&module_json).unwrap_or_else(|_| "{}".to_string());
+    let mut writer = ModuleWriter {
+        module,
+        out: String::with_capacity(module.functions.len() * 512),
+    };
+    writer.write();
+    let module_str = writer.out;
     // The entry grants the `clock` capability by installing the system clock, mirroring the
     // CLI profile that grants it for `aipo run`. A host that needs determinism installs its own
     // source on `globalThis.__aipoClock` before this module evaluates, and
@@ -67,135 +71,330 @@ pub fn emit_js(source_name: &str, source_text: &str, module: &CoreModule) -> JsB
 }
 
 /// Serializes a Core IR module into the JSON the shim interprets.
-fn module_to_json(module: &CoreModule) -> Json {
-    let functions: Vec<Json> = module.functions.iter().map(function_to_json).collect();
-    let structs: Vec<Json> = module
-        .structs
-        .iter()
-        .map(|s| {
-            json!({
-                "name": s.name,
-                "fields": s.fields.iter().map(|(n, f)| json!([n, f])).collect::<Vec<_>>(),
-            })
-        })
-        .collect();
-    json!({
-        "version": RUNTIME_VERSION,
-        "functions": functions,
-        "top": function_to_json(&module.top_level),
-        "structs": structs,
-    })
+///
+/// The wire form is the shim's contract, which is not the IR's own `Serialize`
+/// shape: field names are abbreviated (`op`, `t`, `n`, `f`) and some values are
+/// flattened. It is written directly into the output buffer instead of building a
+/// `serde_json::Value` tree, which would allocate a map and a `String` key per
+/// instruction — the dominant cost of emitting a large module.
+struct ModuleWriter<'a> {
+    module: &'a CoreModule,
+    out: String,
 }
 
-fn function_to_json(func: &CoreFunction) -> Json {
-    let code: Vec<Json> = func.instructions.iter().map(inst_to_json).collect();
-    json!({
-        "name": func.name,
-        // `async` is call protocol, not syntax: the shim must know which callees
-        // produce a `Task` instead of running, exactly like the VM's function table.
-        "async": func.is_async,
-        "params": func.params,
-        "locals": func.locals,
-        "upvalues": func.upvalues,
-        "code": code,
-    })
-}
-
-/// Maps one Core IR instruction to its compact JSON form.
-fn inst_to_json(inst: &CoreInst) -> Json {
-    match inst {
-        CoreInst::Constant(c, _) => json!({"op":"Constant","value": constant_to_json(c)}),
-        CoreInst::Load(n, _) => json!({"op":"Load","name": n}),
-        CoreInst::Store(n, _) => json!({"op":"Store","name": n}),
-        CoreInst::GetUpvalue(n, _) => json!({"op":"GetUpvalue","name": n}),
-        CoreInst::SetUpvalue(n, _) => json!({"op":"SetUpvalue","name": n}),
-        // A captured mutable local lives in one shared cell so the closure's writes and
-        // the enclosing frame's reads reach the same storage.
-        CoreInst::BoxLocal(n, _) => json!({"op":"BoxLocal","name": n}),
-        CoreInst::Binary(op, _) => {
-            json!({"op":"Binary","op2": serde_json::to_value(op).unwrap_or(Json::Null)})
-        }
-        CoreInst::Unary(op, _) => {
-            json!({"op":"Unary","op2": serde_json::to_value(op).unwrap_or(Json::Null)})
-        }
-        CoreInst::Call { arg_count, .. } => json!({"op":"Call","argc": arg_count}),
-        CoreInst::Await(_) => json!({"op":"Await"}),
-        CoreInst::Return { has_value, .. } => json!({"op":"Return","has": has_value}),
-        CoreInst::Jump(t, _) => json!({"op":"Jump","t": target_usize(*t)}),
-        CoreInst::JumpIfFalse(t, _) => json!({"op":"JumpIfFalse","t": target_usize(*t)}),
-        CoreInst::Pop(_) => json!({"op":"Pop"}),
-        CoreInst::Dup(_) => json!({"op":"Dup"}),
-        CoreInst::CloneStruct(_) => json!({"op":"CloneStruct"}),
-        CoreInst::GetField(f, _) => json!({"op":"GetField","f": f}),
-        CoreInst::SetField(f, _) => json!({"op":"SetField","f": f}),
-        CoreInst::GetIndex(_) => json!({"op":"GetIndex"}),
-        CoreInst::SetIndex(_) => json!({"op":"SetIndex"}),
-        CoreInst::IsVariant(v, _) => json!({"op":"IsVariant","variant": v}),
-        CoreInst::BuildList(n, _) => json!({"op":"BuildList","n": n}),
-        CoreInst::BuildDict(n, _) => json!({"op":"BuildDict","n": n}),
-        CoreInst::BuildStruct {
-            type_name,
-            field_count,
-            defer_fixed,
-            ..
-        } => json!({"op":"BuildStruct","type": type_name, "n": field_count, "defer": defer_fixed}),
-        CoreInst::SealStruct(_) => json!({"op":"SealStruct"}),
-        CoreInst::AssertInvariant { type_name, .. } => {
-            json!({"op":"AssertInvariant","type": type_name})
-        }
-        CoreInst::AssertContract {
-            type_name,
-            nullable,
-            position,
-            operations,
-            ..
-        } => {
-            json!({"op":"AssertContract","type": type_name, "null": nullable, "pos": position, "ops": operations.iter().map(|(n, a)| json!([n, a])).collect::<Vec<_>>()})
-        }
-        CoreInst::CheckMutations(_) => json!({"op":"CheckMutations"}),
-        CoreInst::PropagateFailure(_) => json!({"op":"PropagateFailure"}),
-        CoreInst::MakeFunction(n, _) => json!({"op":"MakeFunction","name": n}),
-        CoreInst::MakeClosure {
-            name,
-            upvalues,
-            self_capture,
-            ..
-        } => json!({"op":"MakeClosure","name": name, "ups": upvalues, "self": self_capture}),
-        CoreInst::FillSelfCapture { name, .. } => json!({"op":"FillSelfCapture","name": name}),
-        CoreInst::Range(_) => json!({"op":"Range"}),
-        CoreInst::Len(_) => json!({"op":"Len"}),
-        CoreInst::TypeIs(_) => json!({"op":"TypeIs"}),
-        CoreInst::TypeIsNullable(_) => json!({"op":"TypeIsNullable"}),
-        CoreInst::IterGuard(_) => json!({"op":"IterGuard"}),
-        CoreInst::IterAt(mode, _) => json!({
-            "op":"IterAt",
-            "mode": match mode {
-                aipo_ir::IterMode::Primary => 0,
-                aipo_ir::IterMode::Key => 1,
-                aipo_ir::IterMode::Value => 2,
+impl<'a> ModuleWriter<'a> {
+    fn write(&mut self) {
+        self.out.push_str("{\"version\":");
+        write_json_string(&mut self.out, RUNTIME_VERSION);
+        self.out.push_str(",\"functions\":[");
+        for (index, function) in self.module.functions.iter().enumerate() {
+            if index > 0 {
+                self.out.push(',');
             }
-        }),
-        CoreInst::IterGuardEnd(_) => json!({"op":"IterGuardEnd"}),
-        CoreInst::Fail(_) => json!({"op":"Fail"}),
-        CoreInst::PushHandler(t, _) => json!({"op":"PushHandler","t": target_usize(*t)}),
-        CoreInst::PopHandler(_) => json!({"op":"PopHandler"}),
-        CoreInst::PushUnset(_) => json!({"op":"PushUnset"}),
-        CoreInst::JumpIfSetLocal { slot, target, .. } => {
-            json!({"op":"JumpIfSetLocal","slot": slot, "t": target_usize(*target)})
+            self.write_function(function);
         }
+        self.out.push_str("],\"top\":");
+        self.write_function(&self.module.top_level);
+        self.out.push_str(",\"structs\":[");
+        for (index, s) in self.module.structs.iter().enumerate() {
+            if index > 0 {
+                self.out.push(',');
+            }
+            self.out.push_str("{\"name\":");
+            write_json_string(&mut self.out, &s.name);
+            self.out.push_str(",\"fields\":[");
+            for (field_index, (name, field)) in s.fields.iter().enumerate() {
+                if field_index > 0 {
+                    self.out.push(',');
+                }
+                self.out.push('[');
+                write_json_string(&mut self.out, name);
+                self.out.push(',');
+                self.out
+                    .push_str(&serde_json::to_string(field).unwrap_or_else(|_| "null".into()));
+                self.out.push(']');
+            }
+            self.out.push_str("]}");
+        }
+        self.out.push_str("]}");
+    }
+
+    fn write_function(&mut self, func: &CoreFunction) {
+        self.out.push_str("{\"name\":");
+        write_json_string(&mut self.out, &func.name);
+        self.out.push_str(",\"async\":");
+        self.out
+            .push_str(if func.is_async { "true" } else { "false" });
+        self.out.push_str(",\"params\":[");
+        for (index, param) in func.params.iter().enumerate() {
+            if index > 0 {
+                self.out.push(',');
+            }
+            write_json_string(&mut self.out, param);
+        }
+        self.out.push_str("],\"locals\":[");
+        for (index, local) in func.locals.iter().enumerate() {
+            if index > 0 {
+                self.out.push(',');
+            }
+            write_json_string(&mut self.out, local);
+        }
+        self.out.push_str("],\"upvalues\":[");
+        for (index, upvalue) in func.upvalues.iter().enumerate() {
+            if index > 0 {
+                self.out.push(',');
+            }
+            write_json_string(&mut self.out, upvalue);
+        }
+        self.out.push_str("],\"code\":[");
+        for (index, inst) in func.instructions.iter().enumerate() {
+            if index > 0 {
+                self.out.push(',');
+            }
+            self.write_inst(inst);
+        }
+        self.out.push_str("]}");
+    }
+
+    fn write_inst(&mut self, inst: &CoreInst) {
+        let out = &mut self.out;
+        out.push_str("{\"op\":");
+        let op = match inst {
+            CoreInst::Constant(..) => "Constant",
+            CoreInst::Load(..) => "Load",
+            CoreInst::Store(..) => "Store",
+            CoreInst::GetUpvalue(..) => "GetUpvalue",
+            CoreInst::SetUpvalue(..) => "SetUpvalue",
+            CoreInst::BoxLocal(..) => "BoxLocal",
+            CoreInst::Binary(..) => "Binary",
+            CoreInst::Unary(..) => "Unary",
+            CoreInst::Call { .. } => "Call",
+            CoreInst::Await(_) => "Await",
+            CoreInst::Return { .. } => "Return",
+            CoreInst::Jump(..) => "Jump",
+            CoreInst::JumpIfFalse(..) => "JumpIfFalse",
+            CoreInst::Pop(_) => "Pop",
+            CoreInst::Dup(_) => "Dup",
+            CoreInst::CloneStruct(_) => "CloneStruct",
+            CoreInst::GetField(..) => "GetField",
+            CoreInst::SetField(..) => "SetField",
+            CoreInst::GetIndex(_) => "GetIndex",
+            CoreInst::SetIndex(_) => "SetIndex",
+            CoreInst::IsVariant(..) => "IsVariant",
+            CoreInst::BuildList(..) => "BuildList",
+            CoreInst::BuildDict(..) => "BuildDict",
+            CoreInst::BuildStruct { .. } => "BuildStruct",
+            CoreInst::SealStruct(_) => "SealStruct",
+            CoreInst::AssertInvariant { .. } => "AssertInvariant",
+            CoreInst::AssertContract { .. } => "AssertContract",
+            CoreInst::CheckMutations(_) => "CheckMutations",
+            CoreInst::PropagateFailure(_) => "PropagateFailure",
+            CoreInst::MakeFunction(..) => "MakeFunction",
+            CoreInst::MakeClosure { .. } => "MakeClosure",
+            CoreInst::FillSelfCapture { .. } => "FillSelfCapture",
+            CoreInst::Range(_) => "Range",
+            CoreInst::Len(_) => "Len",
+            CoreInst::TypeIs(_) => "TypeIs",
+            CoreInst::TypeIsNullable(_) => "TypeIsNullable",
+            CoreInst::IterGuard(_) => "IterGuard",
+            CoreInst::IterAt(..) => "IterAt",
+            CoreInst::IterGuardEnd(_) => "IterGuardEnd",
+            CoreInst::Fail(_) => "Fail",
+            CoreInst::PushHandler(..) => "PushHandler",
+            CoreInst::PopHandler(_) => "PopHandler",
+            CoreInst::PushUnset(_) => "PushUnset",
+            CoreInst::JumpIfSetLocal { .. } => "JumpIfSetLocal",
+        };
+        write_json_string(out, op);
+        match inst {
+            CoreInst::Constant(value, _) => {
+                out.push_str(",\"value\":");
+                let rendered = constant_to_wire(value);
+                out.push_str(&rendered);
+            }
+            CoreInst::Load(name, _)
+            | CoreInst::Store(name, _)
+            | CoreInst::GetUpvalue(name, _)
+            | CoreInst::SetUpvalue(name, _)
+            | CoreInst::BoxLocal(name, _)
+            | CoreInst::MakeFunction(name, _)
+            | CoreInst::FillSelfCapture { name, .. } => {
+                out.push_str(",\"name\":");
+                write_json_string(out, name);
+            }
+            CoreInst::Binary(op_kind, _) => write_op_field(out, op_kind),
+            CoreInst::Unary(op_kind, _) => write_op_field(out, op_kind),
+            CoreInst::Call { arg_count, .. } => {
+                out.push_str(",\"argc\":");
+                push_usize(out, *arg_count);
+            }
+            CoreInst::Return { has_value, .. } => {
+                out.push_str(",\"has\":");
+                out.push_str(if *has_value { "true" } else { "false" });
+            }
+            CoreInst::Jump(target, _) | CoreInst::JumpIfFalse(target, _) => {
+                out.push_str(",\"t\":");
+                push_isize(out, *target);
+            }
+            CoreInst::GetField(field, _) | CoreInst::SetField(field, _) => {
+                out.push_str(",\"f\":");
+                write_json_string(out, field);
+            }
+            CoreInst::IsVariant(variant, _) => {
+                out.push_str(",\"variant\":");
+                write_json_string(out, variant);
+            }
+            CoreInst::BuildList(count, _) | CoreInst::BuildDict(count, _) => {
+                out.push_str(",\"n\":");
+                push_usize(out, *count);
+            }
+            CoreInst::BuildStruct {
+                type_name,
+                field_count,
+                defer_fixed,
+                ..
+            } => {
+                out.push_str(",\"type\":");
+                write_json_string(out, type_name);
+                out.push_str(",\"n\":");
+                push_usize(out, *field_count);
+                out.push_str(",\"defer\":");
+                out.push_str(if *defer_fixed { "true" } else { "false" });
+            }
+            CoreInst::AssertInvariant { type_name, .. } => {
+                out.push_str(",\"type\":");
+                write_json_string(out, type_name);
+            }
+            CoreInst::AssertContract {
+                type_name,
+                nullable,
+                position,
+                operations,
+                ..
+            } => {
+                out.push_str(",\"type\":");
+                write_json_string(out, type_name);
+                out.push_str(",\"null\":");
+                out.push_str(if *nullable { "true" } else { "false" });
+                out.push_str(",\"pos\":");
+                write_json_string(out, position);
+                out.push_str(",\"ops\":[");
+                for (index, (name, arity)) in operations.iter().enumerate() {
+                    if index > 0 {
+                        out.push(',');
+                    }
+                    out.push('[');
+                    write_json_string(out, name);
+                    out.push(',');
+                    push_usize(out, *arity);
+                    out.push(']');
+                }
+                out.push(']');
+            }
+            CoreInst::MakeClosure {
+                name,
+                upvalues,
+                self_capture,
+                ..
+            } => {
+                out.push_str(",\"name\":");
+                write_json_string(out, name);
+                out.push_str(",\"ups\":[");
+                for (index, upvalue) in upvalues.iter().enumerate() {
+                    if index > 0 {
+                        out.push(',');
+                    }
+                    write_json_string(out, upvalue);
+                }
+                out.push_str("],\"self\":");
+                match self_capture {
+                    Some(capture) => write_json_string(out, capture),
+                    None => out.push_str("null"),
+                }
+            }
+            CoreInst::IterAt(mode, _) => {
+                out.push_str(",\"mode\":");
+                out.push_str(match mode {
+                    aipo_ir::IterMode::Primary => "0",
+                    aipo_ir::IterMode::Key => "1",
+                    aipo_ir::IterMode::Value => "2",
+                });
+            }
+            CoreInst::PushHandler(target, _) => {
+                out.push_str(",\"t\":");
+                push_isize(out, *target);
+            }
+            CoreInst::JumpIfSetLocal { slot, target, .. } => {
+                out.push_str(",\"slot\":");
+                push_usize(out, *slot);
+                out.push_str(",\"t\":");
+                push_isize(out, *target);
+            }
+            CoreInst::Await(_)
+            | CoreInst::Pop(_)
+            | CoreInst::Dup(_)
+            | CoreInst::CloneStruct(_)
+            | CoreInst::GetIndex(_)
+            | CoreInst::SetIndex(_)
+            | CoreInst::SealStruct(_)
+            | CoreInst::CheckMutations(_)
+            | CoreInst::PropagateFailure(_)
+            | CoreInst::Range(_)
+            | CoreInst::Len(_)
+            | CoreInst::TypeIs(_)
+            | CoreInst::TypeIsNullable(_)
+            | CoreInst::IterGuard(_)
+            | CoreInst::IterGuardEnd(_)
+            | CoreInst::Fail(_)
+            | CoreInst::PopHandler(_)
+            | CoreInst::PushUnset(_) => {}
+        }
+        self.out.push('}');
     }
 }
 
-/// Serializes a constant for the shim.
-///
-/// `serde_json` writes a non-finite float as `null`, which would erase the reason the value
-/// is unusable. The wire form stays `null` (the shim already reports
-/// `AIPO_RT_NON_FINITE_FLOAT` for it, matching the VM's fault for the same constant), but the
-/// intent is stated here instead of resting on the serializer's default.
-fn constant_to_json(value: &CoreConstant) -> Json {
+/// Writes a `serde`-derived operator as the wire `op2` field.
+fn write_op_field<T: serde::Serialize>(out: &mut String, operator: &T) {
+    out.push_str(",\"op2\":");
+    out.push_str(&serde_json::to_string(operator).unwrap_or_else(|_| "null".into()));
+}
+
+fn push_usize(out: &mut String, value: usize) {
+    use std::fmt::Write as _;
+    let _ = write!(out, "{value}");
+}
+
+fn push_isize(out: &mut String, value: isize) {
+    use std::fmt::Write as _;
+    let _ = write!(out, "{}", target_usize(value));
+}
+
+/// Appends a JSON string literal, escaping only the characters JSON requires.
+fn write_json_string(out: &mut String, value: &str) {
+    out.push('"');
+    for ch in value.chars() {
+        match ch {
+            '"' => out.push_str("\\\""),
+            '\\' => out.push_str("\\\\"),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            ch if (ch as u32) < 0x20 => {
+                use std::fmt::Write as _;
+                let _ = write!(out, "\\u{:04x}", ch as u32);
+            }
+            ch => out.push(ch),
+        }
+    }
+    out.push('"');
+}
+
+/// Renders a constant for the wire, preserving the shim's `null` for a non-finite
+/// float (see [`constant_to_json`]).
+fn constant_to_wire(value: &CoreConstant) -> String {
     match value {
-        CoreConstant::Float(f) if !f.is_finite() => Json::Null,
-        other => serde_json::to_value(other).unwrap_or(Json::Null),
+        CoreConstant::Float(f) if !f.is_finite() => "null".to_string(),
+        other => serde_json::to_string(other).unwrap_or_else(|_| "null".into()),
     }
 }
 
@@ -262,6 +461,7 @@ fn encode_vlq(out: &mut String, mut value: i64) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::Value as Json;
 
     #[test]
     fn test_emit_produces_esm_wrapper_and_valid_map() {
