@@ -1,0 +1,6 @@
+io.println("abc".starts_with("ab"))
+io.println("abc".ends_with("bc"))
+let e = ""
+io.println(e.is_empty())
+io.println(" ".trim())
+io.println("  x  ".trim().len())

@@ -463,13 +463,31 @@ pub(super) fn infer_expr_kind(
                         }
                     }
                 };
-                if let Some(type_name) = receiver_type
+                if let Some(type_name) = receiver_type.as_deref()
                     && let Some(kind) = functions
                         .return_kinds
                         .get(&format!("{type_name}.{method_name}"))
                     && !matches!(kind, LocalKind::Unknown)
                 {
                     return kind.clone();
+                }
+                // A receiver typed as an interface names no struct layout, so the
+                // lookup above cannot resolve it. The method still has one
+                // implementation in the module, and its result kind is what makes
+                // `fn show(x: D) { return x.describe() }` return text rather than a
+                // number.
+                if receiver_type.is_none()
+                    && let Some(kind) = functions
+                        .return_kinds
+                        .iter()
+                        .find(|(name, kind)| {
+                            name.split_once('.')
+                                .is_some_and(|(_, method)| method == method_name)
+                                && !matches!(kind, LocalKind::Unknown)
+                        })
+                        .map(|(_, kind)| kind.clone())
+                {
+                    return kind;
                 }
                 let rec_kind =
                     infer_expr_kind(receiver, locals, functions, table_indices, anon_map);
@@ -1561,6 +1579,15 @@ pub(super) fn collect_program_strings(
             for v in &e.variants {
                 let full = format!("{}.{}", e.name, v.name);
                 add_static_string(&full, static_strings, data_segments, next_offset);
+            }
+        }
+        // A field default is compiled into the constructor, so its literals have to
+        // be in the pool before any code runs.
+        if let HirItem::Struct(decl) = item {
+            for field in &decl.fields {
+                if let Some(default) = &field.default {
+                    collect_expr_strings(default, static_strings, data_segments, next_offset);
+                }
             }
         }
     }

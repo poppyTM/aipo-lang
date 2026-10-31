@@ -1,0 +1,10 @@
+struct C {
+  var n: Int = 5
+  var s: String = "d"
+}
+let a = C{}
+io.println(a.n)
+io.println(a.s)
+let b = C{n = 9}
+io.println(b.n)
+io.println(b.s)

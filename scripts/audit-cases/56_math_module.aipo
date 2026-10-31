@@ -1,0 +1,8 @@
+io.println(math.abs(-5))
+io.println(math.floor(2.7))
+io.println(math.ceil(2.1))
+io.println(math.round(2.5))
+io.println(math.sqrt(9.0))
+io.println(math.min(3, 7))
+io.println(math.max(3, 7))
+io.println(math.pow(2, 10))

@@ -1,0 +1,7 @@
+interface Describable {
+  describe() -> String
+}
+struct A { var tag }
+A:describe(self) { return "A:" + self.tag }
+fn show(x: Describable) { return x.describe() }
+io.println(show(A{tag = "hi"}))

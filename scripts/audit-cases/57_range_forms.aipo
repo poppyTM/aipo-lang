@@ -1,0 +1,6 @@
+io.println(len(0..5))
+io.println(len(0..=5))
+var n = 0
+each i in 0..=3 { n = n + i }
+io.println(n)
+io.println((1..4).transform(fn(x) { return x * 10 }))

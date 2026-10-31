@@ -74,6 +74,11 @@ pub(super) struct FunctionTable {
     /// Field kind by field name, with the type that declares it: `u.name` needs the
     /// kind, and `String` and `List` share one storage type.
     pub(super) field_kinds: HashMap<String, (String, LocalKind)>,
+    /// Default expression per field, by `Type.field`.
+    ///
+    /// A constructor may omit an initialised field, and canon fills it from the
+    /// declaration; without this the slot kept the allocator's zeros.
+    pub(super) field_defaults: HashMap<String, HirExpr>,
     /// Default expressions per parameter, by function name.
     ///
     /// Wasm cannot tell an omitted argument from a passed zero, so an omitted
@@ -150,6 +155,7 @@ impl FunctionTable {
                 })
                 .collect(),
             field_kinds: HashMap::new(),
+            field_defaults: HashMap::new(),
             declared_types: program
                 .items
                 .iter()
@@ -791,6 +797,11 @@ pub fn compile_hir(program: &HirProgram) -> Result<Vec<u8>, WasmCompileError> {
                     functions
                         .field_kinds
                         .insert(field.name.clone(), (decl.name.clone(), kind));
+                }
+                if let Some(default) = &field.default {
+                    functions
+                        .field_defaults
+                        .insert(format!("{}.{}", decl.name, field.name), default.clone());
                 }
             }
         }
@@ -10695,6 +10706,7 @@ fn compile_expr(
             func.instruction(&Instruction::LocalSet(call_temp));
 
             // Determine target signature
+            let mut return_after_indirect: Option<(u32, Vec<WasmType>, Option<WasmType>)> = None;
             let (type_idx, expected_params, ret_ty) =
                 if let HirExpr::Identifier(name, _) = &**callee {
                     if let Some((_, _, LocalKind::Fn(t_idx))) = locals.get(name) {
@@ -10729,10 +10741,34 @@ fn compile_expr(
                         fn_sig.results.first().copied(),
                     )
                 } else {
-                    let params = vec![WasmType::I64; args.len()];
-                    let ret = Some(WasmType::I64);
-                    let t_idx = indirect_sigs.get(&args.len()).copied().unwrap_or(0);
-                    (t_idx, params, ret)
+                    // A method reached through an untyped parameter (`x: Interface`
+                    // is not a struct layout, so the receiver's kind is unknown)
+                    // still has to answer its own result type: defaulting to `i64`
+                    // truncated a `String` handle into a number.
+                    if let HirExpr::Dot(_, method_name, _) = &**callee {
+                        let candidate = structs
+                            .keys()
+                            .map(|s| format!("{s}.{method_name}"))
+                            .find(|full| functions.contains_key(full));
+                        if let Some(full) = candidate
+                            && let Some((_, t_idx, fn_sig)) = functions.get(&full)
+                        {
+                            return_after_indirect = Some((
+                                *t_idx,
+                                fn_sig.params.clone(),
+                                fn_sig.results.first().copied(),
+                            ));
+                        }
+                    }
+                    match return_after_indirect.take() {
+                        Some(sig) => sig,
+                        None => {
+                            let params = vec![WasmType::I64; args.len()];
+                            let ret = Some(WasmType::I64);
+                            let t_idx = indirect_sigs.get(&args.len()).copied().unwrap_or(0);
+                            (t_idx, params, ret)
+                        }
+                    }
                 };
 
             // Evaluate arguments onto stack
@@ -10889,6 +10925,65 @@ fn compile_expr(
                 // positional field starts after it: writing at `i * 8` overwrote the
                 // variant tag, and `match` then failed to recognize the variant.
                 let positional_base: u32 = if type_name.contains('.') { 8 } else { 0 };
+                // A field the constructor omits takes its declared default. Without
+                // this the slot kept whatever the allocator returned.
+                for (name, (field_offset, field_ty)) in &struct_layout.fields {
+                    if fields
+                        .iter()
+                        .any(|(given, _)| given.as_deref() == Some(name.as_str()))
+                    {
+                        continue;
+                    }
+                    let Some(default) = functions
+                        .field_defaults
+                        .get(&format!("{type_name}.{name}"))
+                        .cloned()
+                    else {
+                        continue;
+                    };
+                    func.instruction(&Instruction::LocalGet(struct_temp));
+                    let d_ty = compile_expr(
+                        &default,
+                        func,
+                        locals,
+                        functions,
+                        control_stack,
+                        structs,
+                        static_strings,
+                        table_indices,
+                        anon_map,
+                        indirect_sigs,
+                        alloc_func_idx,
+                        async_helpers,
+                        struct_depth + 1,
+                        call_depth,
+                    )?;
+                    coerce_type(func, d_ty, *field_ty);
+                    match field_ty {
+                        WasmType::F64 => {
+                            func.instruction(&Instruction::F64Store(MemArg {
+                                offset: *field_offset as u64,
+                                align: 3,
+                                memory_index: 0,
+                            }));
+                        }
+                        WasmType::I32 => {
+                            func.instruction(&Instruction::I32Store(MemArg {
+                                offset: *field_offset as u64,
+                                align: 2,
+                                memory_index: 0,
+                            }));
+                        }
+                        WasmType::I64 => {
+                            func.instruction(&Instruction::I64Store(MemArg {
+                                offset: *field_offset as u64,
+                                align: 3,
+                                memory_index: 0,
+                            }));
+                        }
+                    }
+                }
+
                 // Initialize fields
                 for (i, (maybe_name, field_expr)) in fields.iter().enumerate() {
                     let positional = positional_base + (i as u32) * 8;
