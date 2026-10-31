@@ -133,8 +133,9 @@ fn math_helpers_match_canonical_semantics() {
     assert_eq!(run("io.println(math.pow(3, 4))"), "81\n");
     assert_eq!(run("io.println(math.pow(2, 0))"), "1\n");
     assert_eq!(run("io.println(math.pow(-2, 3))"), "-8\n");
-    assert_eq!(run("io.println(math.round(2.5))"), "3.0\n");
-    assert_eq!(run("io.println(math.round(-2.5))"), "-3.0\n");
+    // `math.round` answers an Int in canon, matching the VM.
+    assert_eq!(run("io.println(math.round(2.5))"), "3\n");
+    assert_eq!(run("io.println(math.round(-2.5))"), "-3\n");
     assert_eq!(run("io.println(math.sqrt(9.0))"), "3.0\n");
     assert_eq!(run("io.println(math.clamp(11, 0, 10))"), "10\n");
 }
