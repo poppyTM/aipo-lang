@@ -3369,6 +3369,23 @@ pub fn prelude_surface() -> PreludeSurface {
         }
     }
 
+    // Built-in receiver types expose methods the same way a module exposes members:
+    // through a registration the runtime dispatches. Deriving the member set from that
+    // registration makes a typo like `xs.nope()` a frontend error instead of a runtime
+    // fault, and keeps a type with no hand-written list from accepting any name.
+    for type_name in vm.registered_method_types() {
+        surface.add_type_members(&type_name, vm.registered_methods(&type_name));
+    }
+    // Higher-order `List` methods are dispatched by the VM rather than registered as
+    // natives, so they need to be added to the catalog explicitly or the member check
+    // would reject a method the runtime supports.
+    let higher_order = aipo_vm::Vm::LIST_HIGHER_ORDER_METHODS
+        .iter()
+        .copied()
+        .chain(std::iter::once(aipo_vm::Vm::LIST_FOLD_METHOD))
+        .map(str::to_string);
+    surface.add_type_members("List", higher_order);
+
     surface
 }
 

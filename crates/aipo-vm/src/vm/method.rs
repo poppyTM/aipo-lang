@@ -8,6 +8,24 @@ use aipo_bytecode::BytecodeModule;
 use std::cell::RefCell;
 use std::rc::Rc;
 impl Vm {
+    /// Higher-order `List` methods: they call back into Aipo code, so the VM drives
+    /// them instead of a registered native.
+    ///
+    /// Exposed so the frontend's member catalog covers them; a name the analyzer
+    /// accepts must be one the runtime can dispatch.
+    pub const LIST_HIGHER_ORDER_METHODS: &'static [&'static str] = &[
+        "filter",
+        "transform",
+        "map",
+        "sort_by",
+        "any",
+        "all",
+        "flat_map",
+    ];
+
+    /// `List` method that folds and therefore takes an initial value plus a callback.
+    pub const LIST_FOLD_METHOD: &'static str = "reduce";
+
     pub(super) fn lookup_method_native(
         &self,
         type_name: &str,
@@ -64,10 +82,7 @@ impl Vm {
                 MethodKind::Native(func),
             ));
         }
-        if matches!(
-            method,
-            "filter" | "transform" | "map" | "sort_by" | "any" | "all" | "flat_map"
-        ) {
+        if Self::LIST_HIGHER_ORDER_METHODS.contains(&method) {
             return Some(Value::bound_method(
                 method,
                 1,
@@ -75,7 +90,7 @@ impl Vm {
                 MethodKind::HigherOrder,
             ));
         }
-        if method == "reduce" {
+        if method == Self::LIST_FOLD_METHOD {
             return Some(Value::bound_method(
                 method,
                 2,

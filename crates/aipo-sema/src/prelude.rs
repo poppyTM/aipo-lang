@@ -16,6 +16,13 @@ pub struct PreludeSurface {
     globals: HashMap<String, SymbolKind>,
     mutable_globals: HashSet<String>,
     host_modules: HashMap<String, HashMap<String, HostFunction>>,
+    /// Methods each built-in type exposes, by type name.
+    ///
+    /// Derived from the same registration the VM executes with, so a method the
+    /// analyzer accepts is exactly one the runtime can dispatch. Without this the
+    /// member check would have to be a hand-maintained list per type, and any type
+    /// without one accepts every member name until it faults at runtime.
+    type_members: HashMap<String, HashSet<String>>,
 }
 
 /// Function signature supplied by a host schema.
@@ -101,6 +108,28 @@ impl PreludeSurface {
     pub fn add_host_module(&mut self, module: &str, functions: HashMap<String, HostFunction>) {
         self.add_variable(module);
         self.host_modules.insert(module.to_string(), functions);
+    }
+
+    /// Records the methods a built-in type exposes.
+    pub fn add_type_members(&mut self, type_name: &str, members: impl IntoIterator<Item = String>) {
+        self.type_members
+            .entry(type_name.to_string())
+            .or_default()
+            .extend(members);
+    }
+
+    /// Returns the method names a built-in type exposes, when the surface catalogs them.
+    ///
+    /// `None` means the type is not cataloged, so the analyzer must not invent a
+    /// verdict; `Some` (even empty) is an authoritative answer.
+    #[must_use]
+    pub fn type_members(&self, type_name: &str) -> Option<&HashSet<String>> {
+        self.type_members.get(type_name)
+    }
+
+    /// Iterates every cataloged type and its members.
+    pub fn all_type_members(&self) -> impl Iterator<Item = (&String, &HashSet<String>)> {
+        self.type_members.iter()
     }
 
     /// Looks up a host function signature if `module` is a registered host module.

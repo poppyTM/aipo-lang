@@ -18,6 +18,13 @@ const CORE_CONTRACT_CATEGORIES: [&str; 13] = [
     "Sequence", "Task",
 ];
 
+/// Fallback member set for `List`, used only when the configured surface does not
+/// catalog built-in types.
+///
+/// The authoritative set comes from the runtime registration, which the CLI passes
+/// through [`crate::PreludeSurface::add_type_members`]. This list keeps a bare
+/// `aipo_sema::check` (no standard library) from accepting every member name, and it
+/// may lag the registration; prefer a cataloged surface.
 const LIST_MEMBERS: &[&str] = &[
     "add",
     "insert",
@@ -58,6 +65,8 @@ const LIST_MEMBERS: &[&str] = &[
     "clone",
 ];
 
+/// Fallback member set for `String`, for the same reason as [`LIST_MEMBERS`]: only
+/// consulted when the surface does not catalog the type.
 const STRING_MEMBERS: &[&str] = &[
     "len",
     "byte_len",
@@ -91,7 +100,18 @@ fn extract_inferred_type(expr: &HirExpr) -> Option<String> {
     match expr {
         HirExpr::Construct(target, _, _) => Some(target.clone()),
         HirExpr::List(..) => Some("List".to_string()),
+        HirExpr::Dict(..) => Some("Dict".to_string()),
         HirExpr::Literal(Literal::String(..), _) => Some("String".to_string()),
+        // A core conversion call names its own result type (`Set(...)`, `Bytes(...)`),
+        // so a binding initialized from one has a provable receiver type for the member
+        // check downstream.
+        HirExpr::Call(callee, _, _) => match &**callee {
+            HirExpr::Identifier(name, _) => match name.as_str() {
+                "Set" | "Bytes" | "String" | "Int" | "Float" | "Bool" => Some(name.clone()),
+                _ => None,
+            },
+            _ => None,
+        },
         _ => None,
     }
 }
@@ -257,6 +277,8 @@ pub struct SemanticAnalyzer<'a> {
     /// `true` inside an `await do` body (reset on function boundaries: the
     /// block form never enters lambdas defined inside it).
     in_await_do: bool,
+    /// Methods each built-in type exposes, derived from the runtime registration.
+    type_members: HashMap<String, HashSet<String>>,
 }
 
 impl<'a> SemanticAnalyzer<'a> {
@@ -302,6 +324,7 @@ impl<'a> SemanticAnalyzer<'a> {
             deprecated_items: HashMap::new(),
             var_struct_types: HashMap::new(),
             var_nullable_types: HashMap::new(),
+            type_members: HashMap::new(),
         };
 
         analyzer.register_surface(surface);
@@ -331,6 +354,10 @@ impl<'a> SemanticAnalyzer<'a> {
 
         for (module, functions) in surface.host_modules() {
             self.host_modules.insert(module.clone(), functions.clone());
+        }
+
+        for (type_name, members) in surface.all_type_members() {
+            self.type_members.insert(type_name.clone(), members.clone());
         }
     }
 
@@ -2392,8 +2419,39 @@ impl<'a> SemanticAnalyzer<'a> {
             HirExpr::Identifier(name, _) => self.var_struct_types.get(name).cloned(),
             HirExpr::List(..) => Some("List".to_string()),
             HirExpr::Literal(Literal::String(..), _) => Some("String".to_string()),
+            HirExpr::Literal(Literal::Int(..), _) => Some("Int".to_string()),
+            HirExpr::Literal(Literal::Float(..), _) => Some("Float".to_string()),
+            HirExpr::Literal(Literal::Bool(..), _) => Some("Bool".to_string()),
+            HirExpr::Dict(..) => Some("Dict".to_string()),
+            // A core conversion call (`Set(...)`, `Bytes(...)`) is the other way a
+            // built-in receiver appears, and it has to resolve to a type the surface
+            // catalogs or the member check sees `None` and stays silent.
+            HirExpr::Call(callee, _, _) => match &**callee {
+                HirExpr::Identifier(name, _) if self.type_members.contains_key(name.as_str()) => {
+                    Some(name.clone())
+                }
+                _ => None,
+            },
             _ => None,
         };
+
+        // A built-in type whose methods the surface catalogs gets an authoritative
+        // verdict from the same registration the runtime dispatches. Only a type with
+        // no catalog entry falls through to the structural checks below.
+        if let Some(ty) = target_type.as_deref()
+            && let Some(members) = self.type_members.get(ty)
+        {
+            if !members.contains(member) {
+                self.diagnostics.push(
+                    Diagnostic::error(
+                        DiagnosticCode::AIPO_SEM_UNKNOWN_NAME,
+                        format!("type '{ty}' has no member '{member}'"),
+                    )
+                    .with_primary_span(self.source, span),
+                );
+            }
+            return;
+        }
 
         if let Some(ty) = target_type {
             match ty.as_str() {

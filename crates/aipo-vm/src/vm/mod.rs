@@ -646,6 +646,30 @@ impl Vm {
             .insert(method.to_string(), (arity, func));
     }
 
+    /// Lists the method names registered for a receiver type, in sorted order.
+    ///
+    /// The frontend derives its member check from this same registration, so a name
+    /// the analyzer accepts is one the runtime can dispatch. Reading it here keeps
+    /// the two from drifting into a hand-maintained list per type.
+    #[must_use]
+    pub fn registered_methods(&self, type_name: &str) -> Vec<String> {
+        let mut names: Vec<String> = self
+            .method_natives_by_type
+            .get(type_name)
+            .map(|methods| methods.keys().cloned().collect())
+            .unwrap_or_default();
+        names.sort_unstable();
+        names
+    }
+
+    /// Lists every receiver type that has at least one registered native method.
+    #[must_use]
+    pub fn registered_method_types(&self) -> Vec<String> {
+        let mut types: Vec<String> = self.method_natives_by_type.keys().cloned().collect();
+        types.sort_unstable();
+        types
+    }
+
     /// Registers a synchronous native callback that receives the current VM context.
     pub fn register_host_native(
         &mut self,
