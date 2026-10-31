@@ -191,6 +191,22 @@ pub enum OpCode {
     ///
     /// Replaces the value with `Bool(true)` if it is an instance of the variant, `Bool(false)` otherwise.
     IsVariant = 74,
+    /// Replace a local slot with a shared cell seeded from its current value: `u16` slot.
+    ///
+    /// Canon captures a mutable binding *by reference*: a closure that assigns to an
+    /// enclosing `var` and that same `var` read in the enclosing frame must observe one
+    /// storage location. Emitted immediately before `MakeClosure` for every captured local,
+    /// so both sides share the cell rather than the closure snapshotting a copy.
+    BoxLocal = 75,
+    /// Load a boxed local's inner value: `u16` slot.
+    GetBoxedLocal = 76,
+    /// Store the top of stack into a boxed local's cell: `u16` slot.
+    SetBoxedLocal = 77,
+    /// Push a boxed local's cell handle itself, for `MakeClosure`: `u16` slot.
+    GetLocalCell = 78,
+    /// Push a captured upvalue's cell handle itself, forwarding it to a deeper closure:
+    /// `u16` upvalue index.
+    GetUpvalueCell = 79,
 }
 
 impl TryFrom<u8> for OpCode {
@@ -272,6 +288,11 @@ impl TryFrom<u8> for OpCode {
             72 => Ok(OpCode::Call4),
             73 => Ok(OpCode::CloneStruct),
             74 => Ok(OpCode::IsVariant),
+            75 => Ok(OpCode::BoxLocal),
+            76 => Ok(OpCode::GetBoxedLocal),
+            77 => Ok(OpCode::SetBoxedLocal),
+            78 => Ok(OpCode::GetLocalCell),
+            79 => Ok(OpCode::GetUpvalueCell),
             other => Err(other),
         }
     }

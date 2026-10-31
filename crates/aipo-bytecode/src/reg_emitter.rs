@@ -816,6 +816,13 @@ impl RegEmitter {
                     (1, 1)
                 }
                 CoreInst::Dup(..) => (1, 2),
+                // The register engine keeps every local in a flat register, so it has no
+                // place for a shared cell. A captured mutable binding needs the canonical
+                // engine's cell-based storage; refusing keeps the fallback explicit
+                // instead of silently snapshotting the value.
+                CoreInst::BoxLocal(..) => {
+                    return Err("captured mutable bindings require --engine=vm".into());
+                }
                 CoreInst::BuildList(count, _) => {
                     if *count > 255 {
                         return Err("list count exceeds 8-bit operand".into());

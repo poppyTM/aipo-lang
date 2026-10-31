@@ -558,6 +558,12 @@ pub enum Value {
     BoundMethod(Rc<BoundMethodData>),
     /// Struct method bound directly to an instance without heap allocation.
     StructMethod(Rc<StructMethodData>),
+    /// Shared storage cell for a captured mutable local.
+    ///
+    /// A `var` captured by a closure lives in one of these, so the closure's writes and the
+    /// enclosing frame's reads reach the same value. The cell is never observable from
+    /// Aipo: `Load`/`Store` dereference it transparently.
+    Cell(Rc<RefCell<Value>>),
     /// Recoverable failure (Model B).
     Failure(Rc<FailureValue>),
     /// Insertion-ordered set of unique values (structural equality).
@@ -797,6 +803,8 @@ impl Value {
             // Internal sentinel: never observable from Aipo, so the name only ever
             // appears in an invariant-violation message.
             Self::Unset => "<omitted argument>",
+            // A cell is an implementation detail; it never surfaces as a value.
+            Self::Cell(_) => "<cell>",
         }
     }
 
@@ -1338,6 +1346,7 @@ impl PartialEq for Value {
 impl fmt::Debug for Value {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::Cell(cell) => write!(f, "{:?}", cell.borrow()),
             Self::None => write!(f, "none"),
             Self::Bool(b) => write!(f, "{b}"),
             Self::Int(n) => write!(f, "{n}"),
@@ -1391,6 +1400,7 @@ impl fmt::Debug for Value {
 impl fmt::Display for Value {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::Cell(cell) => write!(f, "{}", cell.borrow()),
             Self::None => write!(f, "none"),
             Self::Bool(b) => write!(f, "{b}"),
             Self::Int(n) => write!(f, "{n}"),

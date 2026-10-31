@@ -353,3 +353,92 @@ fn reverse_first() -> Int {
     assert_eq!(missing.call(&mut store, ()).unwrap(), -1);
     assert_eq!(reverse.call(&mut store, ()).unwrap(), 3);
 }
+
+#[test]
+fn test_list_transform_and_filter_callbacks() {
+    let code = r#"
+fn transformed_len() -> Int {
+  let ys = [1, 2, 3].transform(fn (x) { return x * 2 })
+  return ys.len()
+}
+
+fn transformed_edges() -> Int {
+  let ys = [1, 2, 3].transform(fn (x) { return x * 2 })
+  return ys.first() + ys.last()
+}
+
+fn filtered_len() -> Int {
+  let ys = [1, 2, 3].filter(fn (x) { return x > 1 })
+  return ys.len()
+}
+
+fn filtered_first() -> Int {
+  let ys = [1, 2, 3].filter(fn (x) { return x > 1 })
+  return ys.first()
+}
+
+fn mapped_alias_len() -> Int {
+  let ys = [1, 2, 3].map(fn (x) { return x + 10 })
+  return ys.len()
+}
+"#;
+    let (mut store, instance) = instantiate_aipo(code);
+    let transformed_len = instance
+        .get_typed_func::<(), i64>(&mut store, "transformed_len")
+        .expect("transformed_len");
+    let transformed_edges = instance
+        .get_typed_func::<(), i64>(&mut store, "transformed_edges")
+        .expect("transformed_edges");
+    let filtered_len = instance
+        .get_typed_func::<(), i64>(&mut store, "filtered_len")
+        .expect("filtered_len");
+    let filtered_first = instance
+        .get_typed_func::<(), i64>(&mut store, "filtered_first")
+        .expect("filtered_first");
+    let mapped_alias_len = instance
+        .get_typed_func::<(), i64>(&mut store, "mapped_alias_len")
+        .expect("mapped_alias_len");
+
+    assert_eq!(transformed_len.call(&mut store, ()).unwrap(), 3);
+    assert_eq!(transformed_edges.call(&mut store, ()).unwrap(), 8);
+    assert_eq!(filtered_len.call(&mut store, ()).unwrap(), 2);
+    assert_eq!(filtered_first.call(&mut store, ()).unwrap(), 2);
+    assert_eq!(mapped_alias_len.call(&mut store, ()).unwrap(), 3);
+}
+
+#[test]
+fn test_list_sort_and_sort_by() {
+    let code = r#"
+fn test_sort_first() -> Int {
+  let xs = [5, 2, 8, 1, 9]
+  let sorted = xs.sort()
+  return sorted.first()
+}
+
+fn test_sort_last() -> Int {
+  let xs = [5, 2, 8, 1, 9]
+  let sorted = xs.sort()
+  return sorted.last()
+}
+
+fn test_sort_by_descending() -> Int {
+  let xs = [5, 2, 8, 1, 9]
+  let sorted = xs.sort_by(fn (x) { return 0 - x })
+  return sorted.first()
+}
+"#;
+    let (mut store, instance) = instantiate_aipo(code);
+    let test_sort_first = instance
+        .get_typed_func::<(), i64>(&mut store, "test_sort_first")
+        .expect("test_sort_first");
+    let test_sort_last = instance
+        .get_typed_func::<(), i64>(&mut store, "test_sort_last")
+        .expect("test_sort_last");
+    let test_sort_by_descending = instance
+        .get_typed_func::<(), i64>(&mut store, "test_sort_by_descending")
+        .expect("test_sort_by_descending");
+
+    assert_eq!(test_sort_first.call(&mut store, ()).unwrap(), 1);
+    assert_eq!(test_sort_last.call(&mut store, ()).unwrap(), 9);
+    assert_eq!(test_sort_by_descending.call(&mut store, ()).unwrap(), 9);
+}

@@ -1109,6 +1109,83 @@ impl Vm {
                 upvalues.reverse();
                 self.push(Value::closure(entry_ip, arity, upvalues, is_async))?;
             }
+            OpCode::BoxLocal => {
+                let slot = self.read_u16(module)? as usize;
+                let base = self.frame_base;
+                let current = self
+                    .stack
+                    .get(base + slot)
+                    .cloned()
+                    .ok_or(VmFault::StackUnderflow)?;
+                // Idempotent: an enclosing frame may already have boxed this slot when an
+                // inner closure captured it earlier.
+                if !matches!(current, Value::Cell(_)) {
+                    let cell = Value::Cell(Rc::new(RefCell::new(current)));
+                    if let Some(entry) = self.stack.get_mut(base + slot) {
+                        *entry = cell;
+                    }
+                }
+            }
+            OpCode::GetBoxedLocal => {
+                let slot = self.read_u16(module)? as usize;
+                let base = self.frame_base;
+                let cell = self
+                    .stack
+                    .get(base + slot)
+                    .cloned()
+                    .ok_or(VmFault::StackUnderflow)?;
+                match cell {
+                    Value::Cell(inner) => {
+                        let val = inner.borrow().clone();
+                        self.push(val)?;
+                    }
+                    other => self.push(other)?,
+                }
+            }
+            OpCode::SetBoxedLocal => {
+                let slot = self.read_u16(module)? as usize;
+                let value = self.pop()?;
+                let base = self.frame_base;
+                let cell = self
+                    .stack
+                    .get(base + slot)
+                    .cloned()
+                    .ok_or(VmFault::StackUnderflow)?;
+                match cell {
+                    Value::Cell(inner) => *inner.borrow_mut() = value,
+                    _ => {
+                        if let Some(entry) = self.stack.get_mut(base + slot) {
+                            *entry = value;
+                        }
+                    }
+                }
+            }
+            OpCode::GetUpvalueCell => {
+                let idx = self.read_u16(module)? as usize;
+                let frame = self.upvalue_frames.last().cloned().flatten();
+                let cell = frame
+                    .and_then(|cells| cells.get(idx).cloned())
+                    .ok_or(VmFault::StackUnderflow)?;
+                // Hand the cell itself to the deeper closure so both share one storage.
+                let inner = {
+                    let current = cell.borrow();
+                    match &*current {
+                        Value::Cell(inner) => Rc::clone(inner),
+                        _ => Rc::clone(&cell),
+                    }
+                };
+                self.push(Value::Cell(inner))?;
+            }
+            OpCode::GetLocalCell => {
+                let slot = self.read_u16(module)? as usize;
+                let base = self.frame_base;
+                let cell = self
+                    .stack
+                    .get(base + slot)
+                    .cloned()
+                    .ok_or(VmFault::StackUnderflow)?;
+                self.push(cell)?;
+            }
             OpCode::GetUpvalue => {
                 let idx = self.read_u16(module)? as usize;
                 let frame = self.upvalue_frames.last().cloned().flatten();
@@ -1116,6 +1193,12 @@ impl Vm {
                     .and_then(|cells| cells.get(idx).cloned())
                     .ok_or(VmFault::StackUnderflow)?;
                 let val = cell.borrow().clone();
+                // A captured mutable local keeps its value inside a nested cell, so the
+                // read dereferences once more to reach what the program sees.
+                let val = match val {
+                    Value::Cell(inner) => inner.borrow().clone(),
+                    other => other,
+                };
                 self.push(val)?;
             }
             OpCode::SetUpvalue => {
@@ -1125,7 +1208,19 @@ impl Vm {
                 let cell = frame
                     .and_then(|cells| cells.get(idx).cloned())
                     .ok_or(VmFault::StackUnderflow)?;
-                *cell.borrow_mut() = value;
+                // Writing through a nested cell keeps the storage the enclosing frame's
+                // `GetBoxedLocal` reads from.
+                let nested = {
+                    let current = cell.borrow();
+                    match &*current {
+                        Value::Cell(inner) => Some(Rc::clone(inner)),
+                        _ => None,
+                    }
+                };
+                match nested {
+                    Some(inner) => *inner.borrow_mut() = value,
+                    None => *cell.borrow_mut() = value,
+                }
             }
             OpCode::Range => {
                 let end = self.pop()?;

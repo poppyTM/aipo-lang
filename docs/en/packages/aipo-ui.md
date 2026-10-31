@@ -64,28 +64,28 @@ fn view(m: Model, dispatch: Fn) {
     let text_color = if m.theme_dark { color.white } else { color.gray_900 }
 
     ui.Column(
-        width: "100%",
-        height: "100%",
-        padding: 32,
-        align: ui.Align::Center,
-        justify: ui.Justify::Center,
-        background: bg_color
+        width = "100%",
+        height = "100%",
+        padding = 32,
+        align = ui.Align::Center,
+        justify = ui.Justify::Center,
+        background = bg_color
     ) {
         ui.Box(
-            padding: 24,
-            border_radius: 12.0,
-            background: card_bg,
-            align: ui.Align::Center
+            padding = 24,
+            border_radius = 12.0,
+            background = card_bg,
+            align = ui.Align::Center
         ) {
-            ui.Text("Aipo Universal UI", font_size: 24, font_weight: "bold", color: text_color)
+            ui.Text("Aipo Universal UI", font_size = 24, font_weight = "bold", color = text_color)
             ui.Spacer()
             
-            ui.Text(f"Count: {m.count}", font_size: 40, font_weight: "bold", color: color.blue_500)
+            ui.Text(f"Count: {m.count}", font_size = 40, font_weight = "bold", color = color.blue_500)
             
-            ui.Row(gap: 8, padding: 16) {
-                ui.Button("+1", on_click: _ => dispatch(Msg::Increment), variant: "primary")
-                ui.Button("-1", on_click: _ => dispatch(Msg::Decrement), variant: "secondary")
-                ui.Button("Toggle Theme", on_click: _ => dispatch(Msg::ToggleTheme))
+            ui.Row(gap = 8, padding = 16) {
+                ui.Button("+1", on_click = _ => dispatch(Msg::Increment), variant = "primary")
+                ui.Button("-1", on_click = _ => dispatch(Msg::Decrement), variant = "secondary")
+                ui.Button("Toggle Theme", on_click = _ => dispatch(Msg::ToggleTheme))
             }
         }
     }
@@ -96,7 +96,7 @@ fn main() {
         title = "Aipo UI Demo",
         width = 500,
         height = 400,
-        init = Model{ count: 0, theme_dark: true },
+        init = Model{ count: 0, theme_dark = true },
         update = update,
         view = view
     )
@@ -112,7 +112,7 @@ Layout primitives utilize Aipo's trailing blocks `{ ... }` and map directly to s
 ### `ui.Column`
 Stacks child elements vertically:
 ```aipo
-ui.Column(gap: 12, padding: 16, align: ui.Align::Center) {
+ui.Column(gap = 12, padding = 16, align = ui.Align::Center) {
     ui.Text("Item 1")
     ui.Text("Item 2")
     ui.Text("Item 3")
@@ -122,7 +122,7 @@ ui.Column(gap: 12, padding: 16, align: ui.Align::Center) {
 ### `ui.Row`
 Lays out child elements horizontally:
 ```aipo
-ui.Row(gap: 8, justify: ui.Justify::SpaceBetween) {
+ui.Row(gap = 8, justify = ui.Justify::SpaceBetween) {
     ui.Text("Left")
     ui.Text("Right")
 }
@@ -131,16 +131,16 @@ ui.Row(gap: 8, justify: ui.Justify::SpaceBetween) {
 ### `ui.Stack`
 Overlays child elements across the Z-axis, ideal for badges, backdrops, and floating layers:
 ```aipo
-ui.Stack(width: 200, height: 120) {
-    ui.Box(background: color.gray_200, width: "100%", height: "100%")
-    ui.Text("Overlaid", align: "center")
+ui.Stack(width = 200, height = 120) {
+    ui.Box(background = color.gray_200, width = "100%", height = "100%")
+    ui.Text("Overlaid", align = "center")
 }
 ```
 
 ### `ui.ScrollArea`
 Scrollable container with accelerated clipping for lists or oversized content:
 ```aipo
-ui.ScrollArea(height: 300, direction: "vertical") {
+ui.ScrollArea(height = 300, direction = "vertical") {
     each item in item_list {
         ui.Text(item)
     }
@@ -156,11 +156,11 @@ Elastic container with `flex_grow: 1` that expands to fill available space, push
 
 | Component | Key Properties | Example |
 |---|---|---|
-| `ui.Text` | `content`, `font_size`, `font_weight`, `color`, `align` | `ui.Text("Hello World", font_size: 16)` |
-| `ui.Button` | `label`, `on_click`, `variant`, `disabled` | `ui.Button("Save", on_click: _ => dispatch(Msg::Save))` |
+| `ui.Text` | `content`, `font_size`, `font_weight`, `color`, `align` | `ui.Text("Hello World", font_size = 16)` |
+| `ui.Button` | `label`, `on_click`, `variant`, `disabled` | `ui.Button("Save", on_click = _ => dispatch(Msg::Save))` |
 | `ui.TextInput` | `value`, `placeholder`, `on_change`, `disabled` | `ui.TextInput(placeholder: "Name...", on_change: val => dispatch(Msg::SetName(val)))` |
 | `ui.Slider` | `value`, `min`, `max`, `step`, `on_change` | `ui.Slider(value: 50.0, min: 0.0, max: 100.0)` |
-| `ui.Checkbox` | `checked`, `label`, `on_toggle` | `ui.Checkbox(checked: true, label: "Accept terms")` |
+| `ui.Checkbox` | `checked`, `label`, `on_toggle` | `ui.Checkbox(checked = true, label = "Accept terms")` |
 | `ui.ProgressBar` | `progress` (0.0 to 1.0), `height`, `color` | `ui.ProgressBar(progress: 0.75, color: color.emerald_500)` |
 
 ---

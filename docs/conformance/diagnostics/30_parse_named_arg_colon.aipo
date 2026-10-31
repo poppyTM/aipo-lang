@@ -1,0 +1,5 @@
+fn conecta(host, porta = 8080) {
+    io.println(host)
+}
+
+conecta("api", porta: 9090)

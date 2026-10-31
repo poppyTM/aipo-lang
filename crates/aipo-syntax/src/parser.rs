@@ -2756,6 +2756,27 @@ impl<'a> Parser<'a> {
                 self.skip_newlines();
                 let mut args = Vec::new();
                 while !self.check(&TokenKind::RParen) && !self.is_at_end() {
+                    // `name :` reads like a struct-literal field, but named arguments use `=`.
+                    // Report the fix and continue as a positional argument so the rest of the
+                    // list still parses and no second error masks the real cause.
+                    if matches!(self.peek(), TokenKind::Identifier(_))
+                        && self.peek_ahead(1) == &TokenKind::Colon
+                    {
+                        let name_tok = self.peek_token().map(|t| t.span).unwrap_or_default();
+                        self.diagnostics.push(
+                            Diagnostic::error(
+                                DiagnosticCode::AIPO_PARSE_UNEXPECTED_TOKEN,
+                                "named arguments use '=', not ':'",
+                            )
+                            .with_primary_span(self.source, name_tok)
+                            .with_note(
+                                "write `f(value, name = 1)`; `:` belongs to declarations (`Type:method`) and to struct literals (`User{ name: 1 }`)",
+                            ),
+                        );
+                        self.advance(); // the name
+                        self.advance(); // the ':'
+                        self.skip_newlines();
+                    }
                     // Check for named argument `name = value`
                     let is_named = matches!(self.peek(), TokenKind::Identifier(_))
                         && self.peek_ahead(1) == &TokenKind::Equal;

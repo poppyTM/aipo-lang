@@ -312,6 +312,26 @@ impl BytecodeVerifier {
                     }
                     cursor += 3;
                 }
+                // Cell opcodes carry one `u16` slot, like `GetLocal`/`SetLocal`.
+                OpCode::BoxLocal
+                | OpCode::GetBoxedLocal
+                | OpCode::SetBoxedLocal
+                | OpCode::GetLocalCell => {
+                    if cursor + 3 <= module.code.len() {
+                        let slot =
+                            BigEndian::read_u16(&module.code[cursor + 1..cursor + 3]) as usize;
+                        if let Some(func) = Self::enclosing_function(module, cursor) {
+                            let limit = func.params + func.locals;
+                            if slot >= limit {
+                                errors.push(format!(
+                                    "cell slot {slot} out of bounds for function '{}' (limit {limit}) at offset {cursor}",
+                                    func.name
+                                ));
+                            }
+                        }
+                    }
+                    cursor += 3;
+                }
                 OpCode::GetLocal0
                 | OpCode::GetLocal1
                 | OpCode::GetLocal2
@@ -395,7 +415,12 @@ impl BytecodeVerifier {
             | OpCode::MakeFunction
             | OpCode::AssertInvariant
             | OpCode::IsVariant
-            | OpCode::FillSelfCapture => 3,
+            | OpCode::FillSelfCapture
+            | OpCode::BoxLocal
+            | OpCode::GetBoxedLocal
+            | OpCode::SetBoxedLocal
+            | OpCode::GetLocalCell
+            | OpCode::GetUpvalueCell => 3,
             // The contract operand list is variable length, so it is sized from the slice by
             // `assert_contract_size` rather than from this table.
             OpCode::JumpIfSetLocal => 5,

@@ -1,5 +1,48 @@
 # Current Project State
 
+> **P09 W2, 2026-10-30:** dois defeitos de **semântica da linguagem** na VM canônica
+> foram corrigidos na raiz. (1) **Captura por referência**: um `var` capturado por
+> `fn` local ou closure agora vive numa célula compartilhada — antes o closure
+> escrevia num snapshot e o frame externo continuava lendo o slot velho, então
+> `fn bump() { n = n + 1 }` sem `return` deixava `n` em `0`. Entregue com
+> `BoxLocal`/`GetBoxedLocal`/`SetBoxedLocal`/`GetLocalCell`/`GetUpvalueCell` no IR,
+> bytecode, verifier, VM e runtime JS; o RegVM recusa nativamente com fallback
+> explícito. (2) **Construção posicional**: `P{1, 2}` mapeia as entradas na ordem de
+> declaração — antes cada entrada posicional caía em `none` porque o lowering casava
+> só por nome. O snapshot `examples/02_local_functions.stdout` registrava o bug
+> (`hits: 0`) e foi corrigido para `hits: 2`. Novo teste de regressão em
+> `crates/aipo-ir/tests/capture_and_construction.rs`.
+>
+> **Argumento nomeado canonizado em `=`:** `SYNTAX.md` §8.0 fecha a ambiguidade com
+> `:`. Um `:` em posição de argumento colidiria com a anotação de tipo do próprio
+> parâmetro, e desambiguar exigiria olhar contexto — a duplicidade que a Regra 1
+> proíbe. O parser agora reporta `named arguments use '=', not ':'` com nota
+> apontando a forma correta e se recupera como argumento posicional, sem emitir um
+> segundo erro; o fixture `diagnostics/30_parse_named_arg_colon` fixa o contrato. A
+> documentação de `aipo.ui` usava `:` em chamadas (o código real sempre usou `=`) e
+> foi corrigida. P09-G01 continua EXECUTING.
+
+> **P09 W1c, 2026-10-30:** o backend **WebAssembly** subiu de **14/36 → 16/36**
+> fixtures com stdout idêntico (partindo de 5/36 no início da rodada). Entregues:
+> desvio real do `attempt` para o handler (o `br` do `emit_failure_check` mirava o
+> próprio `If` da checagem, não o bloco do handler), `Int(text)` marcando `Failure`
+> quando o texto não é número, chamadas a funções sem retorno materializando o valor
+> unitário, `bytes`/`list`/`string` fatiados com bounds tolerantes, indexação de
+> `String` por code point com `len` contando code points, e igualdade estrutural de
+> structs. A suíte `crates/aipo-wasm/tests/wasm_parity.rs` agora tem 15 testes e o
+> workspace soma 138 testes no crate. P09-G01 continua EXECUTING.
+
+> **P09 W1b, 2026-10-30:** o backend **WebAssembly** ganhou um harness de paridade
+> reproduzível (`scripts/wasm-conformance.sh`) e uma suíte de regressão
+> (`crates/aipo-wasm/tests/wasm_parity.rs`, 12 testes). Cobertura do corpus subiu de
+> **5/36 → 14/36** fixtures com stdout idêntico. Seis defeitos de codegen foram
+> corrigidos: `match` com padrão string gerava módulo inválido e comparava ponteiros;
+> `fail(...)` como expressão não deixava valor na pilha; `math.pow`/`math.round`
+> usavam scratch `i32` para `f64`/`i64`; `each i, v` invertia os bindings; parâmetros
+> sem anotação atravessavam a fronteira como ponteiro truncado; defaults de parâmetro
+> eram substituídos por zero. Ver a matriz de backends para os limites restantes.
+> P09-G01 continua EXECUTING.
+
 > **P09 W1a, 2026-10-28:** Wasm ganhou `len` global e operações de List (`is_empty`, `first`, `last`, `contains`, `insert`, `remove_last`, `remove_at`, `remove`, `clear`, `count`, `find`, `reverse`). Cobertura segue 16/36 programas e 5/26 exemplos; `04_collections` agora para em `transform`. Workspace com 1.134 testes verdes. P09-G01 continua EXECUTING.
 
 > **Reconciliação de auditoria, 2026-10-27:** o repositório foi reauditado sobre `ab5fbc0` + as correções desta reconciliação (árvore não commitada), contra o código, o corpus executável e o portal. O workspace completo passou com 1.130 testes, incluindo Poppy, eGUI e game host; a `libasound2-dev` foi instalada no ambiente de auditoria. Clippy, rustfmt e rustdoc estrito também passaram, o build VitePress foi concluído e a matriz MSRV 1.96 (fmt, Clippy, 1.130 testes, doc e perfis shell/web/embedded) ficou verde. O gate de documentação estrita foi corrigido; o plano Reg agora seleciona nativamente 20/36 programas de conformance e usa a VM canônica com motivo explícito nos demais; o build JS grava `package.json` ESM; o catálogo ganhou `AIPO_COMPILE_WASM_UNSUPPORTED`. P07-G01, P07-G02 e P07-G03 estão **DONE**. A release **v0.1.0** foi publicada como estável em 2026-10-28. Ver [matriz de backends](docs/architecture/backend-support-matrix.md) e [painel de progresso](website/public/progress/tasks.json).

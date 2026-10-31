@@ -109,6 +109,9 @@ fn inst_to_json(inst: &CoreInst) -> Json {
         CoreInst::Store(n, _) => json!({"op":"Store","name": n}),
         CoreInst::GetUpvalue(n, _) => json!({"op":"GetUpvalue","name": n}),
         CoreInst::SetUpvalue(n, _) => json!({"op":"SetUpvalue","name": n}),
+        // A captured mutable local lives in one shared cell so the closure's writes and
+        // the enclosing frame's reads reach the same storage.
+        CoreInst::BoxLocal(n, _) => json!({"op":"BoxLocal","name": n}),
         CoreInst::Binary(op, _) => {
             json!({"op":"Binary","op2": serde_json::to_value(op).unwrap_or(Json::Null)})
         }

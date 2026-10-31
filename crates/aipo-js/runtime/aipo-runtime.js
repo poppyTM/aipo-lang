@@ -1489,6 +1489,12 @@ function prepareFunction(fn) {
   fn.localSet = new Set(fn.localNames);
   fn.localIndex = new Map(fn.localNames.map((name, index) => [name, index]));
   fn.upvalueIndex = new Map(fn.upvalues.map((name, index) => [name, index]));
+  // A captured mutable local is promoted to a shared cell: `BoxLocal` marks the name so
+  // every later Load/Store for it goes through `fr.cells`, which the closure shares.
+  fn.boxedLocals = new Set();
+  for (const inst of fn.code) {
+    if (inst.op === 'BoxLocal') fn.boxedLocals.add(inst.name);
+  }
   for (const inst of fn.code) {
     if (inst.op === 'Constant') {
       inst.const = undefined;
@@ -4642,6 +4648,12 @@ function stepFn(m) {
     }
     case 'Load': {
       if (inst.local) {
+        if (fn.boxedLocals && fn.boxedLocals.has(inst.name)) {
+          if (!fr.cells || !Object.hasOwn(fr.cells, inst.name))
+            fault('AIPO_RT_TYPE_MISMATCH', 'type mismatch: unboxed captured local');
+          mPush(m, fr.cells[inst.name].v);
+          break;
+        }
         const value = fr.vars[inst.slot];
         mPush(m, value === undefined ? vUnset() : value);
       } else {
@@ -4657,11 +4669,32 @@ function stepFn(m) {
     case 'Store': {
       const n = inst.name;
       const v = mPop(m);
-      if (inst.local) fr.vars[inst.slot] = v;
+      if (inst.local) {
+        if (fn.boxedLocals && fn.boxedLocals.has(n)) {
+          // The declaring `var` is stored before the closure-creation site boxes it, so a
+          // write creates the cell on first use.
+          fr.cells = fr.cells || {};
+          if (!Object.hasOwn(fr.cells, n)) fr.cells[n] = { v: vUnset() };
+          fr.cells[n].v = v;
+          break;
+        }
+        fr.vars[inst.slot] = v;
+      }
       else if (inst.upvalue) {
         if (!fr.cells || !Object.hasOwn(fr.cells, n)) fault('AIPO_RT_TYPE_MISMATCH', 'type mismatch: stack underflow');
         fr.cells[n].v = v;
       } else m.globals.set(n, v);
+      break;
+    }
+    case 'BoxLocal': {
+      const n = inst.name;
+      const slot = fn.localIndex.get(n);
+      if (slot === undefined) fault('AIPO_RT_TYPE_MISMATCH', `type mismatch: unknown local '${n}'`);
+      fr.cells = fr.cells || {};
+      if (!Object.hasOwn(fr.cells, n)) {
+        const current = fr.vars[slot];
+        fr.cells[n] = { v: current === undefined ? vUnset() : current };
+      }
       break;
     }
     case 'GetUpvalue': {
@@ -4890,11 +4923,13 @@ function stepFn(m) {
       for (const cap of inst.ups || []) {
         if (inst.self !== undefined && inst.self !== null && cap === inst.self) {
           cells[cap] = { v: vUnset() };
+        } else if (fr.cells && Object.hasOwn(fr.cells, cap)) {
+          // A promoted local already owns a cell; hand the same one to the closure so
+          // both sides observe one storage location.
+          cells[cap] = fr.cells[cap];
         } else if (fn.localIndex.has(cap)) {
           const value = fr.vars[fn.localIndex.get(cap)];
           cells[cap] = { v: value === undefined ? vUnset() : value };
-        } else if (fr.cells && Object.hasOwn(fr.cells, cap)) {
-          cells[cap] = fr.cells[cap];
         } else if (m.globals.has(cap)) {
           cells[cap] = { v: m.globals.get(cap) };
         } else {

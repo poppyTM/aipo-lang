@@ -35,6 +35,11 @@ enum Slot {
 struct Layout {
     slots: HashMap<String, u16>,
     upvalues: HashMap<String, u16>,
+    /// Local slots promoted to a shared cell by `BoxLocal`.
+    ///
+    /// A boxed slot holds a `Closure`-style cell instead of the value itself, so `Load`
+    /// and `Store` must go through the cell to reach the value the closure shares.
+    boxed: std::collections::HashSet<u16>,
 }
 
 impl Layout {
@@ -53,7 +58,11 @@ impl Layout {
             #[allow(clippy::cast_possible_truncation)]
             upvalues.insert(name.clone(), idx as u16);
         }
-        Self { slots, upvalues }
+        Self {
+            slots,
+            upvalues,
+            boxed: std::collections::HashSet::new(),
+        }
     }
 
     fn resolve(&self, name: &str) -> Slot {
@@ -130,7 +139,7 @@ impl BytecodeEmitter {
 
         // Top-level: reserved local slots, function values, then the script body.
         self.check_layout(&module.top_level);
-        let top_layout = Layout::new(&module.top_level);
+        let mut top_layout = Layout::new(&module.top_level);
         self.emit_slot_prologue(&module.top_level);
         for (idx, function) in module.functions.iter().enumerate() {
             let fn_idx = self.fit_u16("function index", idx + 1);
@@ -140,12 +149,12 @@ impl BytecodeEmitter {
             self.code.push(OpCode::SetGlobal as u8);
             self.push_u16(global_idx);
         }
-        self.emit_body(&module.top_level, &top_layout);
+        self.emit_body(&module.top_level, &mut top_layout);
         self.patch_jumps();
 
         for function in &module.functions {
             self.check_layout(function);
-            let layout = Layout::new(function);
+            let mut layout = Layout::new(function);
             let entry = self.code.len();
             functions.push(FunctionInfo {
                 name: function.name.clone(),
@@ -156,7 +165,7 @@ impl BytecodeEmitter {
                 is_async: function.is_async,
             });
             self.emit_slot_prologue(function);
-            self.emit_body(function, &layout);
+            self.emit_body(function, &mut layout);
             self.patch_jumps();
         }
 
@@ -259,7 +268,7 @@ impl BytecodeEmitter {
         }
     }
 
-    fn emit_body(&mut self, function: &CoreFunction, layout: &Layout) {
+    fn emit_body(&mut self, function: &CoreFunction, layout: &mut Layout) {
         let mut previous: Option<&CoreInst> = None;
         for inst in &function.instructions {
             let offset = self.code.len();
@@ -331,6 +340,10 @@ impl BytecodeEmitter {
 
     fn emit_load(&mut self, name: &str, layout: &Layout) {
         match layout.resolve(name) {
+            Slot::Local(slot) if layout.boxed.contains(&slot) => {
+                self.code.push(OpCode::GetBoxedLocal as u8);
+                self.push_u16(slot);
+            }
             Slot::Local(slot) => match slot {
                 0 => self.code.push(OpCode::GetLocal0 as u8),
                 1 => self.code.push(OpCode::GetLocal1 as u8),
@@ -359,6 +372,10 @@ impl BytecodeEmitter {
 
     fn emit_store(&mut self, name: &str, layout: &Layout) {
         match layout.resolve(name) {
+            Slot::Local(slot) if layout.boxed.contains(&slot) => {
+                self.code.push(OpCode::SetBoxedLocal as u8);
+                self.push_u16(slot);
+            }
             Slot::Local(slot) => {
                 self.code.push(OpCode::SetLocal as u8);
                 self.push_u16(slot);
@@ -396,7 +413,7 @@ impl BytecodeEmitter {
         self.jump_patches.push((operand, target));
     }
 
-    fn emit_inst(&mut self, inst: &CoreInst, layout: &Layout) {
+    fn emit_inst(&mut self, inst: &CoreInst, layout: &mut Layout) {
         let offset = self.code.len();
         match inst {
             CoreInst::Constant(c, span) => {
@@ -429,6 +446,14 @@ impl BytecodeEmitter {
             CoreInst::Store(name, span) => {
                 self.spans.push((offset, *span));
                 self.emit_store(name, layout);
+            }
+            CoreInst::BoxLocal(name, span) => {
+                self.spans.push((offset, *span));
+                if let Slot::Local(slot) = layout.resolve(name) {
+                    layout.boxed.insert(slot);
+                    self.code.push(OpCode::BoxLocal as u8);
+                    self.push_u16(slot);
+                }
             }
             CoreInst::GetUpvalue(name, span) => {
                 self.spans.push((offset, *span));
@@ -629,6 +654,24 @@ impl BytecodeEmitter {
                     if Some(capture.as_str()) == self_capture.as_deref() {
                         self.code.push(OpCode::Unset as u8);
                         continue;
+                    }
+                    // A promoted local shares its cell with the closure, so push the cell
+                    // handle rather than a copy of the value.
+                    match layout.resolve(capture) {
+                        Slot::Local(slot) if layout.boxed.contains(&slot) => {
+                            self.code.push(OpCode::GetLocalCell as u8);
+                            self.push_u16(slot);
+                            continue;
+                        }
+                        // An intermediate closure forwards the cell it already captured,
+                        // so the deeper closure shares the same storage. `GetUpvalue` would
+                        // dereference it and hand out a copy.
+                        Slot::Upvalue(idx) => {
+                            self.code.push(OpCode::GetUpvalueCell as u8);
+                            self.push_u16(idx);
+                            continue;
+                        }
+                        _ => {}
                     }
                     self.emit_load(capture, layout);
                 }

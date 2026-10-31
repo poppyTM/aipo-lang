@@ -200,6 +200,13 @@ pub enum CoreInst {
     GetUpvalue(String, SourceSpan),
     /// Store the top of stack into a captured upvalue.
     SetUpvalue(String, SourceSpan),
+    /// Replace a local slot with a shared cell seeded from its current value.
+    ///
+    /// Emitted immediately before [`CoreInst::MakeClosure`] for each captured local, so an
+    /// assignment inside the closure and a read in the enclosing frame observe one storage
+    /// location. Canon captures mutable bindings by reference; snapshotting a copy would let
+    /// the closure's writes diverge from the enclosing frame's view.
+    BoxLocal(String, SourceSpan),
     /// Fill a named upvalue of the closure being created with that same closure.
     ///
     /// Canon lets a local function reference its own name for recursion, but closure

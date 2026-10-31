@@ -963,6 +963,35 @@ impl IrBuilder {
         free
     }
 
+    /// Promotes every captured enclosing local to a shared cell before the closure is built.
+    ///
+    /// Canon captures a mutable binding by reference. The emitter makes the cell at
+    /// `BoxLocal` and then loads its handle for `MakeClosure`, so the closure's writes and
+    /// the enclosing frame's reads observe one storage location. A capture that names an
+    /// upvalue of the current frame (an intermediate closure forwarding it outwards) is
+    /// already a cell and needs no promotion.
+    fn box_captured_locals(
+        &mut self,
+        captures: &[String],
+        self_capture: &str,
+        span: SourceSpan,
+        out: &mut Vec<CoreInst>,
+    ) {
+        for capture in captures {
+            if capture == self_capture {
+                continue;
+            }
+            let is_enclosing_local = self
+                .fn_stack
+                .last()
+                .map(|ctx| matches!(ctx.lookup(capture), Some(Access::Local(_))))
+                .unwrap_or(false);
+            if is_enclosing_local {
+                out.push(CoreInst::BoxLocal(capture.clone(), span));
+            }
+        }
+    }
+
     /// Ensures `name` is available as an upvalue of the function context at `target`.
     ///
     /// Walks outwards one function at a time so intermediate closures capture the value
@@ -1061,6 +1090,7 @@ impl IrBuilder {
                         with_self
                     };
                     let name = self.build_closure(&fn_expr, &captures, Some(&self_capture));
+                    self.box_captured_locals(&captures, &self_capture, f.span, out);
                     out.push(CoreInst::MakeClosure {
                         name,
                         upvalues: captures,
@@ -1073,6 +1103,7 @@ impl IrBuilder {
                     });
                 } else {
                     let name = self.build_closure(&fn_expr, &captures, None);
+                    self.box_captured_locals(&captures, "", f.span, out);
                     out.push(CoreInst::MakeClosure {
                         name,
                         upvalues: captures,
@@ -2167,18 +2198,27 @@ impl IrBuilder {
                 // Every declared field keeps its position: the literal's value when written,
                 // otherwise the field's declared default, otherwise `none`. Positions must
                 // never shift, or a later field's value would land in an earlier slot.
+                //
+                // A positional literal (`P{1, 2}`) carries no names at all, so its entries map
+                // onto the declaration order by index. Mixing named and positional entries is
+                // rejected by the analyzer, so a name found in the literal is authoritative and
+                // an unnamed entry consumes the next not-yet-named declaration slot.
                 let ordered: Vec<HirExpr> = match self.struct_fields.get(type_name) {
-                    Some(declared) => declared
-                        .iter()
-                        .map(|(name, _, default)| {
-                            fields
-                                .iter()
-                                .find(|(written, _)| written.as_deref() == Some(name.as_str()))
-                                .map(|(_, expr)| expr.clone())
-                                .or_else(|| default.clone())
-                                .unwrap_or(HirExpr::Literal(Literal::None, *span))
-                        })
-                        .collect(),
+                    Some(declared) => {
+                        let mut positional = fields.iter().filter(|(written, _)| written.is_none());
+                        declared
+                            .iter()
+                            .map(|(name, _, default)| {
+                                fields
+                                    .iter()
+                                    .find(|(written, _)| written.as_deref() == Some(name.as_str()))
+                                    .map(|(_, expr)| expr.clone())
+                                    .or_else(|| positional.next().map(|(_, expr)| expr.clone()))
+                                    .or_else(|| default.clone())
+                                    .unwrap_or(HirExpr::Literal(Literal::None, *span))
+                            })
+                            .collect()
+                    }
                     None => fields.iter().map(|(_, expr)| expr.clone()).collect(),
                 };
                 for expr in &ordered {
