@@ -1,7 +1,7 @@
 //! Virtual register execution engine for 32-bit instructions (Marco 3 / ADP-014).
 
 use crate::arena::ArenaAllocator;
-use crate::convert::{TypeTag, convert_via_type};
+use crate::convert::convert_via_type;
 use crate::fault::VmFault;
 use crate::reg_task::{RegCall, RegFrameSlot, RegScheduler, RegSuspendCapture, is_task_native};
 use crate::value::{BoundMethodData, DictMap, MethodKind, StructInstance, Value};
@@ -207,40 +207,8 @@ impl RegVm {
 
     /// Returns whether `value` satisfies a written signature contract.
     fn contract_holds(&self, type_name: &str, nullable: bool, value: &Value) -> bool {
-        if matches!(value, Value::None) {
-            return nullable;
-        }
-        if type_name == "Function" {
-            return matches!(
-                value,
-                Value::Function { .. }
-                    | Value::Closure(_)
-                    | Value::Native(_)
-                    | Value::BoundMethod(_)
-                    | Value::StructMethod(_)
-            );
-        }
-        if let Some(tag) = TypeTag::from_name(type_name) {
-            return tag.matches(value);
-        }
-        if self.struct_defs.contains_key(type_name)
-            || self.struct_defs.keys().any(|k| {
-                k.split_once('.')
-                    .is_some_and(|(parent, _)| parent == type_name)
-            })
-        {
-            return match value {
-                Value::Struct(instance) => {
-                    let actual = &instance.borrow().type_name;
-                    actual == type_name
-                        || actual
-                            .split_once('.')
-                            .is_some_and(|(parent, _)| parent == type_name)
-                }
-                _ => false,
-            };
-        }
-        true
+        // Shared with the stack VM: a contract answers the same on every engine.
+        crate::contract::contract_holds(&self.struct_defs, type_name, nullable, value)
     }
 
     /// Caller-visible arity of `operation` on `value`, when the register engine can resolve it.

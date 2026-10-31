@@ -5,6 +5,7 @@ pub mod collection;
 pub mod snapshot;
 pub use collection::Collection;
 pub use snapshot::HeapSnapshot;
+pub mod contract;
 pub mod convert;
 pub mod engine;
 pub mod fault;

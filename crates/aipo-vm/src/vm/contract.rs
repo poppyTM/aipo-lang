@@ -1,6 +1,5 @@
 //! Signature contracts and structural interface conformance.
 use super::Vm;
-use crate::convert::TypeTag;
 use crate::value::Value;
 impl Vm {
     /// Returns the number of arguments `name` takes on `value`, when the value exposes it.
@@ -31,39 +30,8 @@ impl Vm {
     /// MVP cannot resolve at runtime (an interface) is accepted, because inventing a failure for
     /// a contract the runtime cannot evaluate would be worse than the missing check.
     pub(super) fn contract_holds(&self, type_name: &str, nullable: bool, value: &Value) -> bool {
-        if matches!(value, Value::None) {
-            return nullable;
-        }
-        if type_name == "Function" {
-            return matches!(
-                value,
-                Value::Function { .. }
-                    | Value::Closure(_)
-                    | Value::Native(_)
-                    | Value::BoundMethod(_)
-                    | Value::StructMethod(_)
-            );
-        }
-        if let Some(tag) = TypeTag::from_name(type_name) {
-            return tag.matches(value);
-        }
-        if self.struct_defs.contains_key(type_name)
-            || self.struct_defs.keys().any(|k| {
-                k.split_once('.')
-                    .is_some_and(|(parent, _)| parent == type_name)
-            })
-        {
-            return match value {
-                Value::Struct(instance) => {
-                    let actual = &instance.borrow().type_name;
-                    actual == type_name
-                        || actual
-                            .split_once('.')
-                            .is_some_and(|(parent, _)| parent == type_name)
-                }
-                _ => false,
-            };
-        }
-        true
+        // One predicate for both engines: a contract is language, not an engine
+        // detail, so a fix has to reach the stack VM and the register engine at once.
+        crate::contract::contract_holds(&self.struct_defs, type_name, nullable, value)
     }
 }
