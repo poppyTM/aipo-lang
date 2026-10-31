@@ -3690,6 +3690,13 @@ function operationArity(m, value, name) {
   return b ? b.arity : null;
 }
 
+function isVariantParent(type) {
+  for (const name of structDefs.keys()) {
+    if (name.startsWith(`${type}.`)) return true;
+  }
+  return false;
+}
+
 function assertContract(m, type, nullable, pos, ops, value) {
   if (isUnset(value) || isFailure(value)) return;
   if (value.t === 'none') {
@@ -3704,8 +3711,12 @@ function assertContract(m, type, nullable, pos, ops, value) {
     if (!tagMatches(type, value)) {
       fault('AIPO_RT_TYPE_MISMATCH', `contract violation at ${pos}: expected ${nullable ? `${type}?` : type}, got ${structDisplayName(value)}`);
     }
-  } else if (getStructDef(type)) {
-    if (!(value.t === 'struct' && value.type === type)) {
+  } else if (getStructDef(type) || isVariantParent(type)) {
+    // A variant satisfies its own contract and its parent's: the struct layout is
+    // registered per variant (`Shape.Circle`), so `Shape` is recognized through the
+    // prefix rather than through a layout of its own. The stack VM answers the same
+    // question with the same prefix rule.
+    if (!(value.t === 'struct' && (value.type === type || value.type.startsWith(`${type}.`)))) {
       fault('AIPO_RT_TYPE_MISMATCH', `contract violation at ${pos}: expected ${nullable ? `${type}?` : type}, got ${structDisplayName(value)}`);
     }
   }

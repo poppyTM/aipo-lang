@@ -137,6 +137,164 @@ fn compile(path: &Path) -> Compiled {
     Compiled { ir, bytecode }
 }
 
+fn compile_text(name: &str, text: &str) -> Compiled {
+    let source = Source::new(SourceId::next(), name, text);
+    let (program, diagnostics) = aipo_syntax::parse(&source);
+    assert!(
+        diagnostics
+            .iter()
+            .all(|d| d.severity != aipo_diagnostics::Severity::Error),
+        "parse errors in {name}: {diagnostics:?}"
+    );
+    let hir = aipo_hir::lower(program);
+    let surface = prelude_surface();
+    let (_, sema_diagnostics) = aipo_sema::check_with_prelude(&source, &hir, &surface);
+    assert!(
+        sema_diagnostics
+            .iter()
+            .all(|d| d.severity != aipo_diagnostics::Severity::Error),
+        "sema errors in {name}: {sema_diagnostics:?}"
+    );
+    let ir = aipo_ir::lower_to_ir(&hir);
+    let bytecode = aipo_bytecode::compile(&ir).expect("bytecode verifies");
+    Compiled { ir, bytecode }
+}
+
+fn try_run_vm(compiled: &Compiled) -> Result<String, String> {
+    let _guard = lock_io();
+    struct Buf(std::sync::Arc<std::sync::Mutex<Vec<u8>>>);
+    impl Write for Buf {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            self.0
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .extend_from_slice(buf);
+            Ok(buf.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+    let buffer = std::sync::Arc::new(std::sync::Mutex::new(Vec::<u8>::new()));
+    aipo_stdlib::io::set_output_sink(Some(Box::new(Buf(buffer.clone()))));
+    let (mut vm, _) = {
+        let mut vm = aipo_vm::Vm::new();
+        let mut registry = aipo_runtime::NativeRegistry::new();
+        aipo_stdlib::register_stdlib(&mut vm, &mut registry);
+        (vm, registry)
+    };
+    aipo_stdlib::time::install_clock(Box::new(DeterministicClock));
+    for decl in &compiled.bytecode.structs {
+        let fields: Vec<(&str, bool)> = decl
+            .fields
+            .iter()
+            .map(|(name, fixed)| (name.as_str(), *fixed))
+            .collect();
+        vm.register_struct(decl.name.clone(), fields);
+    }
+    for function in &compiled.bytecode.functions {
+        if let Some((type_name, method)) = function.name.split_once('.') {
+            vm.register_struct_method(
+                type_name,
+                method,
+                function.entry_ip,
+                function.params,
+                function.is_async,
+            );
+        }
+    }
+    let outcome = vm
+        .run(&compiled.bytecode)
+        .map(|_| ())
+        .map_err(|e| e.to_string());
+    aipo_stdlib::io::set_output_sink(None);
+    aipo_stdlib::time::revoke_clock();
+    drop(_guard);
+    let bytes = buffer.lock().unwrap_or_else(|e| e.into_inner()).clone();
+    outcome.map(|()| String::from_utf8(bytes).expect("vm output is utf-8"))
+}
+
+fn try_run_js(name: &str, text: &str, compiled: &Compiled) -> Result<String, String> {
+    let bundle = aipo_js::emit_js(name, text, &compiled.ir);
+    let dir = std::env::temp_dir().join(format!("aipo-js-try-{name}"));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).expect("temp dir");
+    std::fs::write(dir.join("app.js"), &bundle.app_js).expect("write app.js");
+    std::fs::write(dir.join("aipo-runtime.js"), &bundle.runtime_js).expect("write shim");
+    std::fs::write(dir.join("app.js.map"), &bundle.source_map).expect("write map");
+    let profile = write_clock_profile(&dir);
+    let output = Command::new("node")
+        .arg("--import")
+        .arg(format!("./{profile}"))
+        .arg("app.js")
+        .current_dir(&dir)
+        .output()
+        .expect("node runs (requires Node >= 20)");
+    assert!(
+        output.status.success() || output.status.code() == Some(1),
+        "node failed unexpectedly for {name}: {:?}",
+        output.status.code()
+    );
+    if output.status.success() {
+        Ok(String::from_utf8(output.stdout).expect("utf-8"))
+    } else {
+        Err(String::from_utf8_lossy(&output.stderr).into_owned())
+    }
+}
+
+#[test]
+fn contract_acceptance_matches_between_backends() {
+    // A contract is language, not an engine detail. The case that exposed this:
+    // an enum's variants register as `<Parent>.<Variant>`, so `s: Shape` must
+    // accept `Shape.Circle` and reject an `Int` on every backend. The JavaScript
+    // shim used strict name equality and silently accepted the mismatched value.
+    let accepts = r#"
+enum Shape {
+  Circle
+  Square
+}
+fn take(s: Shape) -> String {
+  return "ok"
+}
+io.println(take(Shape.Circle))
+"#;
+    let rejects = r#"
+enum Shape {
+  Circle
+}
+fn take(s: Shape) -> String {
+  return "ok"
+}
+io.println(take(1))
+"#;
+
+    let compiled = compile_text("accept.aipo", accepts);
+    let vm_ok = try_run_vm(&compiled);
+    let js_ok = try_run_js("accept.aipo", accepts, &compiled);
+    assert_eq!(
+        vm_ok.as_ref().ok().map(|out| out.trim()),
+        Some("ok"),
+        "VM accepted: {vm_ok:?}"
+    );
+    assert_eq!(
+        js_ok.as_ref().ok().map(|out| out.trim()),
+        Some("ok"),
+        "JS accepted: {js_ok:?}"
+    );
+
+    let compiled = compile_text("reject.aipo", rejects);
+    let vm_err = try_run_vm(&compiled);
+    let js_err = try_run_js("reject.aipo", rejects, &compiled);
+    assert!(
+        vm_err.is_err(),
+        "VM must reject `take(1)` against `s: Shape`"
+    );
+    assert!(
+        js_err.is_err(),
+        "JS must reject `take(1)` against `s: Shape`, but it printed {js_err:?}"
+    );
+}
+
 fn run_vm(compiled: &Compiled) -> String {
     let _guard = lock_io();
     struct BufWriter(std::sync::Arc<std::sync::Mutex<Vec<u8>>>);
