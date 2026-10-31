@@ -1,0 +1,13 @@
+var i = 0
+while i < 10 {
+  i = i + 1
+  if i == 3 { continue }
+  if i == 6 { break }
+}
+io.println(i)
+var n = 0
+loop {
+  n = n + 1
+  if n >= 4 { break }
+}
+io.println(n)

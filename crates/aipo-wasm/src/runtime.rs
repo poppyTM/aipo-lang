@@ -4825,6 +4825,87 @@ pub(super) fn build_list_slice_function(
     func
 }
 
+/// Builds `__aipo_list_concat(a: i32, b: i32) -> i32`.
+///
+/// Returns a fresh list holding every element of `a` followed by every element of
+/// `b`. Canon's `+` on two lists is a concatenation, not an addition of handles;
+/// adding the pointers instead produced a value that was not a list at all.
+pub(super) fn build_list_concat_function(
+    list_new_idx: u32,
+    list_add_idx: u32,
+    list_get_idx: u32,
+    list_len_idx: u32,
+) -> Function {
+    // params: 0=a, 1=b
+    // locals: 2=out, 3=i, 4=len
+    let mut func = Function::new([(3, ValType::I32)]);
+    const OUT: u32 = 2;
+    const I: u32 = 3;
+    const LEN: u32 = 4;
+
+    func.instruction(&Instruction::I32Const(0));
+    func.instruction(&Instruction::Call(list_new_idx));
+    func.instruction(&Instruction::LocalSet(OUT));
+
+    // First operand.
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::Call(list_len_idx));
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::LocalSet(LEN));
+    func.instruction(&Instruction::I32Const(0));
+    func.instruction(&Instruction::LocalSet(I));
+    func.instruction(&Instruction::Block(BlockType::Empty));
+    func.instruction(&Instruction::Loop(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(I));
+    func.instruction(&Instruction::LocalGet(LEN));
+    func.instruction(&Instruction::I32GeS);
+    func.instruction(&Instruction::BrIf(1));
+    func.instruction(&Instruction::LocalGet(OUT));
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::LocalGet(I));
+    func.instruction(&Instruction::Call(list_get_idx));
+    func.instruction(&Instruction::Call(list_add_idx));
+    func.instruction(&Instruction::Drop);
+    func.instruction(&Instruction::LocalGet(I));
+    func.instruction(&Instruction::I32Const(1));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::LocalSet(I));
+    func.instruction(&Instruction::Br(0));
+    func.instruction(&Instruction::End);
+    func.instruction(&Instruction::End);
+
+    // Second operand.
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::Call(list_len_idx));
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::LocalSet(LEN));
+    func.instruction(&Instruction::I32Const(0));
+    func.instruction(&Instruction::LocalSet(I));
+    func.instruction(&Instruction::Block(BlockType::Empty));
+    func.instruction(&Instruction::Loop(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(I));
+    func.instruction(&Instruction::LocalGet(LEN));
+    func.instruction(&Instruction::I32GeS);
+    func.instruction(&Instruction::BrIf(1));
+    func.instruction(&Instruction::LocalGet(OUT));
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::LocalGet(I));
+    func.instruction(&Instruction::Call(list_get_idx));
+    func.instruction(&Instruction::Call(list_add_idx));
+    func.instruction(&Instruction::Drop);
+    func.instruction(&Instruction::LocalGet(I));
+    func.instruction(&Instruction::I32Const(1));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::LocalSet(I));
+    func.instruction(&Instruction::Br(0));
+    func.instruction(&Instruction::End);
+    func.instruction(&Instruction::End);
+
+    func.instruction(&Instruction::LocalGet(OUT));
+    func.instruction(&Instruction::End);
+    func
+}
+
 /// Builds `__aipo_str_char(ptr: i32, index: i32) -> i32`.
 ///
 /// Returns a fresh one-character string holding the code point at `index`. The

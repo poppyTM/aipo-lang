@@ -1,0 +1,10 @@
+fn grade(n) {
+  if n >= 90 { return "A" }
+  elif n >= 80 { return "B" }
+  elif n >= 70 { return "C" }
+  else { return "F" }
+}
+io.println(grade(95))
+io.println(grade(85))
+io.println(grade(75))
+io.println(grade(50))

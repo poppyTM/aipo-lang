@@ -1,0 +1,6 @@
+struct U { var name
+ var age }
+let a = U{name = "x", age = 3}
+io.println(a?.name)
+let b = none
+io.println(String(b ?.name))

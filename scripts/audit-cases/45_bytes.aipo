@@ -1,0 +1,5 @@
+let b = Bytes(3)
+io.println(len(b))
+io.println(b)
+let c = Bytes("ab")
+io.println(len(c))

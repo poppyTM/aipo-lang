@@ -291,6 +291,23 @@ pub(super) fn infer_expr_kind(
         HirExpr::Literal(Literal::Bool(..), _) => LocalKind::Bool,
         HirExpr::Literal(Literal::String(..), _) => LocalKind::String,
         HirExpr::Construct(name, ..) => LocalKind::Struct(name.clone()),
+        // Reading a field yields that field's declared kind when the struct is known,
+        // so `u.name` renders as text and `u?.name` behaves the same. A method call is
+        // handled below by its own arm, which is why only a bare field read lands here.
+        HirExpr::Dot(receiver, field, _) | HirExpr::QuestionDot(receiver, field, _) => {
+            let receiver_kind =
+                infer_expr_kind(receiver, locals, functions, table_indices, anon_map);
+            let owner = match &receiver_kind {
+                LocalKind::Struct(name) => Some(name.as_str()),
+                _ => None,
+            };
+            functions
+                .field_kinds
+                .get(field)
+                .filter(|(declared_by, _)| owner.is_none_or(|o| o == declared_by))
+                .map(|(_, kind)| kind.clone())
+                .unwrap_or(LocalKind::Unknown)
+        }
         HirExpr::Identifier(name, _) => {
             if let Some((_, _, k)) = locals.get(name) {
                 k.clone()
@@ -696,7 +713,21 @@ pub(super) fn infer_expr_type(
         }
         HirExpr::Await(..) => Ok(WasmType::I64),
         HirExpr::Try(inner, _) => infer_expr_type(inner, locals, functions, structs, table_indices),
-        HirExpr::QuestionDot(..) => Ok(WasmType::I64),
+        HirExpr::QuestionDot(receiver, field, _) => {
+            // `?.` reads a field of the receiver, so it carries that field's type: the
+            // field access already narrows to the receiver's struct, and answering a
+            // blanket `i64` made a String field print as a pointer.
+            let empty_anon = HashMap::new();
+            let receiver_kind =
+                infer_expr_kind(receiver, locals, functions, table_indices, &empty_anon);
+            if let LocalKind::Struct(name) = receiver_kind
+                && let Some(layout) = structs.get(&name)
+                && let Some((_, ty)) = layout.fields.get(field)
+            {
+                return Ok(*ty);
+            }
+            Ok(WasmType::I64)
+        }
         HirExpr::With(..) => Ok(WasmType::I32),
         HirExpr::Construct(..) => Ok(WasmType::I32),
         HirExpr::List(..) | HirExpr::Dict(..) => Ok(WasmType::I32),
@@ -1008,6 +1039,7 @@ pub(super) fn register_struct_layout(
     structs: &mut HashMap<String, StructLayout>,
 ) {
     let mut fields = HashMap::new();
+    let mut field_kinds = HashMap::new();
     let mut offset = 0u32;
     for f in &decl.fields {
         // A declared field contract wins over literal sniffing: `var x: Float`
@@ -1031,6 +1063,39 @@ pub(super) fn register_struct_layout(
         } else {
             WasmType::I64
         };
+        // The semantic kind is what a field read reports: a `String` and a `List`
+        // share the `i32` storage type, and only the kind tells the printer which one
+        // it is looking at.
+        let kind = match ty {
+            WasmType::F64 => LocalKind::Float,
+            WasmType::I64 => LocalKind::Int,
+            WasmType::I32 => match &f.type_annotation {
+                Some(a) if a.name == "String" => LocalKind::String,
+                Some(a) if a.name == "Bytes" => LocalKind::Bytes,
+                Some(a) if a.name == "List" => LocalKind::List(Box::new(LocalKind::Unknown)),
+                Some(a) if a.name == "Dict" => {
+                    LocalKind::Dict(Box::new(LocalKind::Unknown), Box::new(LocalKind::Unknown))
+                }
+                Some(a) if a.name == "Bool" => LocalKind::Bool,
+                Some(a) => match a.name.as_str() {
+                    "Int" => LocalKind::Int,
+                    "Float" => LocalKind::Float,
+                    other => structs
+                        .get(other)
+                        .map_or(LocalKind::Unknown, |_| LocalKind::Struct(other.to_string())),
+                },
+                // Without an annotation a default witnesses the kind; an `i32` field
+                // with neither is most likely a string, which is what `u.name` means.
+                None => match &f.default {
+                    Some(HirExpr::Literal(Literal::String(..), _)) => LocalKind::String,
+                    Some(HirExpr::Literal(Literal::Bool(..), _)) => LocalKind::Bool,
+                    Some(HirExpr::Literal(Literal::Float(..), _)) => LocalKind::Float,
+                    Some(HirExpr::Literal(Literal::Int(..), _)) => LocalKind::Int,
+                    _ => LocalKind::String,
+                },
+            },
+        };
+        field_kinds.insert(f.name.clone(), kind);
         fields.insert(f.name.clone(), (offset, ty));
         offset += 8;
     }
@@ -1046,6 +1111,7 @@ pub(super) fn register_struct_layout(
         StructLayout {
             size,
             fields,
+            field_kinds,
             fixed,
         },
     );
@@ -1216,9 +1282,46 @@ pub(super) fn scan_expr_for_constructs(
                     observed.push((name.clone(), ty));
                 }
             }
+            // The constructor also witnesses the *kind*, which the storage type
+            // cannot: a `String` and a `List` are both an `i32` handle, and only the
+            // kind tells the printer which one it is looking at.
+            let mut observed_kinds: Vec<(String, LocalKind)> = Vec::new();
+            for (maybe_name, field_expr) in fields {
+                let Some(name) = maybe_name else { continue };
+                let kind = match field_expr {
+                    HirExpr::Literal(Literal::String(..), _) => Some(LocalKind::String),
+                    HirExpr::Literal(Literal::Bool(..), _) => Some(LocalKind::Bool),
+                    HirExpr::Literal(Literal::Float(..), _) => Some(LocalKind::Float),
+                    HirExpr::Literal(Literal::Int(..), _) => Some(LocalKind::Int),
+                    HirExpr::List(..) => Some(LocalKind::List(Box::new(LocalKind::Unknown))),
+                    HirExpr::Dict(..) => Some(LocalKind::Dict(
+                        Box::new(LocalKind::Unknown),
+                        Box::new(LocalKind::Unknown),
+                    )),
+                    HirExpr::Fn(..) => Some(LocalKind::Fn(0)),
+                    HirExpr::Construct(inner, ..) => Some(LocalKind::Struct(inner.clone())),
+                    _ => None,
+                };
+                if let Some(kind) = kind {
+                    observed_kinds.push((name.clone(), kind));
+                }
+            }
+
             if let Some(layout) = structs.get_mut(type_name) {
+                for (name, kind) in observed_kinds {
+                    if !matches!(kind, LocalKind::Unknown) {
+                        layout.field_kinds.insert(name, kind);
+                    }
+                }
                 for (name, ty) in observed {
                     if let Some((_, field_ty)) = layout.fields.get_mut(&name) {
+                        // A handle is never widened: an `i32` list pointer stored in an
+                        // `i64` slot loses its upper half, and the read side then loads
+                        // a value that is not a pointer at all.
+                        if *field_ty == WasmType::I32 || ty == WasmType::I32 {
+                            *field_ty = WasmType::I32;
+                            continue;
+                        }
                         // Keep an `i64` slot when the observation is an integer, so a
                         // later `i64` use stays valid; otherwise adopt the witness.
                         if *field_ty == WasmType::I64 && ty == WasmType::I64 {

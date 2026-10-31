@@ -1,0 +1,9 @@
+struct T { var items }
+T:add(var self, x) {
+  self.items = self.items + [x]
+  return self
+}
+var t = T{items = []}
+t.add(1).add(2).add(3)
+io.println(t.items)
+io.println(len(t.items))

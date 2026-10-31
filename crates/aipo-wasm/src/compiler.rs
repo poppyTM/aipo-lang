@@ -71,6 +71,9 @@ pub(super) struct FunctionTable {
     pub(super) global_bindings: HashSet<String>,
     pub(super) declared_types: HashSet<String>,
     pub(super) declared_vars: HashSet<String>,
+    /// Field kind by field name, with the type that declares it: `u.name` needs the
+    /// kind, and `String` and `List` share one storage type.
+    pub(super) field_kinds: HashMap<String, (String, LocalKind)>,
     /// Default expressions per parameter, by function name.
     ///
     /// Wasm cannot tell an omitted argument from a passed zero, so an omitted
@@ -146,6 +149,7 @@ impl FunctionTable {
                     _ => None,
                 })
                 .collect(),
+            field_kinds: HashMap::new(),
             declared_types: program
                 .items
                 .iter()
@@ -603,6 +607,11 @@ pub(super) struct StructLayout {
     /// Fields marked `fixed`: canon makes them part of the type's identity, so a
     /// `with` update may not replace them.
     pub(super) fixed: HashSet<String>,
+    /// Semantic kind per field.
+    ///
+    /// The storage type cannot tell a `String` from a `List`: both are an `i32`
+    /// handle. A field read needs to know which, or it prints the pointer.
+    pub(super) field_kinds: HashMap<String, LocalKind>,
 }
 
 /// Helper containing function indices of built-in host I/O functions.
@@ -702,6 +711,7 @@ pub fn compile_hir(program: &HirProgram) -> Result<Vec<u8>, WasmCompileError> {
                                     size: 8,
                                     fields,
                                     fixed: HashSet::new(),
+                                    field_kinds: HashMap::new(),
                                 },
                             );
                         }
@@ -718,6 +728,7 @@ pub fn compile_hir(program: &HirProgram) -> Result<Vec<u8>, WasmCompileError> {
                                     size,
                                     fields,
                                     fixed: HashSet::new(),
+                                    field_kinds: HashMap::new(),
                                 },
                             );
                         }
@@ -733,6 +744,7 @@ pub fn compile_hir(program: &HirProgram) -> Result<Vec<u8>, WasmCompileError> {
                                     size,
                                     fields,
                                     fixed: HashSet::new(),
+                                    field_kinds: HashMap::new(),
                                 },
                             );
                         }
@@ -748,6 +760,41 @@ pub fn compile_hir(program: &HirProgram) -> Result<Vec<u8>, WasmCompileError> {
     // the hints against the refined layouts.
     let provisional_hints = collect_param_hints(program, &structs);
     refine_struct_layouts(program, &mut structs, &provisional_hints);
+
+    // Field kinds, resolved now that every layout exists: a field read reports the
+    // kind, and `String`/`List` share one storage type, so the layout alone cannot
+    // answer it.
+    for item in &program.items {
+        if let HirItem::Struct(decl) = item {
+            for field in &decl.fields {
+                let kind = match &field.type_annotation {
+                    Some(annotation) => annotated_kind(Some(annotation), &structs),
+                    None => match &field.default {
+                        Some(HirExpr::Literal(Literal::String(..), _)) => LocalKind::String,
+                        Some(HirExpr::Literal(Literal::Bool(..), _)) => LocalKind::Bool,
+                        Some(HirExpr::Literal(Literal::Float(..), _)) => LocalKind::Float,
+                        // An unannotated field with no default is the plain
+                        // `struct Point { x y }` shape, which holds an integer.
+                        _ => LocalKind::Int,
+                    },
+                };
+                // What a constructor witnessed wins over the guess: `T{items = []}`
+                // states the field holds a List, and the annotation (absent here) says
+                // nothing.
+                let witnessed = structs
+                    .get(&decl.name)
+                    .and_then(|layout| layout.field_kinds.get(&field.name))
+                    .filter(|kind| !matches!(kind, LocalKind::Unknown))
+                    .cloned();
+                let kind = witnessed.unwrap_or(kind);
+                if !matches!(kind, LocalKind::Unknown) {
+                    functions
+                        .field_kinds
+                        .insert(field.name.clone(), (decl.name.clone(), kind));
+                }
+            }
+        }
+    }
 
     // Pass 0.2: Collect anonymous functions and assign synthetic names
     let mut anon_map = HashMap::new();
@@ -1352,6 +1399,27 @@ pub fn compile_hir(program: &HirProgram) -> Result<Vec<u8>, WasmCompileError> {
     functions.insert(
         "__aipo_list_slice".to_string(),
         (list_slice_func_idx, list_slice_type_idx, list_slice_fn_type),
+    );
+
+    // Function 11.14b: `__aipo_list_concat(a: i32, b: i32) -> i32`
+    let list_concat_fn_type =
+        WasmFnType::new(vec![WasmType::I32, WasmType::I32], vec![WasmType::I32]);
+    let list_concat_type_idx = emitter.add_type(list_concat_fn_type.clone());
+    let list_concat_fn = build_list_concat_function(
+        list_new_func_idx,
+        list_add_func_idx,
+        list_get_func_idx,
+        list_len_func_idx,
+    );
+    let list_concat_func_idx = emitter.add_function(list_concat_type_idx, list_concat_fn);
+    emitter.export_function("__aipo_list_concat", list_concat_func_idx);
+    functions.insert(
+        "__aipo_list_concat".to_string(),
+        (
+            list_concat_func_idx,
+            list_concat_type_idx,
+            list_concat_fn_type,
+        ),
     );
 
     // Function 11.15: `__aipo_str_char(ptr: i32, index: i32) -> i32`
@@ -6963,6 +7031,48 @@ fn compile_expr(
                 BinaryOp::Add => {
                     let l_kind = infer_expr_kind(left, locals, functions, table_indices, anon_map);
                     let r_kind = infer_expr_kind(right, locals, functions, table_indices, anon_map);
+                    // `+` on two lists concatenates. Adding the two handles instead
+                    // produced a number that was not a list at all.
+                    if matches!(l_kind, LocalKind::List(_)) && matches!(r_kind, LocalKind::List(_))
+                    {
+                        let (concat_idx, _, _) = functions["__aipo_list_concat"];
+                        let l_ty = compile_expr(
+                            left,
+                            func,
+                            locals,
+                            functions,
+                            control_stack,
+                            structs,
+                            static_strings,
+                            table_indices,
+                            anon_map,
+                            indirect_sigs,
+                            alloc_func_idx,
+                            async_helpers,
+                            struct_depth,
+                            call_depth,
+                        )?;
+                        coerce_type(func, l_ty, WasmType::I32);
+                        let r_ty = compile_expr(
+                            right,
+                            func,
+                            locals,
+                            functions,
+                            control_stack,
+                            structs,
+                            static_strings,
+                            table_indices,
+                            anon_map,
+                            indirect_sigs,
+                            alloc_func_idx,
+                            async_helpers,
+                            struct_depth,
+                            call_depth,
+                        )?;
+                        coerce_type(func, r_ty, WasmType::I32);
+                        func.instruction(&Instruction::Call(concat_idx));
+                        return Ok(WasmType::I32);
+                    }
                     if matches!(l_kind, LocalKind::String) || matches!(r_kind, LocalKind::String) {
                         let (str_concat_idx, _, _) = functions["__aipo_str_concat"];
                         let (int_to_str_idx, _, _) = functions["__aipo_int_to_str"];
@@ -10282,6 +10392,17 @@ fn compile_expr(
                     return Ok(WasmType::I64);
                 }
                 if func_name == "Bytes" && args.len() == 1 {
+                    // `Bytes(count)` takes the byte count; canon has no string overload,
+                    // and the VM raises a type mismatch for one. Refusing it here keeps
+                    // Wasm from building a buffer out of a string pointer.
+                    let arg_kind =
+                        infer_expr_kind(&args[0].value, locals, functions, table_indices, anon_map);
+                    if matches!(arg_kind, LocalKind::String) {
+                        return Err(WasmCompileError::UnsupportedExpr {
+                            message: "`Bytes(count)` expects an Int, not a String".into(),
+                            span: args[0].value.span(),
+                        });
+                    }
                     let (bytes_new_idx, _, _) = functions["__aipo_bytes_new"];
                     let len_ty = compile_expr(
                         &args[0].value,
@@ -11823,6 +11944,9 @@ fn compile_expr(
             Ok(WasmType::I64)
         }
         HirExpr::QuestionDot(base, member, _) => {
+            // `a?.f` reads `f` when `a` is present and yields `none` otherwise. The
+            // result keeps the field's own storage type: wrapping a String field up to
+            // `i64` made the printer treat its pointer as an integer.
             let base_temp_name = format!("__call_temp_{}", call_depth.min(7));
             let base_temp = locals[&base_temp_name].0;
             let base_ty = compile_expr(
@@ -11843,11 +11967,6 @@ fn compile_expr(
             )?;
             coerce_type(func, base_ty, WasmType::I32);
             func.instruction(&Instruction::LocalSet(base_temp));
-            func.instruction(&Instruction::LocalGet(base_temp));
-            func.instruction(&Instruction::I32Eqz);
-            func.instruction(&Instruction::If(BlockType::Result(ValType::I64)));
-            func.instruction(&Instruction::I64Const(0));
-            func.instruction(&Instruction::Else);
 
             let base_kind = infer_expr_kind(base, locals, functions, table_indices, anon_map);
             let field_info = match base_kind {
@@ -11856,8 +11975,29 @@ fn compile_expr(
                     .and_then(|s| s.fields.get(member).copied()),
                 _ => structs.values().find_map(|s| s.fields.get(member).copied()),
             };
+            let field_ty = field_info.map_or(WasmType::I64, |(_, ty)| ty);
 
-            if let Some((field_offset, field_ty)) = field_info {
+            // The absent case yields the `none` sentinel, not a zero: a String field
+            // would otherwise print as an empty string and an Int as `0`, while every
+            // other backend reports `none`.
+            let none_ptr = static_strings.get("none").copied().unwrap_or_default();
+            func.instruction(&Instruction::LocalGet(base_temp));
+            func.instruction(&Instruction::I32Eqz);
+            func.instruction(&Instruction::If(BlockType::Result(field_ty.into())));
+            match field_ty {
+                WasmType::I32 => {
+                    func.instruction(&Instruction::I32Const(none_ptr));
+                }
+                WasmType::F64 => {
+                    func.instruction(&Instruction::F64Const(0.0.into()));
+                }
+                WasmType::I64 => {
+                    func.instruction(&Instruction::I64Const(0));
+                }
+            }
+            func.instruction(&Instruction::Else);
+
+            if let Some((field_offset, _)) = field_info {
                 func.instruction(&Instruction::LocalGet(base_temp));
                 match field_ty {
                     WasmType::I32 => {
@@ -11866,7 +12006,6 @@ fn compile_expr(
                             align: 2,
                             memory_index: 0,
                         }));
-                        func.instruction(&Instruction::I64ExtendI32U);
                     }
                     WasmType::F64 => {
                         func.instruction(&Instruction::F64Load(MemArg {
@@ -11874,9 +12013,8 @@ fn compile_expr(
                             align: 3,
                             memory_index: 0,
                         }));
-                        func.instruction(&Instruction::I64ReinterpretF64);
                     }
-                    _ => {
+                    WasmType::I64 => {
                         func.instruction(&Instruction::I64Load(MemArg {
                             offset: field_offset as u64,
                             align: 3,
@@ -11885,10 +12023,20 @@ fn compile_expr(
                     }
                 }
             } else {
-                func.instruction(&Instruction::I64Const(0));
+                match field_ty {
+                    WasmType::I32 => {
+                        func.instruction(&Instruction::I32Const(none_ptr));
+                    }
+                    WasmType::F64 => {
+                        func.instruction(&Instruction::F64Const(0.0.into()));
+                    }
+                    WasmType::I64 => {
+                        func.instruction(&Instruction::I64Const(0));
+                    }
+                }
             }
             func.instruction(&Instruction::End);
-            Ok(WasmType::I64)
+            Ok(field_ty)
         }
         HirExpr::With(base, updates, span) => {
             let base_kind = infer_expr_kind(base, locals, functions, table_indices, anon_map);
