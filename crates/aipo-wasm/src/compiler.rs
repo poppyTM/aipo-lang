@@ -4030,6 +4030,10 @@ fn compile_stmts(
                         let (dict_get_idx, _, _) = functions["__aipo_dict_get"];
                         let (dict_set_idx, _, _) = functions["__aipo_dict_set"];
                         let (string_hash_idx, _, _) = functions["__aipo_string_hash"];
+                        // Distinct slots per consumer: the value expression and the
+                        // key-pair helper each stage through the shared scratch pool, so
+                        // reusing one slot for two live values lets the second clobber
+                        // the first.
                         let key_temp = locals["__or_else_temp_0"].0;
                         let val_temp = locals["__or_else_temp_1"].0;
 

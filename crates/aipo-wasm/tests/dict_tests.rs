@@ -219,3 +219,45 @@ fn tally() -> Int {
     // 15 + 123 = 138
     assert_eq!(f.call(&mut store, ()).unwrap(), 138);
 }
+
+#[test]
+fn storing_into_a_literal_dictionary_adds_a_new_key() {
+    // A dictionary literal asks the allocator for exactly as many entries as it
+    // writes, so the block had no room and `d["b"] = 2` wrote past it. The keys
+    // then read back as the literal's own first key, because the store had
+    // landed on the allocator's next block instead.
+    let code = r#"
+fn keys_after_store() -> Int {
+  let d = {"a": 1}
+  d["b"] = 2
+  let ks = d.keys()
+  if len(ks) == 2 { return len(ks) }
+  return 0 - 1
+}
+"#;
+    let (mut store, instance) = instantiate_aipo(code);
+    let f = instance
+        .get_typed_func::<(), i64>(&mut store, "keys_after_store")
+        .expect("exported `keys_after_store`");
+    assert_eq!(f.call(&mut store, ()).unwrap(), 2);
+}
+
+#[test]
+fn dictionary_grows_past_the_minimum_capacity() {
+    // The headroom is eight entries; a dictionary that keeps growing must still
+    // keep every key distinct.
+    let code = r#"
+fn count_twenty() -> Int {
+  var d = {}
+  repeat 20 as i {
+    d[String(i)] = i
+  }
+  return len(d)
+}
+"#;
+    let (mut store, instance) = instantiate_aipo(code);
+    let f = instance
+        .get_typed_func::<(), i64>(&mut store, "count_twenty")
+        .expect("exported `count_twenty`");
+    assert_eq!(f.call(&mut store, ()).unwrap(), 20);
+}

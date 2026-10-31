@@ -456,9 +456,25 @@ pub(super) fn build_range_get_function() -> Function {
 /// `ponytail:` linear scan is `O(n)` per lookup. Replace with an open-addressing
 /// table once dictionaries above a few dozen entries show up in benchmarks.
 pub(super) fn build_dict_new_function(alloc_func_idx: u32) -> Function {
-    let mut func = Function::new([(1, ValType::I32)]);
-    // bytes = 8 (8-byte aligned entry count header) + capacity * 16
+    let mut func = Function::new([(2, ValType::I32)]);
+    // locals: 1=ptr, 2=capacity
+    //
+    // The block is fixed-size once allocated, and a dictionary literal asks for
+    // exactly as many entries as it writes — so a later `d[k] = v` had nowhere to
+    // go and wrote past the block, corrupting whatever the allocator placed next.
+    // A minimum capacity of eight is the same headroom `list_new` gives.
     func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::I32Const(8));
+    func.instruction(&Instruction::I32LtS);
+    func.instruction(&Instruction::If(BlockType::Result(ValType::I32)));
+    func.instruction(&Instruction::I32Const(8));
+    func.instruction(&Instruction::Else);
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::End);
+    func.instruction(&Instruction::LocalSet(2));
+
+    // bytes = 8 (header) + capacity * 24
+    func.instruction(&Instruction::LocalGet(2));
     func.instruction(&Instruction::I32Const(24));
     func.instruction(&Instruction::I32Mul);
     func.instruction(&Instruction::I32Const(8));
