@@ -4,6 +4,7 @@
 **Escopo:** baselines de wall-clock para estágios do frontend, comandos, workloads da VM, o backend JS e a suíte cross-language separada
 **Ambiente:** Linux x86_64 (4 CPU, 5 GiB RAM), rustc 1.98.1, Node v24.18.0, `--release`, runner compartilhado (ruidoso — veja a coluna MAD)
 **Registrado em:** 2026-09-20, `cargo run --release -p aipo-bench` (7 amostras, mediana/MAD), git a8709881
+**Re-medido em:** 2026-10-31, mesma máquina e método, git ad7aaaa — ver "Rodada de 2026-10-31" abaixo
 
 Estes números são baselines para comparação futura em um runner dedicado, **não** limiares de aprovação/reprovação. Para o protocolo multi-runtime, as amostras brutas, os checksums e as regras de justiça, veja `docs/performance/cross-language.md`.
 
@@ -69,3 +70,45 @@ Todas as razões ficam próximas de 2× a cada dobra neste runner — comportame
 ## Achado notável durante este gauntlet
 
 O parsing de format-strings escalava 68× a cada 10× de entrada (medidos 23.4 ms para 400 f-strings em 8.4 KiB). Causa raiz: padding `" ".repeat(offset)` por placeholder mais rescans completos. Corrigido fazendo o parsing de slices sem padding e deslocando os spans de volta (`crates/aipo-syntax/src/shift.rs`, adendo do ADP-005): 1.77 ms depois, custo proporcional ao offset eliminado, snapshots do corpus idênticos byte a byte.
+
+## Rodada de 2026-10-31
+
+Duas correções de hot path moveram os estágios mais quentes. Mediana em 99 KiB
+(7 amostras), mesma máquina ruidosa:
+
+| estágio | antes (2026-09-20) | agora | fator |
+|---|---:|---:|---:|
+| lexer/tokenize | 5.36ms | 1.07ms | 5.0× |
+| syntax/parse | 11.42ms | 4.12ms | 2.8× |
+| js/emit | 42.9ms | 1.58ms | 27× |
+
+O que mudou:
+
+- **Parser** deixou de clonar o `TokenKind` inteiro para ler um payload e de novo
+  para consumi-lo; identificadores e literais agora custam uma alocação, não
+  duas. Sessenta e um sítios que só descartavam o token passaram a mover apenas
+  o cursor. Em 1023 KiB o parse caiu de 102.74ms para 47.95ms.
+- **Lexer** decodifica o code point do cursor uma vez e o mantém ao lado do
+  offset; `peek` virou leitura de campo em vez de re-fatiar e re-decodificar
+  UTF-8. Em 1023 KiB o tokenize caiu de 58.56ms para 11.09ms.
+- **Emissor JS** escreve o JSON do módulo direto no buffer em vez de montar uma
+  árvore `serde_json::Value` por instrução (48 macros `json!`, um mapa e uma
+  `String` por campo). Em 1023 KiB caiu de 78.44ms para 15.41ms; a saída é
+  semanticamente idêntica (a ordem das chaves segue o wire, não o `BTreeMap`).
+
+`ir/lower` (118ms em 1023 KiB) é trabalho proporcional ao tamanho do programa,
+não um comportamento quadrático: medido em 21 KiB / 43 KiB / 88 KiB o custo é
+linear (0.00s / 0.01s / 0.02s em `aipo check`).
+
+### Onde ainda há custo, e por quê
+
+- **`syntax/parse` é o maior estágio absoluto** (47.95ms em 1 MiB, 21.9 MB/s).
+  O laço agora faz trabalho real: cada nó da AST é alocado e cada expressão
+  passa pelo Pratt parser. Reduzir mais exigiria arena de nós ou reutilização de
+  buffers, o que é uma mudança de representação, não uma correção de hot path.
+- **`vm/recursion`** (fib(20), 4.63ms) é o custo por instrução do interpretador
+  de bytecode: `step` faz uma checagem de iteração, um contador de métricas e um
+  `match` de opcode por instrução. O `Value` já tem 16 bytes e a chamada de
+  frame não aloca; o limite restante é o dispatch interpretado em si. Trocar por
+  dispatch computado ou threading é uma decisão de arquitetura da VM que a
+  doutrina de performance pede para justificar com dado, não com intuição.

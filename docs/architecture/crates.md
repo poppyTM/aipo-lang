@@ -43,3 +43,15 @@ Fonte: `cargo metadata --no-deps --format-version 1` e os `Cargo.toml` do worksp
 - `aipo-wasm` consome HIR, não Core IR.
 - `aipo-cli`, `aipo-game-host` e `aipo-egui` são folhas de produto: nenhuma crate de linguagem depende delas.
 - `aipo-c-abi` é a única crate que habilita `unsafe_code`; a exceção é restrita à fronteira FFI e documentada em `docs/crates/crate-contracts.md`.
+
+## Módulos internos dos backends
+
+Um crate com três domínios independentes num só arquivo é o sinal de god-module
+que a doutrina de arquitetura pede para tratar. Os dois maiores consumidores já
+foram separados por responsabilidade; a divisão é interna ao crate, não muda a
+direção de dependência.
+
+| crate | módulos | fronteira |
+|---|---|---|
+| `aipo-wasm` | `analysis` / `runtime` / `compiler` | análise estática que recupera o que a representação sem tags perde; helpers Wasm emitidos em todo módulo; geração de código |
+| `aipo-cli` | `packages` + `lib` | resolução/fetch/lock/cache de pacotes vs. driver de compilação, execução e tooling |
