@@ -321,6 +321,132 @@ fn compile_dict_key_pair(
 /// A value of an unknown kind still passes — refusing it would reject programs that
 /// are valid at runtime, which is worse than deferring to the dynamic check the
 /// other backends perform.
+/// Collects the identifiers a nested body reads that its own scope does not bind.
+///
+/// Used to decide whether a nested `fn` would have to capture an enclosing local.
+/// A shallow walk is enough: the body's own params and its declared locals are
+/// excluded, everything else is a free read.
+fn free_names_in_body(body: &[HirStmt]) -> HashSet<String> {
+    fn walk_expr(expr: &HirExpr, bound: &HashSet<String>, out: &mut HashSet<String>) {
+        match expr {
+            HirExpr::Identifier(name, _) => {
+                if !bound.contains(name) {
+                    out.insert(name.clone());
+                }
+            }
+            HirExpr::Binary(_, l, r, _) => {
+                walk_expr(l, bound, out);
+                walk_expr(r, bound, out);
+            }
+            HirExpr::Unary(_, inner, _)
+            | HirExpr::Dot(inner, _, _)
+            | HirExpr::QuestionDot(inner, _, _)
+            | HirExpr::Await(inner, _)
+            | HirExpr::Try(inner, _)
+            | HirExpr::With(inner, _, _) => walk_expr(inner, bound, out),
+            HirExpr::Call(callee, args, _) => {
+                walk_expr(callee, bound, out);
+                for arg in args {
+                    walk_expr(&arg.value, bound, out);
+                }
+            }
+            HirExpr::Index(t, i, _) => {
+                walk_expr(t, bound, out);
+                walk_expr(i, bound, out);
+            }
+            HirExpr::List(items, _) => items.iter().for_each(|e| walk_expr(e, bound, out)),
+            HirExpr::Dict(entries, _) => entries.iter().for_each(|(k, v)| {
+                walk_expr(k, bound, out);
+                walk_expr(v, bound, out);
+            }),
+            HirExpr::Construct(_, fields, _) => {
+                fields.iter().for_each(|(_, v)| walk_expr(v, bound, out));
+            }
+            HirExpr::If(c, t, e, _) => {
+                walk_expr(c, bound, out);
+                walk_expr(t, bound, out);
+                walk_expr(e, bound, out);
+            }
+            HirExpr::OrElse(l, r, _) => {
+                walk_expr(l, bound, out);
+                walk_expr(r, bound, out);
+            }
+            HirExpr::Fn(_) | HirExpr::Literal(..) => {}
+        }
+    }
+
+    fn walk_stmts(body: &[HirStmt], bound: &mut HashSet<String>, out: &mut HashSet<String>) {
+        for stmt in body {
+            match stmt {
+                HirStmt::Let(name, e, _) | HirStmt::Var(name, e, _) => {
+                    walk_expr(e, bound, out);
+                    bound.insert(name.clone());
+                }
+                HirStmt::Assign(t, e, _) | HirStmt::CompoundAssign(_, t, e, _) => {
+                    walk_expr(t, bound, out);
+                    walk_expr(e, bound, out);
+                }
+                HirStmt::Expr(e) | HirStmt::Return(Some(e), _) | HirStmt::Fail(e, _) => {
+                    walk_expr(e, bound, out)
+                }
+                HirStmt::If(s) => {
+                    walk_expr(&s.condition, bound, out);
+                    walk_stmts(&s.then_branch, &mut bound.clone(), out);
+                    for (c, b) in &s.elif_branches {
+                        walk_expr(c, bound, out);
+                        walk_stmts(b, &mut bound.clone(), out);
+                    }
+                    if let Some(b) = &s.else_branch {
+                        walk_stmts(b, &mut bound.clone(), out);
+                    }
+                }
+                HirStmt::While(c, b, _) => {
+                    walk_expr(c, bound, out);
+                    walk_stmts(b, &mut bound.clone(), out);
+                }
+                HirStmt::Loop(b, _) | HirStmt::AwaitDo(b, _) => {
+                    walk_stmts(b, &mut bound.clone(), out)
+                }
+                HirStmt::Repeat(c, _, b, _) => {
+                    walk_expr(c, bound, out);
+                    walk_stmts(b, &mut bound.clone(), out);
+                }
+                HirStmt::Each(vars, it, b, _) => {
+                    walk_expr(it, bound, out);
+                    let mut inner = bound.clone();
+                    inner.extend(vars.iter().cloned());
+                    walk_stmts(b, &mut inner, out);
+                }
+                HirStmt::Attempt(a) => {
+                    walk_stmts(&a.body, &mut bound.clone(), out);
+                    walk_stmts(&a.handler, &mut bound.clone(), out);
+                }
+                HirStmt::Match(m) => {
+                    walk_expr(&m.target, bound, out);
+                    for arm in &m.when_arms {
+                        walk_stmts(&arm.body, &mut bound.clone(), out);
+                    }
+                    if let Some(b) = &m.else_arm {
+                        walk_stmts(b, &mut bound.clone(), out);
+                    }
+                }
+                HirStmt::FnDecl(d) => {
+                    let mut inner = bound.clone();
+                    inner.insert(d.name.clone());
+                    inner.extend(d.params.iter().map(|p| p.name.clone()));
+                    walk_stmts(&d.body, &mut inner, out);
+                }
+                _ => {}
+            }
+        }
+    }
+
+    let mut bound = HashSet::new();
+    let mut out = HashSet::new();
+    walk_stmts(body, &mut bound, &mut out);
+    out
+}
+
 #[allow(clippy::too_many_arguments)]
 fn check_declared_contracts(
     func_name: &str,
@@ -2802,13 +2928,21 @@ fn pre_scan_stmts(
                 // value kind. A `List`/`Range` keeps the positional `Int` index.
                 let is_dict = matches!(iterable_kind, LocalKind::Dict(_));
                 for (position, name) in bindings.iter().enumerate() {
-                    let slot = (params_count + declared_locals.len()) as u32;
-                    let ty = if bindings.len() > 1 && position == 0 && is_dict {
-                        declared_locals.push(WasmType::I32);
+                    let wanted = if bindings.len() > 1 && position == 0 && is_dict {
                         WasmType::I32
                     } else {
-                        declared_locals.push(WasmType::I64);
                         WasmType::I64
+                    };
+                    // A name rebound by a second loop keeps the slot the first loop
+                    // gave it: a local's Wasm type is fixed at declaration, and a
+                    // second `each k in ...` cannot turn an `i64` slot into an `i32`.
+                    let (slot, ty) = match locals.get(name) {
+                        Some(&(existing, existing_ty, _)) => (existing, existing_ty),
+                        None => {
+                            let slot = (params_count + declared_locals.len()) as u32;
+                            declared_locals.push(wanted);
+                            (slot, wanted)
+                        }
                     };
                     let kind = if bindings.len() > 1 {
                         match (is_dict, position) {
@@ -4661,6 +4795,29 @@ fn compile_stmts(
                 )?;
             }
             HirStmt::FnDecl(f) => {
+                // A nested `fn` compiles into its own frame. Naming an enclosing
+                // local would read a slot that frame does not have — the previous
+                // behaviour silently produced `none`, which is worse than saying the
+                // backend cannot express it.
+                let mut own: HashSet<String> = f.params.iter().map(|p| p.name.clone()).collect();
+                own.insert(f.name.clone());
+                // Only a *value* binding is unrepresentable: a nested `fn` naming a
+                // sibling function just needs the sibling's table index, which every
+                // frame can reach.
+                let free = free_names_in_body(&f.body);
+                if let Some(captured) = free.iter().find(|name| {
+                    !own.contains(*name)
+                        && !functions.symbols.contains_key(*name)
+                        && locals.contains_key(*name)
+                }) {
+                    return Err(WasmCompileError::UnsupportedExpr {
+                        message: format!(
+                            "nested `fn {}` captures `{captured}` from the enclosing frame; use --engine=vm",
+                            f.name
+                        ),
+                        span: f.span,
+                    });
+                }
                 if let Some(anon_name) = anon_map.get(&f.span)
                     && let Some(&table_idx) = table_indices.get(anon_name)
                     && let Some(&(local_idx, _, _)) = locals.get(&f.name)
@@ -5183,7 +5340,7 @@ fn compile_each_stmt(
     // key (a `Dict` key, or the positional index for a List/Range) and the second
     // is the value.
     if bindings.len() == 1 {
-        let slot = locals[&bindings[0]].0;
+        let (slot, slot_ty, _) = locals[&bindings[0]];
         if is_dict {
             // One binding takes the key, matching canon's primary iteration.
             let (dict_key_idx, _, _) = functions["__aipo_dict_key_at"];
@@ -5191,9 +5348,12 @@ fn compile_each_stmt(
             func.instruction(&Instruction::LocalGet(cur_slot));
             func.instruction(&Instruction::I32WrapI64);
             func.instruction(&Instruction::Call(dict_key_idx));
-            // The key is a raw `i64` from the entry, but its slot is `i32` for a
-            // String key so the printer treats it as text.
-            func.instruction(&Instruction::I32WrapI64);
+            // The entry stores the raw key as `i64`; the slot's own type decides
+            // whether it narrows. Pre-scan may have declared the slot `i64` when the
+            // iterable's kind was not yet known.
+            if slot_ty == WasmType::I32 {
+                func.instruction(&Instruction::I32WrapI64);
+            }
         } else if is_range {
             func.instruction(&Instruction::LocalGet(seq_slot));
             func.instruction(&Instruction::I64Load(MemArg {
@@ -5212,8 +5372,8 @@ fn compile_each_stmt(
         }
         func.instruction(&Instruction::LocalSet(slot));
     } else if bindings.len() >= 2 {
-        let key_slot = locals[&bindings[0]].0;
-        let value_slot = locals[&bindings[1]].0;
+        let (key_slot, key_ty, _) = locals[&bindings[0]];
+        let (value_slot, value_ty, _) = locals[&bindings[1]];
         if is_dict {
             let (dict_key_idx, _, _) = functions["__aipo_dict_key_at"];
             let (dict_value_idx, _, _) = functions["__aipo_dict_value_at"];
@@ -5221,15 +5381,21 @@ fn compile_each_stmt(
             func.instruction(&Instruction::LocalGet(cur_slot));
             func.instruction(&Instruction::I32WrapI64);
             func.instruction(&Instruction::Call(dict_key_idx));
-            func.instruction(&Instruction::I32WrapI64);
+            // The entry stores the raw key as `i64`; the slot's own type decides
+            // whether it narrows, since a name may have been declared `i64` by an
+            // earlier loop over a non-dict collection.
+            if key_ty == WasmType::I32 {
+                func.instruction(&Instruction::I32WrapI64);
+            }
             func.instruction(&Instruction::LocalSet(key_slot));
             func.instruction(&Instruction::LocalGet(seq_slot));
             func.instruction(&Instruction::LocalGet(cur_slot));
             func.instruction(&Instruction::I32WrapI64);
             func.instruction(&Instruction::Call(dict_value_idx));
+            if value_ty == WasmType::I32 {
+                func.instruction(&Instruction::I32WrapI64);
+            }
             func.instruction(&Instruction::LocalSet(value_slot));
-            // The second binding holds the value kind the dict carries.
-            let _ = &value_slot;
             control_stack.push(ControlFrame::RepeatStep);
             func.instruction(&Instruction::Block(BlockType::Empty));
             compile_stmts(

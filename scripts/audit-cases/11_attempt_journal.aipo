@@ -1,0 +1,25 @@
+struct R {
+  var lo
+  hi
+}
+R:init(var self, lo, hi) { self.lo = lo
+ self.hi = hi }
+R:invariant { self.lo < self.hi }
+fn bump(r) {
+  r.lo = 2
+  attempt {
+    let x = fail("boom")
+    io.println(x)
+  } failed err {
+    io.println("caught")
+  }
+  r.lo = 99
+  return r.lo
+}
+let r = R{lo = 1, hi = 5}
+attempt {
+  io.println(bump(r))
+} failed err {
+  io.println(f"outer: {err.message}")
+}
+io.println(r.lo)

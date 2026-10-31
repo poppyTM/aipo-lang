@@ -2808,12 +2808,18 @@ pub(super) fn build_str_to_int_function(
 
 /// Builds `__aipo_str_case(ptr: i32, upper: i32) -> i32`.
 ///
-/// ASCII case folding over a fresh string. A non-ASCII byte is copied unchanged,
-/// which keeps a multi-byte sequence intact.
+/// Case folding over code points. Each character is decoded, folded, and written
+/// into a fresh buffer. ASCII folds arithmetically and the Latin-1 Supplement
+/// (`U+00C0..=U+00DE` / `U+00E0..=U+00FE`, excluding `×` and `÷`) folds by 0x20,
+/// which covers the accented letters a program is likely to meet. A code point
+/// outside those ranges is copied unchanged rather than corrupted.
+///
+/// Folding never changes the UTF-8 width of those ranges, so the output is the same
+/// size as the input and no buffer growth is needed.
 pub(super) fn build_str_case_function(alloc_func_idx: u32) -> Function {
     // params: 0=ptr, 1=upper
-    // locals: 2=len, 3=out, 4=i, 5=byte
-    let mut func = Function::new([(4, ValType::I32)]);
+    // locals: 2=byte len, 3=out, 4=pos, 5=lead, 6=step, 7=code point, 8=out cursor
+    let mut func = Function::new([(7, ValType::I32)]);
 
     func.instruction(&Instruction::LocalGet(0));
     func.instruction(&Instruction::I32Load(MemArg {
@@ -2829,21 +2835,25 @@ pub(super) fn build_str_case_function(alloc_func_idx: u32) -> Function {
     func.instruction(&Instruction::Call(alloc_func_idx));
     func.instruction(&Instruction::LocalSet(3));
     func.instruction(&Instruction::LocalGet(3));
-    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I32Const(0));
     func.instruction(&Instruction::I32Store(MemArg {
         offset: 0,
         align: 2,
         memory_index: 0,
     }));
-
     func.instruction(&Instruction::I32Const(0));
     func.instruction(&Instruction::LocalSet(4));
+    func.instruction(&Instruction::I32Const(0));
+    func.instruction(&Instruction::LocalSet(8));
+
     func.instruction(&Instruction::Block(BlockType::Empty));
     func.instruction(&Instruction::Loop(BlockType::Empty));
     func.instruction(&Instruction::LocalGet(4));
     func.instruction(&Instruction::LocalGet(2));
     func.instruction(&Instruction::I32GeS);
     func.instruction(&Instruction::BrIf(1));
+
+    // Lead byte and the UTF-8 width of this character.
     func.instruction(&Instruction::LocalGet(0));
     func.instruction(&Instruction::LocalGet(4));
     func.instruction(&Instruction::I32Add);
@@ -2853,54 +2863,217 @@ pub(super) fn build_str_case_function(alloc_func_idx: u32) -> Function {
         memory_index: 0,
     }));
     func.instruction(&Instruction::LocalSet(5));
-
-    // `a..=z` folds to upper; `A..=Z` folds to lower. Both directions are the
-    // same XOR 0x20, so the choice is only which range triggers it.
-    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::I32Const(0x80));
+    func.instruction(&Instruction::I32LtU);
     func.instruction(&Instruction::If(BlockType::Result(ValType::I32)));
-    func.instruction(&Instruction::LocalGet(5));
-    func.instruction(&Instruction::I32Const(97));
-    func.instruction(&Instruction::I32GeU);
-    func.instruction(&Instruction::LocalGet(5));
-    func.instruction(&Instruction::I32Const(122));
-    func.instruction(&Instruction::I32LeU);
-    func.instruction(&Instruction::I32And);
+    func.instruction(&Instruction::I32Const(1));
     func.instruction(&Instruction::Else);
     func.instruction(&Instruction::LocalGet(5));
-    func.instruction(&Instruction::I32Const(65));
-    func.instruction(&Instruction::I32GeU);
+    func.instruction(&Instruction::I32Const(0xE0));
+    func.instruction(&Instruction::I32LtU);
+    func.instruction(&Instruction::If(BlockType::Result(ValType::I32)));
+    func.instruction(&Instruction::I32Const(2));
+    func.instruction(&Instruction::Else);
     func.instruction(&Instruction::LocalGet(5));
-    func.instruction(&Instruction::I32Const(90));
-    func.instruction(&Instruction::I32LeU);
-    func.instruction(&Instruction::I32And);
+    func.instruction(&Instruction::I32Const(0xF0));
+    func.instruction(&Instruction::I32LtU);
+    func.instruction(&Instruction::If(BlockType::Result(ValType::I32)));
+    func.instruction(&Instruction::I32Const(3));
+    func.instruction(&Instruction::Else);
+    func.instruction(&Instruction::I32Const(4));
     func.instruction(&Instruction::End);
+    func.instruction(&Instruction::End);
+    func.instruction(&Instruction::End);
+    func.instruction(&Instruction::LocalSet(6));
+
+    // Decode: a one-byte character is its lead; a two-byte one combines both bytes.
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::I32Const(1));
+    func.instruction(&Instruction::I32Eq);
     func.instruction(&Instruction::If(BlockType::Empty));
     func.instruction(&Instruction::LocalGet(5));
-    func.instruction(&Instruction::I32Const(0x20));
-    func.instruction(&Instruction::I32Xor);
-    func.instruction(&Instruction::LocalSet(5));
-    func.instruction(&Instruction::End);
-
-    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::LocalSet(7));
+    func.instruction(&Instruction::Else);
+    func.instruction(&Instruction::LocalGet(0));
     func.instruction(&Instruction::LocalGet(4));
     func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::I32Const(1));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::I32Load8U(MemArg {
+        offset: 4,
+        align: 0,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::I32Const(0x3F));
+    func.instruction(&Instruction::I32And);
     func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::I32Const(0x1F));
+    func.instruction(&Instruction::I32And);
+    func.instruction(&Instruction::I32Const(6));
+    func.instruction(&Instruction::I32Shl);
+    func.instruction(&Instruction::I32Or);
+    func.instruction(&Instruction::LocalSet(7));
+    func.instruction(&Instruction::End);
+
+    // Fold the code point.
+    ascii_fold(&mut func, 7);
+    latin1_fold(&mut func);
+
+    // Encode it back: one byte below 0x80, two bytes otherwise.
+    func.instruction(&Instruction::LocalGet(7));
+    func.instruction(&Instruction::I32Const(0x80));
+    func.instruction(&Instruction::I32LtU);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::LocalGet(8));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::LocalGet(7));
     func.instruction(&Instruction::I32Store8(MemArg {
         offset: 4,
         align: 0,
         memory_index: 0,
     }));
-    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::LocalGet(8));
     func.instruction(&Instruction::I32Const(1));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::LocalSet(8));
+    func.instruction(&Instruction::Else);
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::LocalGet(8));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::I32Const(0xC0));
+    func.instruction(&Instruction::LocalGet(7));
+    func.instruction(&Instruction::I32Const(6));
+    func.instruction(&Instruction::I32ShrU);
+    func.instruction(&Instruction::I32Or);
+    func.instruction(&Instruction::I32Store8(MemArg {
+        offset: 4,
+        align: 0,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::LocalGet(8));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::LocalGet(7));
+    func.instruction(&Instruction::I32Const(0x3F));
+    func.instruction(&Instruction::I32And);
+    func.instruction(&Instruction::I32Const(0x80));
+    func.instruction(&Instruction::I32Or);
+    func.instruction(&Instruction::I32Store8(MemArg {
+        offset: 5,
+        align: 0,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalGet(8));
+    func.instruction(&Instruction::I32Const(2));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::LocalSet(8));
+    func.instruction(&Instruction::End);
+
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::LocalGet(6));
     func.instruction(&Instruction::I32Add);
     func.instruction(&Instruction::LocalSet(4));
     func.instruction(&Instruction::Br(0));
     func.instruction(&Instruction::End);
     func.instruction(&Instruction::End);
 
+    // Record the produced length.
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::LocalGet(8));
+    func.instruction(&Instruction::I32Store(MemArg {
+        offset: 0,
+        align: 2,
+        memory_index: 0,
+    }));
     func.instruction(&Instruction::LocalGet(3));
     func.instruction(&Instruction::End);
     func
+}
+
+/// Emits the ASCII case fold of local `slot`, leaving the result in it.
+fn ascii_fold(func: &mut Function, slot: u32) {
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::If(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(slot));
+    func.instruction(&Instruction::I32Const(97));
+    func.instruction(&Instruction::I32GeS);
+    func.instruction(&Instruction::LocalGet(slot));
+    func.instruction(&Instruction::I32Const(122));
+    func.instruction(&Instruction::I32LeS);
+    func.instruction(&Instruction::I32And);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(slot));
+    func.instruction(&Instruction::I32Const(0x20));
+    func.instruction(&Instruction::I32Sub);
+    func.instruction(&Instruction::LocalSet(slot));
+    func.instruction(&Instruction::End);
+    func.instruction(&Instruction::Else);
+    func.instruction(&Instruction::LocalGet(slot));
+    func.instruction(&Instruction::I32Const(65));
+    func.instruction(&Instruction::I32GeS);
+    func.instruction(&Instruction::LocalGet(slot));
+    func.instruction(&Instruction::I32Const(90));
+    func.instruction(&Instruction::I32LeS);
+    func.instruction(&Instruction::I32And);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(slot));
+    func.instruction(&Instruction::I32Const(0x20));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::LocalSet(slot));
+    func.instruction(&Instruction::End);
+    func.instruction(&Instruction::End);
+}
+
+/// Emits the Latin-1 case fold of the code point in local 7.
+///
+/// `À..Þ` (`U+00C0..=U+00DE`) is the uppercase run and folds *down* by 0x20; `à..þ`
+/// (`U+00E0..=U+00FE`) is the lowercase run and folds *up*. `×` (`D7`) and `÷`
+/// (`F7`) sit inside those ranges but have no case pair, so they are skipped.
+fn latin1_fold(func: &mut Function) {
+    // Lowercase run -> uppercase.
+    func.instruction(&Instruction::LocalGet(7));
+    func.instruction(&Instruction::I32Const(0xE0));
+    func.instruction(&Instruction::I32GeS);
+    func.instruction(&Instruction::LocalGet(7));
+    func.instruction(&Instruction::I32Const(0xFE));
+    func.instruction(&Instruction::I32LeS);
+    func.instruction(&Instruction::I32And);
+    func.instruction(&Instruction::LocalGet(7));
+    func.instruction(&Instruction::I32Const(0xF7));
+    func.instruction(&Instruction::I32Ne);
+    func.instruction(&Instruction::I32And);
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I32And);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(7));
+    func.instruction(&Instruction::I32Const(0x20));
+    func.instruction(&Instruction::I32Sub);
+    func.instruction(&Instruction::LocalSet(7));
+    func.instruction(&Instruction::End);
+
+    // Uppercase run -> lowercase.
+    func.instruction(&Instruction::LocalGet(7));
+    func.instruction(&Instruction::I32Const(0xC0));
+    func.instruction(&Instruction::I32GeS);
+    func.instruction(&Instruction::LocalGet(7));
+    func.instruction(&Instruction::I32Const(0xDE));
+    func.instruction(&Instruction::I32LeS);
+    func.instruction(&Instruction::I32And);
+    func.instruction(&Instruction::LocalGet(7));
+    func.instruction(&Instruction::I32Const(0xD7));
+    func.instruction(&Instruction::I32Ne);
+    func.instruction(&Instruction::I32And);
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I32Eqz);
+    func.instruction(&Instruction::I32And);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(7));
+    func.instruction(&Instruction::I32Const(0x20));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::LocalSet(7));
+    func.instruction(&Instruction::End);
 }
 
 /// Builds `__aipo_str_find(haystack: i32, needle: i32) -> i64`.
@@ -4554,7 +4727,20 @@ pub(super) fn build_list_slice_function(
     }));
     func.instruction(&Instruction::LocalSet(LEN));
 
-    // lo = clamp(start, 0, len)
+    // lo = clamp(start, 0, len), a negative bound counting from the end.
+    //
+    // Canon slicing normalizes negatives (`xs[-2..]` is the last two elements) and
+    // clamps out-of-range bounds instead of faulting. Treating a negative bound as
+    // zero made every negative slice return the whole list.
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I32Const(0));
+    func.instruction(&Instruction::I32LtS);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(LEN));
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::LocalSet(1));
+    func.instruction(&Instruction::End);
     func.instruction(&Instruction::LocalGet(1));
     func.instruction(&Instruction::I32Const(0));
     func.instruction(&Instruction::I32LtS);
@@ -4572,7 +4758,16 @@ pub(super) fn build_list_slice_function(
     func.instruction(&Instruction::End);
     func.instruction(&Instruction::LocalSet(LO));
 
-    // hi = clamp(end, lo, len)
+    // hi = clamp(end, lo, len), a negative bound counting from the end.
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I32Const(0));
+    func.instruction(&Instruction::I32LtS);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(LEN));
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::LocalSet(2));
+    func.instruction(&Instruction::End);
     func.instruction(&Instruction::LocalGet(2));
     func.instruction(&Instruction::LocalGet(LO));
     func.instruction(&Instruction::I32LtS);

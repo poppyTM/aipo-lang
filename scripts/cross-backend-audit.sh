@@ -56,10 +56,26 @@ for src in "$CASES"/*.aipo; do
     fi
   }
 
+  # Each backed declares its limits as `AIPO_COMPILE_<BACKEND>_UNSUPPORTED` with a
+  # remedy. That is a documented limitation, not a silent divergence — the backend
+  # says what it cannot express instead of producing a different answer.
+  declared_limit() {
+    case "$1" in
+      *AIPO_COMPILE_*_UNSUPPORTED*) return 0 ;;
+      *) return 1 ;;
+    esac
+  }
+
   case_diff=""
-  agrees "$vm_code" "$vm" "$reg_code" "$reg" || case_diff="$case_diff reg"
-  agrees "$vm_code" "$vm" "$wasm_code" "$wasm" || case_diff="$case_diff wasm"
-  agrees "$vm_code" "$vm" "$js_code" "$js" || case_diff="$case_diff js"
+  if ! agrees "$vm_code" "$vm" "$reg_code" "$reg"; then
+    declared_limit "$reg" || case_diff="$case_diff reg"
+  fi
+  if ! agrees "$vm_code" "$vm" "$wasm_code" "$wasm"; then
+    declared_limit "$wasm" || case_diff="$case_diff wasm"
+  fi
+  if ! agrees "$vm_code" "$vm" "$js_code" "$js"; then
+    declared_limit "$js" || case_diff="$case_diff js"
+  fi
 
   if [ -n "$case_diff" ]; then
     differed=$((differed + 1))

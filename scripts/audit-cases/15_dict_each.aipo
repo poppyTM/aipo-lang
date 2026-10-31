@@ -1,0 +1,5 @@
+var d = {"x": 1, "y": 2}
+each k, v in d {
+  io.println(k + "=" + String(v))
+}
+each k in d { io.println(k) }

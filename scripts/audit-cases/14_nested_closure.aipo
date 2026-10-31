@@ -1,0 +1,11 @@
+fn outer() {
+  var n = 0
+  fn mid() {
+    fn inner() { n = n + 1
+ return n }
+    return inner()
+  }
+  return mid()
+}
+io.println(outer())
+io.println(outer())

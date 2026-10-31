@@ -1,0 +1,5 @@
+let w = "héllo"
+io.println(len(w))
+io.println(w[1])
+io.println(string.upper(w))
+io.println(string.reverse(w))
