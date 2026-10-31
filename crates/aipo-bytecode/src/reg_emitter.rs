@@ -941,18 +941,6 @@ impl RegEmitter {
         }
     }
 
-    /// Interns a signature-contract descriptor for the current function's pool.
-    #[allow(dead_code)]
-    fn add_contract(&mut self, contract: RegContract) -> usize {
-        if let Some(pos) = self.contracts.iter().position(|x| x == &contract) {
-            pos
-        } else {
-            let pos = self.contracts.len();
-            self.contracts.push(contract);
-            pos
-        }
-    }
-
     /// Emits a load of `name` into register `dest`, resolving locals, captured upvalues and
     /// globals in that order (mirroring the stack emitter's layout).
     fn emit_load(&mut self, name: &str, dest: usize, slots: &HashMap<String, usize>) {
