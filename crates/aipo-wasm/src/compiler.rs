@@ -1698,6 +1698,54 @@ pub fn compile_hir(program: &HirProgram) -> Result<Vec<u8>, WasmCompileError> {
     // cannot distinguish "omitted" from "passed the zero value" in Wasm, and
     // padding with zeros silently replaced `count: Int = 1` with `0`.
 
+    // Pass 1: Collect signatures of all declared and anonymous functions.
+    //
+    // An unannotated parameter has no declared representation, so its Wasm type
+    // comes from the arguments the program actually passes to it. Without this a
+    // `String` argument crosses the call boundary as a truncated pointer and the
+    // callee prints an address instead of the text.
+    let param_hints = collect_param_hints(program, &structs);
+    let mut next_func_idx = emitter.next_func_idx();
+    for func in &func_decls {
+        let params = func
+            .params
+            .iter()
+            .enumerate()
+            .map(|(index, param)| {
+                param_hints
+                    .get(&func.name)
+                    .and_then(|row| row.get(index).copied())
+                    .unwrap_or_else(|| param_wasm_type(param))
+            })
+            .collect::<Vec<_>>();
+        let ret = if func.name.starts_with("__async_body_") {
+            Some(WasmType::I64)
+        } else {
+            resolve_return_type(
+                &func.name,
+                &func.return_type,
+                &func.params,
+                &func.body,
+                &functions,
+                &structs,
+            )
+        };
+        let kind = resolve_return_kind(
+            &func.return_type,
+            &func.params,
+            &func.body,
+            &func.name,
+            &functions,
+            &structs,
+        );
+        let fn_type = WasmFnType::new(params, ret.into_iter().collect());
+        let type_idx = emitter.add_type(fn_type.clone());
+        let func_idx = next_func_idx;
+        next_func_idx += 1;
+        functions.insert(func.name.clone(), (func_idx, type_idx, fn_type));
+        functions.return_kinds.insert(func.name.clone(), kind);
+    }
+
     // Module bindings become Wasm globals before any body compiles, so a function
     // that names one resolves it the same way the entry script does.
     //
@@ -1757,54 +1805,6 @@ pub fn compile_hir(program: &HirProgram) -> Result<Vec<u8>, WasmCompileError> {
         functions
             .module_globals
             .insert(name.clone(), (global_idx, ty, kind));
-    }
-
-    // Pass 1: Collect signatures of all declared and anonymous functions.
-    //
-    // An unannotated parameter has no declared representation, so its Wasm type
-    // comes from the arguments the program actually passes to it. Without this a
-    // `String` argument crosses the call boundary as a truncated pointer and the
-    // callee prints an address instead of the text.
-    let param_hints = collect_param_hints(program, &structs);
-    let mut next_func_idx = emitter.next_func_idx();
-    for func in &func_decls {
-        let params = func
-            .params
-            .iter()
-            .enumerate()
-            .map(|(index, param)| {
-                param_hints
-                    .get(&func.name)
-                    .and_then(|row| row.get(index).copied())
-                    .unwrap_or_else(|| param_wasm_type(param))
-            })
-            .collect::<Vec<_>>();
-        let ret = if func.name.starts_with("__async_body_") {
-            Some(WasmType::I64)
-        } else {
-            resolve_return_type(
-                &func.name,
-                &func.return_type,
-                &func.params,
-                &func.body,
-                &functions,
-                &structs,
-            )
-        };
-        let kind = resolve_return_kind(
-            &func.return_type,
-            &func.params,
-            &func.body,
-            &func.name,
-            &functions,
-            &structs,
-        );
-        let fn_type = WasmFnType::new(params, ret.into_iter().collect());
-        let type_idx = emitter.add_type(fn_type.clone());
-        let func_idx = next_func_idx;
-        next_func_idx += 1;
-        functions.insert(func.name.clone(), (func_idx, type_idx, fn_type));
-        functions.return_kinds.insert(func.name.clone(), kind);
     }
 
     // A parameter's semantic kind is declared, or else learned from the calls that
@@ -9521,6 +9521,19 @@ fn infer_expr_kind(
         }
         HirExpr::Try(inner, ..) => {
             infer_expr_kind(inner, locals, functions, table_indices, anon_map)
+        }
+        HirExpr::Await(inner, _) => {
+            // `await task` yields what the body returned, so the kind of the awaited
+            // call is the kind of the result.
+            let inner_kind = infer_expr_kind(inner, locals, functions, table_indices, anon_map);
+            if let HirExpr::Call(callee, _, _) = &**inner
+                && let HirExpr::Identifier(name, _) = &**callee
+                && let Some(kind) = functions.return_kinds.get(&format!("__async_body_{name}"))
+            {
+                return kind.clone();
+            }
+            let _ = inner_kind;
+            LocalKind::Unknown
         }
         HirExpr::Index(target, index, _) => {
             // Slicing returns the container's own kind: a window over a List is a
