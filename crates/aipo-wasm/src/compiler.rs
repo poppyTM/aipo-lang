@@ -2951,8 +2951,14 @@ fn pre_scan_stmts(
                 // A `Dict` iterates String keys, and its second binding holds the
                 // value kind. A `List`/`Range` keeps the positional `Int` index.
                 let is_dict = matches!(iterable_kind, LocalKind::Dict(_));
+                // A `String` iterates one-character Strings, so its binding is a string
+                // pointer, not an element index. Leaving it `Unknown`/`i64` made the
+                // printer treat the pointer as an `Int` and emit its address.
+                let is_string = matches!(iterable_kind, LocalKind::String);
                 for (position, name) in bindings.iter().enumerate() {
-                    let wanted = if bindings.len() > 1 && position == 0 && is_dict {
+                    let wanted = if (bindings.len() > 1 && position == 0 && is_dict)
+                        || (bindings.len() == 1 && is_string)
+                    {
                         WasmType::I32
                     } else {
                         WasmType::I64
@@ -2974,7 +2980,7 @@ fn pre_scan_stmts(
                             (_, 0) => LocalKind::Int,
                             (_, _) => element_kind.clone(),
                         }
-                    } else if is_dict {
+                    } else if is_dict || is_string {
                         LocalKind::String
                     } else {
                         element_kind.clone()
@@ -5303,10 +5309,11 @@ fn compile_each_stmt(
     // A `Dict` iterates its entries in insertion order, not its storage slots: the
     // element count comes from the dict header and each entry yields its key and,
     // with two bindings, its value.
-    let is_dict = matches!(
-        infer_expr_kind(iterable, locals, functions, table_indices, anon_map),
-        LocalKind::Dict(_)
-    );
+    let iterable_kind = infer_expr_kind(iterable, locals, functions, table_indices, anon_map);
+    let is_dict = matches!(iterable_kind, LocalKind::Dict(_));
+    // A `String` iterates its code points, each a one-character String. Iterating it
+    // as a List read the pool header as an element count, so the loop body never ran.
+    let is_string = matches!(iterable_kind, LocalKind::String);
 
     let iter_ty = compile_expr(
         iterable,
@@ -5334,6 +5341,9 @@ fn compile_each_stmt(
     } else if is_dict {
         let (dict_len_idx, _, _) = functions["__aipo_dict_len"];
         func.instruction(&Instruction::Call(dict_len_idx));
+    } else if is_string {
+        let (str_len_idx, _, _) = functions["__aipo_str_len"];
+        func.instruction(&Instruction::Call(str_len_idx));
     } else {
         let (list_len_idx, _, _) = functions["__aipo_list_len"];
         func.instruction(&Instruction::Call(list_len_idx));
@@ -5365,7 +5375,18 @@ fn compile_each_stmt(
     // is the value.
     if bindings.len() == 1 {
         let (slot, slot_ty, _) = locals[&bindings[0]];
-        if is_dict {
+        if is_string {
+            let (str_char_idx, _, _) = functions["__aipo_str_char"];
+            func.instruction(&Instruction::LocalGet(seq_slot));
+            func.instruction(&Instruction::LocalGet(cur_slot));
+            func.instruction(&Instruction::I32WrapI64);
+            func.instruction(&Instruction::Call(str_char_idx));
+            // The binding slot may have been declared `i64` by pre-scan before the
+            // iterable's kind was known.
+            if slot_ty != WasmType::I32 {
+                func.instruction(&Instruction::I64ExtendI32U);
+            }
+        } else if is_dict {
             // One binding takes the key, matching canon's primary iteration.
             let (dict_key_idx, _, _) = functions["__aipo_dict_key_at"];
             func.instruction(&Instruction::LocalGet(seq_slot));
@@ -10590,6 +10611,9 @@ fn compile_expr(
                 )?;
                 let _ = (string_hash_idx,);
 
+                // A nested dictionary needs its own scratch slot: with the same depth
+                // it would overwrite the outer dictionary's handle and the outer
+                // `dict_set` would then write into the wrong block.
                 let val_ty = compile_expr(
                     value,
                     func,
@@ -10603,7 +10627,7 @@ fn compile_expr(
                     indirect_sigs,
                     alloc_func_idx,
                     async_helpers,
-                    struct_depth,
+                    struct_depth + 1,
                     call_depth,
                 )?;
                 coerce_type(func, val_ty, WasmType::I64);
@@ -10659,17 +10683,22 @@ fn compile_expr(
                     }));
                 }
 
+                // An enum variant carries its name pointer at offset 0, so a
+                // positional field starts after it: writing at `i * 8` overwrote the
+                // variant tag, and `match` then failed to recognize the variant.
+                let positional_base: u32 = if type_name.contains('.') { 8 } else { 0 };
                 // Initialize fields
                 for (i, (maybe_name, field_expr)) in fields.iter().enumerate() {
+                    let positional = positional_base + (i as u32) * 8;
                     let (field_offset, field_ty) = if let Some(name) = maybe_name {
                         struct_layout
                             .fields
                             .get(name)
                             .copied()
-                            .unwrap_or(((i * 8) as u32, WasmType::I64))
+                            .unwrap_or((positional, WasmType::I64))
                     } else {
                         // Positional initialization
-                        ((i * 8) as u32, WasmType::I64)
+                        (positional, WasmType::I64)
                     };
 
                     func.instruction(&Instruction::LocalGet(struct_temp));

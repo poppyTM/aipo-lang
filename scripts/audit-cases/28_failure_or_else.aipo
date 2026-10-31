@@ -1,0 +1,8 @@
+fn might(x) {
+  if x < 0 { return fail("neg") }
+  return x * 2
+}
+io.println(String(might(5) or_else -1))
+io.println(String(might(-5) or_else -1))
+io.println(String(Int("12") or_else -1))
+io.println(String(Int("x") or_else -1))

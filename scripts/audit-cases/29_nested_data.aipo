@@ -1,0 +1,4 @@
+let data = {"users": [{"name": "a"}, {"name": "b"}]}
+let users = data["users"]
+io.println(len(users))
+each u in users { io.println(u["name"]) }

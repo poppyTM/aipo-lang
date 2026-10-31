@@ -1,0 +1,13 @@
+enum Shape {
+  Circle(r)
+  Square(s)
+}
+fn area(sh) {
+  match sh {
+  when Shape.Circle(r) { return r * r * 3 }
+  when Shape.Square(s) { return s * s }
+  else { return 0 }
+  }
+}
+io.println(area(Shape.Circle{2}))
+io.println(area(Shape.Square{3}))

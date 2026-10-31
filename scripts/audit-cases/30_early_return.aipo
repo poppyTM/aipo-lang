@@ -1,0 +1,8 @@
+fn classify(n) {
+  if n < 0 { return "neg" }
+  if n == 0 { return "zero" }
+  return "pos"
+}
+io.println(classify(-1))
+io.println(classify(0))
+io.println(classify(7))

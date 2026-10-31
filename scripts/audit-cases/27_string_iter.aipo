@@ -1,0 +1,5 @@
+let s = "abc"
+var out = ""
+each ch in s { out = out + ch + "." }
+io.println(out)
+io.println(len(s))
