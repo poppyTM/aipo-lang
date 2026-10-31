@@ -1,0 +1,8 @@
+capability Clock {
+  fn now() -> Duration
+  fn sleep(d: Duration)
+}
+fn schedule(use clock: Clock) {
+  return clock.now()
+}
+io.println("declared")

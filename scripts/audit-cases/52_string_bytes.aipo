@@ -1,0 +1,6 @@
+let b = Bytes(4)
+b[0] = 65
+b[1] = 66
+io.println(b[0])
+io.println(len(b))
+io.println(b.decode())

@@ -1330,3 +1330,29 @@ io.println(f"checksum:{total}")
     assert_eq!(res, 0);
     assert!(String::from_utf8(stdout).unwrap().starts_with("checksum:"));
 }
+
+#[test]
+fn test_float_to_string_matches_the_vm() {
+    // Canon renders a Float as text: an integral value prints with one decimal and a
+    // fraction prints the digits that recover it. The Wasm backend truncated the
+    // value into an `i32` and printed its address instead.
+    let code = r#"
+fn one_point_zero() -> Int {
+  let s = String(1.0)
+  return len(s)
+}
+fn half() -> Int {
+  let s = String(0.5)
+  return len(s)
+}
+"#;
+    let (mut store, instance) = instantiate_aipo(code);
+    let f = instance
+        .get_typed_func::<(), i64>(&mut store, "one_point_zero")
+        .expect("exported function");
+    assert_eq!(f.call(&mut store, ()).unwrap(), 3);
+    let g = instance
+        .get_typed_func::<(), i64>(&mut store, "half")
+        .expect("exported function");
+    assert_eq!(g.call(&mut store, ()).unwrap(), 3);
+}

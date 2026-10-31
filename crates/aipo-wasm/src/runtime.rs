@@ -4213,6 +4213,162 @@ pub(super) fn build_str_trim_function(alloc_func_idx: u32) -> Function {
     func
 }
 
+/// Builds `__aipo_float_to_str(value: f64) -> i32`.
+///
+/// Matches the VM's rendering: an integral value prints with one decimal (`1.0`);
+/// anything else prints its integer part, a separator, and the fraction digits it
+/// needs. Wasm has no formatting runtime, so the digits are produced here — each
+/// one becomes a one-character string before `str_concat`.
+///
+/// Locals are declared floats first so their indices follow the `f64` parameter;
+/// mixing the order put the `f64` staging slots on `i32` indices, which the Wasm
+/// validator rejects.
+pub(super) fn build_float_to_str_function(
+    alloc_func_idx: u32,
+    int_to_str_idx: u32,
+    str_concat_idx: u32,
+) -> Function {
+    // param 0 = value (f64)
+    // Two floats follow it, then the integer scratch slots:
+    //   1,2 = int_part, frac
+    //   3..7 = out, count, handle, digit, parked
+    const INT_PART: u32 = 1;
+    const FRAC: u32 = 2;
+    const OUT: u32 = 3;
+    const COUNT: u32 = 4;
+    const HANDLE: u32 = 5;
+    const DIGIT: u32 = 6;
+    const PARKED: u32 = 7;
+
+    let mut func = Function::new([(2, ValType::F64), (5, ValType::I32)]);
+
+    // out = int_to_str(trunc(value))
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::F64Trunc);
+    func.instruction(&Instruction::I64TruncF64S);
+    func.instruction(&Instruction::Call(int_to_str_idx));
+    func.instruction(&Instruction::LocalSet(OUT));
+
+    // int_part = trunc(value); frac = value - int_part (non-negative for our use).
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::F64Trunc);
+    func.instruction(&Instruction::LocalSet(INT_PART));
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::LocalGet(INT_PART));
+    func.instruction(&Instruction::F64Sub);
+    func.instruction(&Instruction::LocalSet(FRAC));
+
+    // Append '.'.
+    func.instruction(&Instruction::LocalGet(OUT));
+    one_char_string(&mut func, alloc_func_idx, HANDLE, b'.');
+    func.instruction(&Instruction::Call(str_concat_idx));
+    func.instruction(&Instruction::LocalSet(OUT));
+
+    // An integral value stops at one decimal digit, matching the VM.
+    func.instruction(&Instruction::LocalGet(FRAC));
+    func.instruction(&Instruction::F64Const(0.0.into()));
+    func.instruction(&Instruction::F64Eq);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(OUT));
+    one_char_string(&mut func, alloc_func_idx, HANDLE, b'0');
+    func.instruction(&Instruction::Call(str_concat_idx));
+    func.instruction(&Instruction::LocalSet(OUT));
+    func.instruction(&Instruction::LocalGet(OUT));
+    func.instruction(&Instruction::Return);
+    func.instruction(&Instruction::End);
+
+    // Emit fraction digits, stopping once the remainder is exhausted.
+    func.instruction(&Instruction::I32Const(0));
+    func.instruction(&Instruction::LocalSet(COUNT));
+    func.instruction(&Instruction::Block(BlockType::Empty));
+    func.instruction(&Instruction::Loop(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(COUNT));
+    // A double carries at most sixteen significant decimal digits, which is what
+    // the VM's shortest round-tripping form produces (`1/3` is sixteen threes).
+    func.instruction(&Instruction::I32Const(16));
+    func.instruction(&Instruction::I32GeS);
+    func.instruction(&Instruction::BrIf(1));
+    func.instruction(&Instruction::LocalGet(FRAC));
+    func.instruction(&Instruction::F64Const(10.0.into()));
+    func.instruction(&Instruction::F64Mul);
+    func.instruction(&Instruction::LocalSet(FRAC));
+    // digit = trunc(frac); frac -= digit
+    func.instruction(&Instruction::LocalGet(FRAC));
+    func.instruction(&Instruction::F64Trunc);
+    func.instruction(&Instruction::I32TruncF64S);
+    func.instruction(&Instruction::LocalSet(DIGIT));
+    func.instruction(&Instruction::LocalGet(OUT));
+    func.instruction(&Instruction::LocalGet(DIGIT));
+    func.instruction(&Instruction::I32Const(b'0' as i32));
+    func.instruction(&Instruction::I32Add);
+    one_char_value(&mut func, alloc_func_idx, HANDLE, PARKED);
+    func.instruction(&Instruction::Call(str_concat_idx));
+    func.instruction(&Instruction::LocalSet(OUT));
+    func.instruction(&Instruction::LocalGet(FRAC));
+    func.instruction(&Instruction::LocalGet(DIGIT));
+    func.instruction(&Instruction::F64ConvertI32S);
+    func.instruction(&Instruction::F64Sub);
+    func.instruction(&Instruction::LocalSet(FRAC));
+    func.instruction(&Instruction::LocalGet(FRAC));
+    func.instruction(&Instruction::F64Const(0.0.into()));
+    func.instruction(&Instruction::F64Le);
+    func.instruction(&Instruction::BrIf(1));
+    func.instruction(&Instruction::LocalGet(COUNT));
+    func.instruction(&Instruction::I32Const(1));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::LocalSet(COUNT));
+    func.instruction(&Instruction::Br(0));
+    func.instruction(&Instruction::End);
+    func.instruction(&Instruction::End);
+
+    func.instruction(&Instruction::LocalGet(OUT));
+    func.instruction(&Instruction::End);
+    func
+}
+
+/// Emits a one-character ASCII string for `byte`, leaving its handle on the stack.
+fn one_char_string(func: &mut Function, alloc_func_idx: u32, handle: u32, byte: u8) {
+    func.instruction(&Instruction::I32Const(5));
+    func.instruction(&Instruction::Call(alloc_func_idx));
+    func.instruction(&Instruction::LocalTee(handle));
+    func.instruction(&Instruction::I32Const(1));
+    func.instruction(&Instruction::I32Store(MemArg {
+        offset: 0,
+        align: 2,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalGet(handle));
+    func.instruction(&Instruction::I32Const(i32::from(byte)));
+    func.instruction(&Instruction::I32Store8(MemArg {
+        offset: 4,
+        align: 0,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalGet(handle));
+}
+
+/// Wraps the byte code on the stack into a one-character string.
+fn one_char_value(func: &mut Function, alloc_func_idx: u32, handle: u32, parked: u32) {
+    func.instruction(&Instruction::LocalSet(parked));
+    func.instruction(&Instruction::I32Const(5));
+    func.instruction(&Instruction::Call(alloc_func_idx));
+    func.instruction(&Instruction::LocalTee(handle));
+    func.instruction(&Instruction::I32Const(1));
+    func.instruction(&Instruction::I32Store(MemArg {
+        offset: 0,
+        align: 2,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalGet(handle));
+    func.instruction(&Instruction::LocalGet(parked));
+    func.instruction(&Instruction::I32Store8(MemArg {
+        offset: 4,
+        align: 0,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalGet(handle));
+}
+
 pub(super) fn build_int_to_str_function(alloc_func_idx: u32) -> Function {
     let mut func = Function::new([(5, ValType::I32), (2, ValType::I64)]);
     // local 0: val (param, i64)

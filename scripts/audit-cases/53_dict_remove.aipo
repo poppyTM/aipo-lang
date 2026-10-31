@@ -1,0 +1,7 @@
+var d = {"a": 1, "b": 2}
+io.println(len(d))
+d.remove("a")
+io.println(len(d))
+io.println(d.has("a"))
+d.remove("zzz")
+io.println(len(d))

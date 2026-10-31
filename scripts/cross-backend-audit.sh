@@ -37,11 +37,14 @@ for src in "$CASES"/*.aipo; do
   base=$(basename "$src" .aipo)
   checked=$((checked + 1))
 
-  vm=$("$AIPO" run "$src" 2>&1); vm_code=$?
-  reg=$("$AIPO" run "$src" --engine=reg 2>&1); reg_code=$?
-  wasm=$("$AIPO" run "$src" --wasm 2>&1); wasm_code=$?
-  js=$("$AIPO" build "$src" --target js --out "$WORK/$base" >/dev/null 2>&1 \
-    && (cd "$WORK/$base" && node app.js 2>&1))
+  # A program may print a NUL byte (a raw `Bytes` buffer); command substitution
+  # would warn and drop it, so the byte comparison goes through files.
+  vm=$(mktemp); reg=$(mktemp); wasm=$(mktemp); js=$(mktemp)
+  "$AIPO" run "$src" >"$vm" 2>&1; vm_code=$?
+  "$AIPO" run "$src" --engine=reg >"$reg" 2>&1; reg_code=$?
+  "$AIPO" run "$src" --wasm >"$wasm" 2>&1; wasm_code=$?
+  { "$AIPO" build "$src" --target js --out "$WORK/$base" >/dev/null 2>&1 \
+      && (cd "$WORK/$base" && node app.js >"$js" 2>&1); }
   js_code=$?
 
   # Two backends agree when they both succeed with the same stdout, or when they
@@ -50,7 +53,7 @@ for src in "$CASES"/*.aipo; do
   agrees() {
     local code_a=$1 out_a=$2 code_b=$3 out_b=$4
     if [ "$code_a" -eq 0 ] && [ "$code_b" -eq 0 ]; then
-      [ "$out_a" = "$out_b" ]
+      cmp -s "$out_a" "$out_b"
     else
       [ "$code_a" -ne 0 ] && [ "$code_b" -ne 0 ]
     fi
@@ -60,10 +63,7 @@ for src in "$CASES"/*.aipo; do
   # remedy. That is a documented limitation, not a silent divergence — the backend
   # says what it cannot express instead of producing a different answer.
   declared_limit() {
-    case "$1" in
-      *AIPO_COMPILE_*_UNSUPPORTED*) return 0 ;;
-      *) return 1 ;;
-    esac
+    grep -q 'AIPO_COMPILE_[A-Z]*_UNSUPPORTED' "$1"
   }
 
   case_diff=""
@@ -80,10 +80,10 @@ for src in "$CASES"/*.aipo; do
   if [ -n "$case_diff" ]; then
     differed=$((differed + 1))
     printf 'DIVERGES %s ->%s\n' "$base" "$case_diff"
-    printf '  vm   (%d): %s\n' "$vm_code" "$(printf '%s' "$vm" | head -1)"
-    case "$case_diff" in *reg*) printf '  reg  (%d): %s\n' "$reg_code" "$(printf '%s' "$reg" | head -1)";; esac
-    case "$case_diff" in *wasm*) printf '  wasm (%d): %s\n' "$wasm_code" "$(printf '%s' "$wasm" | head -1)";; esac
-    case "$case_diff" in *js*) printf '  js   (%d): %s\n' "$js_code" "$(printf '%s' "$js" | head -1)";; esac
+    printf '  vm   (%d): %s\n' "$vm_code" "$(head -1 "$vm")"
+    case "$case_diff" in *reg*) printf '  reg  (%d): %s\n' "$reg_code" "$(head -1 "$reg")";; esac
+    case "$case_diff" in *wasm*) printf '  wasm (%d): %s\n' "$wasm_code" "$(head -1 "$wasm")";; esac
+    case "$case_diff" in *js*) printf '  js   (%d): %s\n' "$js_code" "$(head -1 "$js")";; esac
   fi
 done
 

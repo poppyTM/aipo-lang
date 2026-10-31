@@ -1940,6 +1940,22 @@ pub fn compile_hir(program: &HirProgram) -> Result<Vec<u8>, WasmCompileError> {
     let int_to_str_fn = build_int_to_str_function(alloc_func_idx);
     let int_to_str_func_idx = emitter.add_function(int_to_str_type_idx, int_to_str_fn);
     emitter.export_function("__aipo_int_to_str", int_to_str_func_idx);
+
+    // `__aipo_float_to_str(value: f64) -> i32`
+    let float_to_str_fn_type = WasmFnType::new(vec![WasmType::F64], vec![WasmType::I32]);
+    let float_to_str_type_idx = emitter.add_type(float_to_str_fn_type.clone());
+    let float_to_str_fn =
+        build_float_to_str_function(alloc_func_idx, int_to_str_func_idx, str_concat_func_idx);
+    let float_to_str_func_idx = emitter.add_function(float_to_str_type_idx, float_to_str_fn);
+    emitter.export_function("__aipo_float_to_str", float_to_str_func_idx);
+    functions.insert(
+        "__aipo_float_to_str".to_string(),
+        (
+            float_to_str_func_idx,
+            float_to_str_type_idx,
+            float_to_str_fn_type,
+        ),
+    );
     functions.insert(
         "__aipo_int_to_str".to_string(),
         (int_to_str_func_idx, int_to_str_type_idx, int_to_str_fn_type),
@@ -10251,6 +10267,13 @@ fn compile_expr(
                     match arg_kind {
                         LocalKind::String => {
                             coerce_type(func, arg_ty, WasmType::I32);
+                        }
+                        LocalKind::Float => {
+                            // Canon renders a Float as text, not as its bits: `1.0`
+                            // prints with one decimal and a fraction prints its digits.
+                            let (float_to_str_idx, _, _) = functions["__aipo_float_to_str"];
+                            coerce_type(func, arg_ty, WasmType::F64);
+                            func.instruction(&Instruction::Call(float_to_str_idx));
                         }
                         LocalKind::Int => {
                             coerce_type(func, arg_ty, WasmType::I64);

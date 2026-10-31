@@ -894,7 +894,22 @@ impl RegVm {
                             d.borrow_mut().upsert(key.clone(), val);
                         }
                         Value::Bytes(bytes) => {
-                            if let (Value::Int(i), Value::Byte(b)) = (key, &val) {
+                            // A byte slot takes a `Byte` or an `Int` in `0..=255`, the
+                            // same allowance the stack VM makes. Anything else is a
+                            // type mismatch, not a silently skipped write — requiring a
+                            // `Byte` rejected `b[0] = 65`, and accepting everything else
+                            // let `b[0] = 300` vanish without a word.
+                            let byte = match (&val, key) {
+                                (Value::Byte(byte), Value::Int(_)) => *byte,
+                                (Value::Int(n), Value::Int(_)) if (0..=255).contains(n) => *n as u8,
+                                _ => {
+                                    return Err(VmFault::TypeMismatch {
+                                        expected: "Byte or Int in 0..=255".to_string(),
+                                        actual: val.type_name().to_string(),
+                                    });
+                                }
+                            };
+                            if let Value::Int(i) = key {
                                 let mut b_vec = bytes.borrow_mut();
                                 let len = b_vec.len();
                                 #[allow(clippy::cast_possible_wrap)]
@@ -903,7 +918,7 @@ impl RegVm {
                                     .ok()
                                     .filter(|&idx| idx < len)
                                     .ok_or(VmFault::IndexOutOfRange { index: *i, len })?;
-                                b_vec[idx] = *b;
+                                b_vec[idx] = byte;
                             }
                         }
                         other => {
