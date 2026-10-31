@@ -1453,7 +1453,7 @@ impl<'a> Parser<'a> {
             loop {
                 // Struct destructuring: `when { name, age }`
                 if self.check(&TokenKind::LBrace) {
-                    let _ = self.bump(); // consume '{'
+                    self.bump(); // consume '{'
                     self.skip_newlines();
                     let mut fields = Vec::new();
                     while !self.check(&TokenKind::RBrace) && !self.is_at_end() {
