@@ -83,6 +83,13 @@ struct FunctionTable {
     /// representation alone cannot say how to render a returned value. Without this,
     /// `io.println(p.alive())` printed an address instead of `true`.
     return_kinds: HashMap<String, LocalKind>,
+    /// Module-scope `let`/`var` bindings, as Wasm globals.
+    ///
+    /// A module binding is shared by the entry script and every function that
+    /// names it, which a per-frame local cannot express. A Wasm global gives the
+    /// one storage cell both sides read and write, so `total += n` inside a
+    /// function is visible to the script that declared it.
+    module_globals: HashMap<String, (u32, WasmType, LocalKind)>,
 }
 
 impl FunctionTable {
@@ -151,6 +158,7 @@ impl FunctionTable {
                 })
                 .collect(),
             return_kinds: HashMap::new(),
+            module_globals: HashMap::new(),
             defaults: program
                 .items
                 .iter()
@@ -1385,6 +1393,47 @@ pub fn compile_hir(program: &HirProgram) -> Result<Vec<u8>, WasmCompileError> {
     // Defaults are applied here, at the call site: the callee's own runtime
     // cannot distinguish "omitted" from "passed the zero value" in Wasm, and
     // padding with zeros silently replaced `count: Int = 1` with `0`.
+
+    // Module bindings become Wasm globals before any body compiles, so a function
+    // that names one resolves it the same way the entry script does.
+    //
+    // The initializer runs in the entry script, not here: a global starts at zero
+    // and `__top_level__` assigns it, which keeps the evaluation order and side
+    // effects of `let x = expensive()` intact.
+    for statement in &program.statements {
+        let (name, expr) = match statement {
+            HirStmt::Let(name, expr, _) | HirStmt::Var(name, expr, _) => (name, expr),
+            _ => continue,
+        };
+        let ty = infer_expr_type(expr, &HashMap::new(), &functions, &structs, &HashMap::new())
+            .unwrap_or(WasmType::I64);
+        let kind = infer_expr_kind(
+            expr,
+            &HashMap::new(),
+            &functions,
+            &HashMap::new(),
+            &anon_map,
+        );
+        let global_idx = emitter.add_global(
+            GlobalType {
+                val_type: match ty {
+                    WasmType::I32 => ValType::I32,
+                    WasmType::I64 => ValType::I64,
+                    WasmType::F64 => ValType::F64,
+                },
+                mutable: true,
+                shared: false,
+            },
+            &match ty {
+                WasmType::I32 => ConstExpr::i32_const(0),
+                WasmType::I64 => ConstExpr::i64_const(0),
+                WasmType::F64 => ConstExpr::f64_const(0.0f64.into()),
+            },
+        );
+        functions
+            .module_globals
+            .insert(name.clone(), (global_idx, ty, kind));
+    }
 
     // Pass 1: Collect signatures of all declared and anonymous functions.
     //
@@ -7589,6 +7638,10 @@ fn infer_expr_kind(
         HirExpr::Identifier(name, _) => {
             if let Some((_, _, k)) = locals.get(name) {
                 k.clone()
+            } else if let Some((_, _, k)) = functions.module_globals.get(name) {
+                // A module binding lives in a global, not in the current frame, so its
+                // kind has to come from the table rather than from `locals`.
+                k.clone()
             } else if functions.global_bindings.contains(name) {
                 LocalKind::Unknown
             } else if table_indices.contains_key(name) {
@@ -7701,10 +7754,16 @@ fn infer_expr_kind(
                 // receiver resolves either to the instance or to the type name itself
                 // for a static call (`P.build()`).
                 let receiver_type = match &**receiver {
-                    HirExpr::Identifier(name, _) if !locals.contains_key(name) => functions
-                        .declared_types
-                        .contains(name)
-                        .then(|| name.clone()),
+                    // A module binding is an instance, so its name never names a type.
+                    HirExpr::Identifier(name, _)
+                        if !locals.contains_key(name)
+                            && !functions.module_globals.contains_key(name) =>
+                    {
+                        functions
+                            .declared_types
+                            .contains(name)
+                            .then(|| name.clone())
+                    }
                     _ => {
                         match infer_expr_kind(receiver, locals, functions, table_indices, anon_map)
                         {
@@ -7824,7 +7883,7 @@ fn infer_expr_kind(
 /// Compiles a single function's body into a WebAssembly `Function`.
 #[allow(clippy::too_many_arguments)]
 fn compile_function_body(
-    _func_name: &str,
+    func_name: &str,
     params: &[HirParam],
     param_types: &[WasmType],
     return_type: Option<WasmType>,
@@ -7848,8 +7907,8 @@ fn compile_function_body(
         ..async_helpers
     };
 
-    let struct_target = if _func_name.contains('.') {
-        _func_name.split('.').next()
+    let struct_target = if func_name.contains('.') {
+        func_name.split('.').next()
     } else {
         None
     };
@@ -7961,6 +8020,16 @@ fn compile_function_body(
         &mut pre_scan_repeat_id,
     )?;
 
+    // A module binding declared by the entry script lives in its global, not in a
+    // frame local. The pre-scan cannot know which scope it is scanning, so the
+    // promotion happens here, once, for the entry script only: a function that
+    // declares its own `let` of the same name still shadows into a local.
+    if func_name == "__top_level__" {
+        for name in functions.module_globals.keys() {
+            locals.remove(name);
+        }
+    }
+
     // Build the Wasm function with its locals declaration
     let locals_spec = compress_locals(&declared_locals);
     let mut func = Function::new(locals_spec);
@@ -8034,6 +8103,32 @@ fn compile_stmts(
         let is_last = idx + 1 == stmt_count;
         match stmt {
             HirStmt::Let(name, init_expr, _) | HirStmt::Var(name, init_expr, _) => {
+                // A module binding lives in its global; assigning here keeps the
+                // declaration as the single place the initial value is produced, so a
+                // function can never observe a half-initialized module.
+                if let Some(&(global_idx, global_ty, _)) = functions.module_globals.get(name)
+                    && !locals.contains_key(name)
+                {
+                    let expr_ty = compile_expr(
+                        init_expr,
+                        func,
+                        locals,
+                        functions,
+                        control_stack,
+                        structs,
+                        static_strings,
+                        table_indices,
+                        anon_map,
+                        indirect_sigs,
+                        alloc_func_idx,
+                        async_helpers,
+                        struct_depth,
+                        call_depth,
+                    )?;
+                    coerce_type(func, expr_ty, global_ty);
+                    func.instruction(&Instruction::GlobalSet(global_idx));
+                    continue;
+                }
                 let (local_idx, local_ty, _) = locals[name];
                 let expr_ty = compile_expr(
                     init_expr,
@@ -8075,6 +8170,29 @@ fn compile_stmts(
                         )?;
                         coerce_type(func, expr_ty, target_ty);
                         func.instruction(&Instruction::LocalSet(local_idx));
+                    } else if let Some(&(global_idx, global_ty, _)) =
+                        functions.module_globals.get(name)
+                    {
+                        // A module binding is shared with every function that names
+                        // it, so the write goes to the one storage cell both sides use.
+                        let expr_ty = compile_expr(
+                            expr,
+                            func,
+                            locals,
+                            functions,
+                            control_stack,
+                            structs,
+                            static_strings,
+                            table_indices,
+                            anon_map,
+                            indirect_sigs,
+                            alloc_func_idx,
+                            async_helpers,
+                            struct_depth,
+                            call_depth,
+                        )?;
+                        coerce_type(func, expr_ty, global_ty);
+                        func.instruction(&Instruction::GlobalSet(global_idx));
                     } else {
                         // Approximation: unknown/captured assignment target is a no-op.
                         let _ = compile_expr(
@@ -8458,6 +8576,78 @@ fn compile_stmts(
                             )?;
                             emit_binary_op(func, *op, target_ty, expr_ty, *span)?;
                             func.instruction(&Instruction::LocalSet(local_idx));
+                        }
+                    } else if let Some(&(global_idx, global_ty, ref global_kind)) =
+                        functions.module_globals.get(name)
+                    {
+                        // A module binding compounds into its global, which is the one
+                        // cell every function that names it shares.
+                        if *op == BinaryOp::Add && matches!(global_kind, LocalKind::String) {
+                            func.instruction(&Instruction::GlobalGet(global_idx));
+                            let expr_kind =
+                                infer_expr_kind(expr, locals, functions, table_indices, anon_map);
+                            let expr_ty = compile_expr(
+                                expr,
+                                func,
+                                locals,
+                                functions,
+                                control_stack,
+                                structs,
+                                static_strings,
+                                table_indices,
+                                anon_map,
+                                indirect_sigs,
+                                alloc_func_idx,
+                                async_helpers,
+                                struct_depth,
+                                call_depth,
+                            )?;
+                            match expr_kind {
+                                LocalKind::String => {
+                                    coerce_type(func, expr_ty, WasmType::I32);
+                                }
+                                LocalKind::Int => {
+                                    coerce_type(func, expr_ty, WasmType::I64);
+                                    let (int_to_str_idx, _, _) = functions["__aipo_int_to_str"];
+                                    func.instruction(&Instruction::Call(int_to_str_idx));
+                                }
+                                LocalKind::Bool => {
+                                    coerce_type(func, expr_ty, WasmType::I32);
+                                    let (bool_to_str_idx, _, _) = functions["__aipo_bool_to_str"];
+                                    func.instruction(&Instruction::Call(bool_to_str_idx));
+                                }
+                                _ => {
+                                    if expr_ty == WasmType::I64 {
+                                        let (int_to_str_idx, _, _) = functions["__aipo_int_to_str"];
+                                        func.instruction(&Instruction::Call(int_to_str_idx));
+                                    } else {
+                                        coerce_type(func, expr_ty, WasmType::I32);
+                                    }
+                                }
+                            }
+                            let (str_concat_idx, _, _) = functions["__aipo_str_concat"];
+                            func.instruction(&Instruction::Call(str_concat_idx));
+                            func.instruction(&Instruction::GlobalSet(global_idx));
+                        } else {
+                            func.instruction(&Instruction::GlobalGet(global_idx));
+                            let expr_ty = compile_expr(
+                                expr,
+                                func,
+                                locals,
+                                functions,
+                                control_stack,
+                                structs,
+                                static_strings,
+                                table_indices,
+                                anon_map,
+                                indirect_sigs,
+                                alloc_func_idx,
+                                async_helpers,
+                                struct_depth,
+                                call_depth,
+                            )?;
+                            emit_binary_op(func, *op, global_ty, expr_ty, *span)?;
+                            func.instruction(&Instruction::GlobalSet(global_idx));
                         }
                     } else {
                         // Approximation: unknown/captured assignment target is a no-op.
@@ -10649,8 +10839,12 @@ fn compile_expr(
             } else if functions.contains_key(name) {
                 func.instruction(&Instruction::I32Const(0));
                 Ok(WasmType::I32)
+            } else if let Some(&(global_idx, ty, _)) = functions.module_globals.get(name) {
+                func.instruction(&Instruction::GlobalGet(global_idx));
+                Ok(ty)
             } else if functions.declared_vars.contains(name) {
-                // Captured/module-scope binding approximated as zero.
+                // A captured binding in a nested scope is not addressable here; the
+                // module-scope case is handled above through its global.
                 func.instruction(&Instruction::I64Const(0));
                 Ok(WasmType::I64)
             } else {
@@ -13536,8 +13730,13 @@ fn compile_expr(
 
             // Case 0.9: Struct method call: `receiver.method(...)` or static `Type.method(...)`
             if let HirExpr::Dot(receiver, method_name, _) = &**callee {
+                // A receiver that names a module binding is an instance, not a
+                // type: the binding's name is in scope, so it shadows the type.
                 let static_type_call = if let HirExpr::Identifier(rec_name, _) = &**receiver {
-                    if structs.contains_key(rec_name) && !locals.contains_key(rec_name) {
+                    if structs.contains_key(rec_name)
+                        && !locals.contains_key(rec_name)
+                        && !functions.module_globals.contains_key(rec_name)
+                    {
                         Some(rec_name.clone())
                     } else {
                         None
@@ -14422,14 +14621,14 @@ fn compile_expr(
                 _ => None,
             };
 
-            let is_string_receiver = match &**receiver {
-                HirExpr::Identifier(name, _) => locals
-                    .get(name)
-                    .map(|(_, _, kind)| *kind == LocalKind::String)
-                    .unwrap_or(false),
-                HirExpr::Literal(Literal::String(..), _) => true,
-                _ => false,
-            };
+            // The kind comes from `infer_expr_kind` rather than from `locals` alone,
+            // because a module binding lives in a global and a call result has no
+            // local at all. Reading only `locals` classified `w.len()` on a
+            // module-scope string as a byte length.
+            let is_string_receiver = matches!(
+                infer_expr_kind(receiver, locals, functions, table_indices, anon_map),
+                LocalKind::String
+            );
 
             if field_name == "len"
                 && (is_string_receiver
