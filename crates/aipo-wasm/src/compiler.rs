@@ -5,8 +5,8 @@ use crate::error::WasmCompileError;
 use crate::types::{WasmFnType, WasmType};
 use aipo_ast::{BinaryOp, Literal, UnaryOp};
 use aipo_hir::{
-    HirAttemptStmt, HirExpr, HirFunctionDecl, HirIfStmt, HirItem, HirMatchStmt, HirParam,
-    HirProgram, HirStmt, HirStructDecl,
+    HirAttemptStmt, HirCallArg, HirExpr, HirFunctionDecl, HirIfStmt, HirItem, HirMatchStmt,
+    HirParam, HirProgram, HirStmt, HirStructDecl,
 };
 use aipo_lexer::{parse_float_literal, parse_int_literal};
 use aipo_source::SourceSpan;
@@ -90,6 +90,13 @@ struct FunctionTable {
     /// one storage cell both sides read and write, so `total += n` inside a
     /// function is visible to the script that declared it.
     module_globals: HashMap<String, (u32, WasmType, LocalKind)>,
+    /// Semantic kind of each declared parameter, by function name.
+    ///
+    /// An unannotated parameter that receives an `i32` may hold a `String`, a
+    /// `List`, a `Dict` or a struct, and the representation alone cannot tell them
+    /// apart. Without this, `fn size(xs) { return len(xs) }` lowered `len` through
+    /// the String path and printed a byte count.
+    param_kinds: HashMap<String, Vec<Option<LocalKind>>>,
 }
 
 impl FunctionTable {
@@ -159,6 +166,7 @@ impl FunctionTable {
                 .collect(),
             return_kinds: HashMap::new(),
             module_globals: HashMap::new(),
+            param_kinds: HashMap::new(),
             defaults: program
                 .items
                 .iter()
@@ -1483,6 +1491,45 @@ pub fn compile_hir(program: &HirProgram) -> Result<Vec<u8>, WasmCompileError> {
         functions.return_kinds.insert(func.name.clone(), kind);
     }
 
+    // A parameter's semantic kind is declared, or else learned from the calls that
+    // reach it. Declared kinds seed the table so the learning pass knows how many
+    // parameters each function has.
+    for func in &func_decls {
+        let declared_kinds: Vec<Option<LocalKind>> = func
+            .params
+            .iter()
+            .map(|param| {
+                let declared = annotated_kind(param.type_annotation.as_ref(), &structs);
+                if !matches!(declared, LocalKind::Unknown) {
+                    return Some(declared);
+                }
+                // A default is a witness for a parameter every call leaves out, so
+                // `fn remember(value, into = [])` is known to take a List.
+                let default = param.default.as_ref()?;
+                let kind = infer_expr_kind(
+                    default,
+                    &HashMap::new(),
+                    &functions,
+                    &HashMap::new(),
+                    &anon_map,
+                );
+                (!matches!(kind, LocalKind::Unknown)).then_some(kind)
+            })
+            .collect();
+        functions
+            .param_kinds
+            .insert(func.name.clone(), declared_kinds);
+    }
+    let learned_kinds = collect_param_kinds(program, &func_decls, &functions, &structs);
+    for (name, learned) in learned_kinds {
+        let row = functions.param_kinds.entry(name).or_default();
+        for (index, hint) in learned.into_iter().enumerate() {
+            if index < row.len() && row[index].is_none() {
+                row[index] = hint;
+            }
+        }
+    }
+
     // Register async wrapper function signatures (returning task_ptr: i32)
     let mut async_wrapper_infos = Vec::new();
     for (name, inner_body_name, params) in &async_wrappers {
@@ -1590,6 +1637,253 @@ pub fn compile_hir(program: &HirProgram) -> Result<Vec<u8>, WasmCompileError> {
     }
 
     Ok(emitter.finish())
+}
+
+/// Learns the semantic kind of each declared parameter from the calls that reach it.
+///
+/// An unannotated parameter takes its representation from the arguments (`i32` for
+/// a `String`, `List`, `Dict` or struct), but those four share one representation.
+/// The body still has to know which one it received: `len(value)` counts bytes on a
+/// `String` and elements on a `List`. This pass reads the argument kinds at every
+/// call site until the answer stops moving.
+fn collect_param_kinds(
+    program: &HirProgram,
+    func_decls: &[HirFunctionDecl],
+    functions: &FunctionTable,
+    structs: &HashMap<String, StructLayout>,
+) -> HashMap<String, Vec<Option<LocalKind>>> {
+    let mut hints: HashMap<String, Vec<Option<LocalKind>>> = HashMap::new();
+    for _ in 0..3 {
+        let mut changed = false;
+        for func in func_decls {
+            let mut env: HashMap<String, LocalKind> = HashMap::new();
+            for (index, param) in func.params.iter().enumerate() {
+                let declared = annotated_kind(param.type_annotation.as_ref(), structs);
+                let kind = if matches!(declared, LocalKind::Unknown) {
+                    hints
+                        .get(&func.name)
+                        .and_then(|row| row.get(index))
+                        .cloned()
+                        .flatten()
+                        .unwrap_or(LocalKind::Unknown)
+                } else {
+                    declared
+                };
+                env.insert(param.name.clone(), kind);
+            }
+            walk_param_kinds(
+                &func.body,
+                &mut env,
+                &mut hints,
+                functions,
+                structs,
+                &mut changed,
+            );
+        }
+        let mut env: HashMap<String, LocalKind> = HashMap::new();
+        walk_param_kinds(
+            &program.statements,
+            &mut env,
+            &mut hints,
+            functions,
+            structs,
+            &mut changed,
+        );
+        if !changed {
+            break;
+        }
+    }
+    hints
+}
+
+/// Records the argument kinds of every call and keeps the local environment current.
+fn walk_param_kinds(
+    stmts: &[HirStmt],
+    env: &mut HashMap<String, LocalKind>,
+    hints: &mut HashMap<String, Vec<Option<LocalKind>>>,
+    functions: &FunctionTable,
+    structs: &HashMap<String, StructLayout>,
+    changed: &mut bool,
+) {
+    for stmt in stmts {
+        match stmt {
+            HirStmt::Let(name, expr, _) | HirStmt::Var(name, expr, _) => {
+                let kind = kind_with_env(expr, env, functions, structs);
+                env.insert(name.clone(), kind);
+                walk_param_kinds_expr(expr, env, hints, functions, structs, changed);
+            }
+            HirStmt::Assign(_, expr, _) | HirStmt::CompoundAssign(_, _, expr, _) => {
+                walk_param_kinds_expr(expr, env, hints, functions, structs, changed);
+            }
+            HirStmt::Expr(expr) | HirStmt::Return(Some(expr), _) | HirStmt::Fail(expr, _) => {
+                walk_param_kinds_expr(expr, env, hints, functions, structs, changed);
+            }
+            HirStmt::If(s) => {
+                walk_param_kinds_expr(&s.condition, env, hints, functions, structs, changed);
+                walk_param_kinds(&s.then_branch, env, hints, functions, structs, changed);
+                for (cond, body) in &s.elif_branches {
+                    walk_param_kinds_expr(cond, env, hints, functions, structs, changed);
+                    walk_param_kinds(body, env, hints, functions, structs, changed);
+                }
+                if let Some(body) = &s.else_branch {
+                    walk_param_kinds(body, env, hints, functions, structs, changed);
+                }
+            }
+            HirStmt::While(cond, body, _) => {
+                walk_param_kinds_expr(cond, env, hints, functions, structs, changed);
+                walk_param_kinds(body, env, hints, functions, structs, changed);
+            }
+            HirStmt::Loop(body, _) => {
+                walk_param_kinds(body, env, hints, functions, structs, changed);
+            }
+            HirStmt::Repeat(count, _, body, _) => {
+                walk_param_kinds_expr(count, env, hints, functions, structs, changed);
+                walk_param_kinds(body, env, hints, functions, structs, changed);
+            }
+            HirStmt::Each(vars, iterable, body, _) => {
+                walk_param_kinds_expr(iterable, env, hints, functions, structs, changed);
+                let element = match kind_with_env(iterable, env, functions, structs) {
+                    LocalKind::List(element) => (*element).clone(),
+                    _ => LocalKind::Unknown,
+                };
+                for var in vars {
+                    env.insert(var.clone(), element.clone());
+                }
+                walk_param_kinds(body, env, hints, functions, structs, changed);
+            }
+            HirStmt::Attempt(attempt) => {
+                walk_param_kinds(&attempt.body, env, hints, functions, structs, changed);
+                walk_param_kinds(&attempt.handler, env, hints, functions, structs, changed);
+            }
+            HirStmt::Match(m) => {
+                for arm in &m.when_arms {
+                    walk_param_kinds(&arm.body, env, hints, functions, structs, changed);
+                }
+                if let Some(body) = &m.else_arm {
+                    walk_param_kinds(body, env, hints, functions, structs, changed);
+                }
+            }
+            HirStmt::AwaitDo(body, _) => {
+                walk_param_kinds(body, env, hints, functions, structs, changed);
+            }
+            HirStmt::FnDecl(decl) => {
+                // A nested `fn` sees its own parameters, but it can still call a
+                // declared function, so its body is walked with the enclosing env.
+                walk_param_kinds(&decl.body, env, hints, functions, structs, changed);
+            }
+            _ => {}
+        }
+    }
+}
+
+/// Walks one expression, recording argument kinds for declared-function calls.
+fn walk_param_kinds_expr(
+    expr: &HirExpr,
+    env: &HashMap<String, LocalKind>,
+    hints: &mut HashMap<String, Vec<Option<LocalKind>>>,
+    functions: &FunctionTable,
+    structs: &HashMap<String, StructLayout>,
+    changed: &mut bool,
+) {
+    match expr {
+        HirExpr::Call(callee, args, _) => {
+            if let HirExpr::Identifier(name, _) = &**callee
+                && !env.contains_key(name)
+                && let Some(row_spec) = functions.param_kinds.get(name)
+            {
+                let mut row = hints.remove(name).unwrap_or_default();
+                if row.len() < row_spec.len() {
+                    row.resize(row_spec.len(), None);
+                }
+                for (index, arg) in args.iter().enumerate() {
+                    if index >= row.len() || row[index].is_some() {
+                        continue;
+                    }
+                    let observed = kind_with_env(&arg.value, env, functions, structs);
+                    if !matches!(observed, LocalKind::Unknown) {
+                        row[index] = Some(observed);
+                        *changed = true;
+                    }
+                }
+                hints.insert(name.clone(), row);
+            }
+            for arg in args {
+                walk_param_kinds_expr(&arg.value, env, hints, functions, structs, changed);
+            }
+        }
+        HirExpr::Binary(_, left, right, _) => {
+            walk_param_kinds_expr(left, env, hints, functions, structs, changed);
+            walk_param_kinds_expr(right, env, hints, functions, structs, changed);
+        }
+        HirExpr::Unary(_, inner, _)
+        | HirExpr::Dot(inner, _, _)
+        | HirExpr::QuestionDot(inner, _, _)
+        | HirExpr::Await(inner, _)
+        | HirExpr::Try(inner, _)
+        | HirExpr::With(inner, _, _) => {
+            walk_param_kinds_expr(inner, env, hints, functions, structs, changed);
+        }
+        HirExpr::Index(target, index, _) => {
+            walk_param_kinds_expr(target, env, hints, functions, structs, changed);
+            walk_param_kinds_expr(index, env, hints, functions, structs, changed);
+        }
+        HirExpr::List(items, _) => {
+            for item in items {
+                walk_param_kinds_expr(item, env, hints, functions, structs, changed);
+            }
+        }
+        HirExpr::Dict(entries, _) => {
+            for (key, value) in entries {
+                walk_param_kinds_expr(key, env, hints, functions, structs, changed);
+                walk_param_kinds_expr(value, env, hints, functions, structs, changed);
+            }
+        }
+        HirExpr::Construct(_, fields, _) => {
+            for (_, value) in fields {
+                walk_param_kinds_expr(value, env, hints, functions, structs, changed);
+            }
+        }
+        HirExpr::If(cond, then_expr, else_expr, _) => {
+            walk_param_kinds_expr(cond, env, hints, functions, structs, changed);
+            walk_param_kinds_expr(then_expr, env, hints, functions, structs, changed);
+            walk_param_kinds_expr(else_expr, env, hints, functions, structs, changed);
+        }
+        HirExpr::OrElse(left, right, _) => {
+            walk_param_kinds_expr(left, env, hints, functions, structs, changed);
+            walk_param_kinds_expr(right, env, hints, functions, structs, changed);
+        }
+        HirExpr::Fn(_) | HirExpr::Literal(..) | HirExpr::Identifier(..) => {}
+    }
+}
+
+/// Infers an expression kind against a kind-only environment.
+fn kind_with_env(
+    expr: &HirExpr,
+    env: &HashMap<String, LocalKind>,
+    functions: &FunctionTable,
+    structs: &HashMap<String, StructLayout>,
+) -> LocalKind {
+    let mapped: HashMap<String, (u32, WasmType, LocalKind)> = env
+        .iter()
+        .map(|(name, kind)| {
+            let ty = match kind {
+                LocalKind::Float => WasmType::F64,
+                LocalKind::Int => WasmType::I64,
+                LocalKind::String
+                | LocalKind::List(_)
+                | LocalKind::Dict(_)
+                | LocalKind::Bytes
+                | LocalKind::Struct(_)
+                | LocalKind::Fn(_)
+                | LocalKind::Task
+                | LocalKind::Range => WasmType::I32,
+                _ => WasmType::I64,
+            };
+            (name.clone(), (0, ty, kind.clone()))
+        })
+        .collect();
+    let _ = structs;
+    infer_expr_kind(expr, &mapped, functions, &HashMap::new(), &HashMap::new())
 }
 
 /// Collects all anonymous functions and closures from the program.
@@ -6422,6 +6716,50 @@ fn collect_param_hints(
     declared.sort_unstable();
 
     let mut hints: HashMap<String, Vec<Option<WasmType>>> = HashMap::new();
+    // A default is a witness too: `fn remember(value, into = [])` is called with
+    // one argument, so the call site says nothing about `into`, but the default it
+    // is filled with is a list handle and the body has to know that.
+    for item in &program.items {
+        if let HirItem::Fn(decl) = item {
+            for (index, param) in decl.params.iter().enumerate() {
+                // Later defaults may name earlier parameters (`tag = name`), so the
+                // already-resolved ones stay in scope while this one is read.
+                let known: HashMap<String, WasmType> = decl
+                    .params
+                    .iter()
+                    .enumerate()
+                    .take(index)
+                    .filter_map(|(earlier_index, earlier)| {
+                        // The earlier parameter's own row entry is the witness, which is
+                        // what makes `tag = name` inherit `name`'s representation.
+                        hints
+                            .get(&decl.name)
+                            .and_then(|row| row.get(earlier_index).copied())
+                            .flatten()
+                            .or_else(|| {
+                                earlier
+                                    .type_annotation
+                                    .as_ref()
+                                    .map(|_| param_wasm_type(earlier))
+                            })
+                            .map(|ty| (earlier.name.clone(), ty))
+                    })
+                    .collect();
+                let Some(default) = &param.default else {
+                    continue;
+                };
+                let Some(observed) = static_expr_type(default, &known, &HashMap::new(), structs)
+                else {
+                    continue;
+                };
+                let row = hints.entry(decl.name.clone()).or_default();
+                if row.len() <= index {
+                    row.resize(index + 1, None);
+                }
+                row[index] = Some(observed);
+            }
+        }
+    }
     let mut signatures: HashMap<String, (Vec<WasmType>, Option<WasmType>)> = HashMap::new();
 
     for _ in 0..3 {
@@ -7929,7 +8267,22 @@ fn compile_function_body(
             {
                 LocalKind::Struct(struct_target.unwrap().to_string())
             }
-            LocalKind::Unknown if ty == WasmType::I32 => LocalKind::String,
+            // An unannotated parameter keeps the kind the call sites revealed. The
+            // representation only says `i32`, which a String, a List, a Dict and a
+            // struct all share.
+            LocalKind::Unknown => functions
+                .param_kinds
+                .get(func_name)
+                .and_then(|row| row.get(i))
+                .cloned()
+                .flatten()
+                .unwrap_or_else(|| {
+                    if ty == WasmType::I32 {
+                        LocalKind::String
+                    } else {
+                        LocalKind::Unknown
+                    }
+                }),
             other => other,
         };
         locals.insert(param.name.clone(), (i as u32, ty, kind));
@@ -14071,68 +14424,153 @@ fn compile_expr(
                 }
                 if !locals.contains_key(func_name) && functions.contains_key(func_name) {
                     let (func_idx, _, ref fn_type) = functions[func_name];
+                    // Named arguments are reordered into declaration order before
+                    // anything is evaluated. `scale(factor = 5, x = 4)` otherwise passed
+                    // 5 as `x`, which is what made the result 25 instead of 20.
+                    let ordered: Vec<Option<&HirCallArg>> = {
+                        let names = functions.param_names.get(func_name);
+                        (0..fn_type.params.len())
+                            .map(|position| {
+                                let by_name = names.and_then(|names| names.get(position)).and_then(
+                                    |param_name| {
+                                        args.iter().find(|arg| {
+                                            arg.name.as_deref() == Some(param_name.as_str())
+                                        })
+                                    },
+                                );
+                                by_name.or_else(|| {
+                                    // A positional argument keeps its written position,
+                                    // counted over the unnamed prefix only.
+                                    let positional_index =
+                                        args.iter().take_while(|arg| arg.name.is_none()).count();
+                                    if position < positional_index {
+                                        args.get(position)
+                                    } else {
+                                        None
+                                    }
+                                })
+                            })
+                            .collect()
+                    };
                     // Tolerate named/defaults arity mismatches by padding with zero defaults.
+                    //
+                    // A default may name an earlier parameter (`label(name, tag = name)`),
+                    // so the parameters already passed become locals while the later
+                    // defaults are compiled.
                     let nparams = fn_type.params.len();
-                    let mut compiled = 0usize;
-                    for (arg, &expected_ty) in args.iter().zip(fn_type.params.iter()) {
-                        let actual_ty = compile_expr(
-                            &arg.value,
-                            func,
-                            locals,
-                            functions,
-                            control_stack,
-                            structs,
-                            static_strings,
-                            table_indices,
-                            anon_map,
-                            indirect_sigs,
-                            alloc_func_idx,
-                            async_helpers,
-                            struct_depth,
-                            call_depth,
-                        )?;
-                        coerce_type(func, actual_ty, expected_ty);
-                        compiled += 1;
-                    }
-                    // If too few args, fill the remaining parameters with their
-                    // declared defaults. Wasm cannot tell an omitted argument from a
-                    // passed zero, so the default has to be evaluated here, at the
-                    // call site, where the declaration is still in hand.
-                    for (position, &expected_ty) in fn_type.params.iter().enumerate().skip(compiled)
-                    {
-                        let default = functions
-                            .defaults
-                            .get(func_name)
-                            .and_then(|row| row.get(position))
-                            .and_then(|value| value.as_ref());
-                        if let Some(default) = default {
-                            let d_ty = compile_expr(
-                                default,
-                                func,
-                                locals,
-                                functions,
-                                control_stack,
-                                structs,
-                                static_strings,
-                                table_indices,
-                                anon_map,
-                                indirect_sigs,
-                                alloc_func_idx,
-                                async_helpers,
-                                struct_depth,
-                                call_depth,
-                            )?;
-                            coerce_type(func, d_ty, expected_ty);
-                        } else {
-                            match expected_ty {
-                                WasmType::F64 => {
-                                    func.instruction(&Instruction::F64Const(0.0.into()));
+                    let mut default_locals = locals.clone();
+                    for (position, &expected_ty) in fn_type.params.iter().enumerate() {
+                        match ordered.get(position).copied().flatten() {
+                            Some(arg) => {
+                                let actual_ty = compile_expr(
+                                    &arg.value,
+                                    func,
+                                    &default_locals,
+                                    functions,
+                                    control_stack,
+                                    structs,
+                                    static_strings,
+                                    table_indices,
+                                    anon_map,
+                                    indirect_sigs,
+                                    alloc_func_idx,
+                                    async_helpers,
+                                    struct_depth,
+                                    call_depth,
+                                )?;
+                                coerce_type(func, actual_ty, expected_ty);
+                                if let Some(param_name) = functions
+                                    .param_names
+                                    .get(func_name)
+                                    .and_then(|names| names.get(position))
+                                {
+                                    // A later default may name this parameter, so its value
+                                    // is also kept in a scratch slot of the same
+                                    // representation. The stack copy stays where the call
+                                    // expects it.
+                                    let slot = match expected_ty {
+                                        WasmType::F64 => {
+                                            locals[&format!("__f64_temp_{}", call_depth.min(7))].0
+                                        }
+                                        WasmType::I32 => {
+                                            locals[&format!("__call_temp_{}", call_depth.min(7))].0
+                                        }
+                                        WasmType::I64 => {
+                                            locals[&format!("__i64_temp_{}", call_depth.min(7))].0
+                                        }
+                                    };
+                                    func.instruction(&Instruction::LocalTee(slot));
+                                    default_locals.insert(
+                                        param_name.clone(),
+                                        (slot, expected_ty, LocalKind::Unknown),
+                                    );
                                 }
-                                WasmType::I32 => {
-                                    func.instruction(&Instruction::I32Const(0));
-                                }
-                                WasmType::I64 => {
-                                    func.instruction(&Instruction::I64Const(0));
+                            }
+                            None => {
+                                let default = functions
+                                    .defaults
+                                    .get(func_name)
+                                    .and_then(|row| row.get(position))
+                                    .and_then(|value| value.as_ref());
+                                if let Some(default) = default {
+                                    let d_ty = compile_expr(
+                                        default,
+                                        func,
+                                        &default_locals,
+                                        functions,
+                                        control_stack,
+                                        structs,
+                                        static_strings,
+                                        table_indices,
+                                        anon_map,
+                                        indirect_sigs,
+                                        alloc_func_idx,
+                                        async_helpers,
+                                        struct_depth,
+                                        call_depth,
+                                    )?;
+                                    coerce_type(func, d_ty, expected_ty);
+                                    // A later default can name this parameter too
+                                    // (`label(name = "anon", tag = name)`), so the value
+                                    // this default produced stays reachable by name.
+                                    if let Some(param_name) = functions
+                                        .param_names
+                                        .get(func_name)
+                                        .and_then(|names| names.get(position))
+                                    {
+                                        let slot = match expected_ty {
+                                            WasmType::F64 => {
+                                                locals[&format!("__f64_temp_{}", call_depth.min(7))]
+                                                    .0
+                                            }
+                                            WasmType::I32 => {
+                                                locals
+                                                    [&format!("__call_temp_{}", call_depth.min(7))]
+                                                    .0
+                                            }
+                                            WasmType::I64 => {
+                                                locals[&format!("__i64_temp_{}", call_depth.min(7))]
+                                                    .0
+                                            }
+                                        };
+                                        func.instruction(&Instruction::LocalTee(slot));
+                                        default_locals.insert(
+                                            param_name.clone(),
+                                            (slot, expected_ty, LocalKind::Unknown),
+                                        );
+                                    }
+                                } else {
+                                    match expected_ty {
+                                        WasmType::F64 => {
+                                            func.instruction(&Instruction::F64Const(0.0.into()));
+                                        }
+                                        WasmType::I32 => {
+                                            func.instruction(&Instruction::I32Const(0));
+                                        }
+                                        WasmType::I64 => {
+                                            func.instruction(&Instruction::I64Const(0));
+                                        }
+                                    }
                                 }
                             }
                         }
