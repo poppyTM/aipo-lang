@@ -1,9 +1,11 @@
 //! WebAssembly (Wasm 2.0 / WASI) binary module emitter and execution foundation for Aipo (ADP-013).
 
+mod analysis;
 pub mod compiler;
 pub mod emitter;
 pub mod error;
 pub mod runner;
+mod runtime;
 pub mod types;
 
 pub use compiler::compile_hir;

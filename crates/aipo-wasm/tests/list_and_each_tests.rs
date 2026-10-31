@@ -330,8 +330,8 @@ fn find_missing() -> Int {
 
 fn reverse_first() -> Int {
   let xs = [1, 2, 3]
-  xs.reverse()
-  return xs.first()
+  # `reverse` answers a new list; the receiver keeps its order.
+  return xs.reverse().first()
 }
 "#;
     let (mut store, instance) = instantiate_aipo(code);
