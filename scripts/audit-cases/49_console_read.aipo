@@ -1,0 +1,14 @@
+struct Pair { var a
+ var b }
+Pair:sum(self) { return self.a + self.b }
+Pair:swap(var self) {
+  let t = self.a
+  self.a = self.b
+  self.b = t
+  return self
+}
+var p = Pair{a = 1, b = 2}
+io.println(p.sum())
+p.swap()
+io.println(p.sum())
+io.println(String(p.a) + "," + String(p.b))

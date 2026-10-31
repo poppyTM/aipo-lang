@@ -1,0 +1,12 @@
+fn describe(n) {
+  match n {
+  when 0 { return "zero" }
+  when 1 { return "one" }
+  when 42 { return "answer" }
+  else { return "many" }
+  }
+}
+io.println(describe(0))
+io.println(describe(1))
+io.println(describe(42))
+io.println(describe(7))

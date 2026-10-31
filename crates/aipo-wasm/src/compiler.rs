@@ -4612,6 +4612,26 @@ fn compile_stmts(
                     if let Some(expected_ret) = return_type {
                         coerce_type(func, expr_ty, expected_ret);
                     }
+                    // A returned expression can itself fail (`return Int("no")`).
+                    // Left unchecked, the function hands back an unset value and the
+                    // enclosing `attempt` never runs its handler.
+                    if expr_may_fail(expr) {
+                        let value_ty = return_type.unwrap_or(expr_ty);
+                        if let Some(&(staged, _, _)) =
+                            locals.get(&format!("__or_else_temp_{}", call_depth.min(7)))
+                        {
+                            coerce_type(func, value_ty, WasmType::I64);
+                            func.instruction(&Instruction::LocalSet(staged));
+                            emit_failure_check(
+                                func,
+                                control_stack,
+                                async_helpers.fail_globals,
+                                return_type,
+                            );
+                            func.instruction(&Instruction::LocalGet(staged));
+                            coerce_type(func, WasmType::I64, value_ty);
+                        }
+                    }
                 } else if return_type.is_some() {
                     return Err(WasmCompileError::TypeMismatch {
                         expected: format!("{return_type:?}"),

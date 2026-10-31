@@ -1,0 +1,9 @@
+fn parse(s) {
+  attempt {
+    return Int(s)
+  } failed e {
+    return -1
+  }
+}
+io.println(parse("42"))
+io.println(parse("no"))

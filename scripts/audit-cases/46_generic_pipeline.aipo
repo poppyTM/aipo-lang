@@ -1,0 +1,6 @@
+let words = ["b", "a", "c"]
+let out = words
+  .transform(fn(w) { return string.upper(w) })
+  .filter(fn(w) { return w != "B" })
+io.println(out)
+io.println(words)

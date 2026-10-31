@@ -1,0 +1,5 @@
+io.println(1 == 1.0)
+io.println(1 == 1.5)
+io.println(2.0 + 1)
+io.println(String(3.0))
+io.println(1 < 1.5)
