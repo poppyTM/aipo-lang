@@ -6754,7 +6754,17 @@ fn compile_expr(
                         (BinaryOp::Sub, _) => func.instruction(&Instruction::I64Sub),
                         (BinaryOp::Mul, WasmType::F64) => func.instruction(&Instruction::F64Mul),
                         (BinaryOp::Mul, _) => func.instruction(&Instruction::I64Mul),
-                        _ => unreachable!(),
+                        // The enclosing match accepts only these three operators;
+                        // reaching here means the lowering and this arm disagree, which
+                        // is a compiler defect reported as a diagnostic, never a panic.
+                        (other, _) => {
+                            return Err(WasmCompileError::UnsupportedExpr {
+                                message: format!(
+                                    "compound assignment with `{other:?}` reached the Wasm backend"
+                                ),
+                                span: *span,
+                            });
+                        }
                     };
                     Ok(target_ty)
                 }
@@ -7008,7 +7018,14 @@ fn compile_expr(
                             func.instruction(&Instruction::F64Ge)
                         }
                         (BinaryOp::GreaterEqual, _) => func.instruction(&Instruction::I64GeS),
-                        _ => unreachable!(),
+                        (other, _) => {
+                            return Err(WasmCompileError::UnsupportedExpr {
+                                message: format!(
+                                    "comparison `{other:?}` reached the Wasm backend outside its accepted set"
+                                ),
+                                span: *span,
+                            });
+                        }
                     };
                     Ok(WasmType::I32)
                 }
@@ -9297,7 +9314,14 @@ fn compile_expr(
                             func.instruction(&Instruction::Call(idx));
                             return Ok(WasmType::I32);
                         }
-                        _ => unreachable!(),
+                        other => {
+                            return Err(WasmCompileError::UnsupportedExpr {
+                                message: format!(
+                                    "dictionary method `{other}` reached a dispatch arm that does not handle it"
+                                ),
+                                span: *span,
+                            });
+                        }
                     }
                 }
             }
@@ -9424,7 +9448,14 @@ fn compile_expr(
                                     align: 0,
                                     memory_index: 0,
                                 })),
-                            _ => unreachable!(),
+                            other => {
+                                return Err(WasmCompileError::UnsupportedExpr {
+                                    message: format!(
+                                        "byte read method `{other}` reached a dispatch arm that does not handle it"
+                                    ),
+                                    span: *span,
+                                });
+                            }
                         };
                         return Ok(WasmType::I64);
                     }
@@ -9531,7 +9562,14 @@ fn compile_expr(
                                     memory_index: 0,
                                 }));
                             }
-                            _ => unreachable!(),
+                            other => {
+                                return Err(WasmCompileError::UnsupportedExpr {
+                                    message: format!(
+                                        "byte write method `{other}` reached a dispatch arm that does not handle it"
+                                    ),
+                                    span: *span,
+                                });
+                            }
                         };
                         func.instruction(&Instruction::I64Const(0));
                         return Ok(WasmType::I64);
