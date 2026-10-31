@@ -1,0 +1,11 @@
+fn make() {
+  var n = 0
+  let f = fn () { n = n + 1
+ return n }
+  return f
+}
+let a = make()
+io.println(a())
+io.println(a())
+let b = make()
+io.println(b())

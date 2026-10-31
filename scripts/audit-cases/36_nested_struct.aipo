@@ -1,0 +1,8 @@
+struct Inner { var v }
+struct Outer { var i
+ var n }
+let o = Outer{i = Inner{v = 7}, n = 2}
+io.println(o.i.v)
+o.i.v = 9
+io.println(o.i.v)
+io.println(o.n)

@@ -1,0 +1,6 @@
+let xs = [3,1,2]
+let ys = xs.sort_by(fn(a, b) { return b - a })
+io.println(ys)
+io.println(xs)
+let ws = ["bb","a","ccc"]
+io.println(ws.sort_by(fn(a, b) { return len(a) - len(b) }))

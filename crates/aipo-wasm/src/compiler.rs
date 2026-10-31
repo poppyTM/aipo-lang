@@ -6541,6 +6541,17 @@ fn compile_expr(
                         message: format!("invalid integer literal `{raw}`"),
                         span: *span,
                     })?;
+                // Canon fixes the public `Int` at `±(2^53 - 1)` so a value is exact on
+                // every backend. Wasm's `i64` would hold a wider literal the VM refuses
+                // at runtime, which is a silent divergence rather than a capability.
+                if !(-(1i64 << 53) + 1..=(1i64 << 53) - 1).contains(&val) {
+                    return Err(WasmCompileError::UnsupportedExpr {
+                        message: format!(
+                            "integer literal `{raw}` exceeds the `Int` range ±(2^53 - 1)"
+                        ),
+                        span: *span,
+                    });
+                }
                 func.instruction(&Instruction::I64Const(val));
                 Ok(WasmType::I64)
             }
@@ -6599,6 +6610,30 @@ fn compile_expr(
             }
         }
         HirExpr::Fn(func_expr) => {
+            // An anonymous function compiles into its own top-level frame, so it can
+            // only read module bindings. Naming an enclosing local there reads a slot
+            // that frame does not have and silently yields `none`/`0`; refusing is the
+            // only answer that keeps this backend honest.
+            let mut own: HashSet<String> =
+                func_expr.params.iter().map(|p| p.name.clone()).collect();
+            own.extend(func_expr.body.iter().filter_map(|stmt| match stmt {
+                HirStmt::Let(name, ..) | HirStmt::Var(name, ..) => Some(name.clone()),
+                _ => None,
+            }));
+            let free = free_names_in_body(&func_expr.body);
+            if let Some(captured) = free.iter().find(|name| {
+                !own.contains(*name)
+                    && !functions.module_globals.contains_key(*name)
+                    && !functions.symbols.contains_key(*name)
+                    && locals.contains_key(*name)
+            }) {
+                return Err(WasmCompileError::UnsupportedExpr {
+                    message: format!(
+                        "closure captures `{captured}` from the enclosing frame; use --engine=vm"
+                    ),
+                    span: func_expr.span,
+                });
+            }
             if let Some(anon_name) = anon_map.get(&func_expr.span) {
                 if let Some(&table_idx) = table_indices.get(anon_name) {
                     func.instruction(&Instruction::I32Const(table_idx as i32));

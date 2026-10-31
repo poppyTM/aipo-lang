@@ -18,7 +18,7 @@
 | Stack VM | 36/36 | 0 | 36/36 | Referência de semântica |
 | RegVM | 20/36 | 16/36 | 36/36 | Fallback: métodos de ordem superior, handlers de falha e IR não representável |
 | JavaScript | 36/36 | 0 | 36/36 | Bundle ESM; requer Node com ESM |
-| WebAssembly | 29/36 | — | 29/36 | Subset; falhas de compilação emitem `AIPO_COMPILE_WASM_UNSUPPORTED`. Cobre `init`/`invariant` com rollback de mutação, módulo `string` completo, `Dict` posicional, `await`/`task.spawn`/`task.all` e contratos `T?`. Limites (declarados, não silenciosos): `fn` aninhado que captura variável do frame externo, normalização NFC e combinadores async que exigem agendador. Cada um é recusado com `AIPO_COMPILE_WASM_UNSUPPORTED` e a receita `use --engine=vm`, em vez de produzir saída diferente da VM |
+| WebAssembly | 29/36 | — | 29/36 | Subset; falhas de compilação emitem `AIPO_COMPILE_WASM_UNSUPPORTED`. Cobre `init`/`invariant` com rollback de mutação, módulo `string` completo, `Dict` posicional, `await`/`task.spawn`/`task.all` e contratos `T?`. Limites (declarados, não silenciosos): `fn` aninhado ou closure que captura variável do frame externo, normalização NFC e combinadores async que exigem agendador. Cada um é recusado com `AIPO_COMPILE_WASM_UNSUPPORTED` e a receita `use --engine=vm`, em vez de produzir saída diferente da VM |
 
 ## Exemplos executáveis
 

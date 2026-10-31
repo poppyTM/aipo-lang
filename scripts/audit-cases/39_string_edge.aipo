@@ -1,0 +1,4 @@
+io.println(string.split("a,b,,c", ","))
+io.println("".len())
+io.println("abc".find("z"))
+io.println(string.join("|", ["a", "b"]))
