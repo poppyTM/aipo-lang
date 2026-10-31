@@ -343,14 +343,7 @@ impl Vm {
     }
 
     pub(super) fn check_arity(&self, provided: usize, expected: usize) -> Result<(), VmFault> {
-        if expected == usize::MAX || provided == expected {
-            Ok(())
-        } else {
-            Err(VmFault::TypeMismatch {
-                expected: format!("{expected} arguments"),
-                actual: format!("{provided} arguments"),
-            })
-        }
+        crate::contract::check_arity(provided, expected)
     }
 
     /// Calls an Aipo callable from host code (used by higher-order collection methods).

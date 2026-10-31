@@ -228,19 +228,9 @@ impl RegVm {
         None
     }
 
-    /// Arity guard mirroring the stack VM's `check_arity`: `usize::MAX` is the open-ended
-    /// (variadic) sentinel, so `path.join(a, b, c)` and friends accept extra arguments while
-    /// fixed-arity natives still reject a wrong count. Keeping the rule identical is what makes
-    /// `Value::native(.., usize::MAX, ..)` behave the same on both engines.
     fn check_arity(&self, provided: usize, expected: usize) -> Result<(), VmFault> {
-        if expected == usize::MAX || provided == expected {
-            Ok(())
-        } else {
-            Err(VmFault::TypeMismatch {
-                expected: format!("{expected} arguments"),
-                actual: format!("{provided} arguments"),
-            })
-        }
+        // Shared with the stack VM so a variadic native answers the same on both.
+        crate::contract::check_arity(provided, expected)
     }
 
     fn corrupted(&self, reason: impl Into<String>) -> VmFault {

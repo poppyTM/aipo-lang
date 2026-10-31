@@ -65,6 +65,27 @@ pub fn contract_holds(
     true
 }
 
+/// Returns an error unless `provided` satisfies `expected`.
+///
+/// `usize::MAX` is the open-ended sentinel a variadic native declares, so
+/// `path.join(a, b, c)` accepts extra arguments while a fixed-arity native still
+/// rejects a wrong count. The rule lives here so both engines answer identically:
+/// `Value::native(.., usize::MAX, ..)` behaves the same on the stack VM and on the
+/// register engine.
+///
+/// # Errors
+/// Returns [`crate::fault::VmFault::TypeMismatch`] naming both counts.
+pub fn check_arity(provided: usize, expected: usize) -> Result<(), crate::fault::VmFault> {
+    if expected == usize::MAX || provided == expected {
+        Ok(())
+    } else {
+        Err(crate::fault::VmFault::TypeMismatch {
+            expected: format!("{expected} arguments"),
+            actual: format!("{provided} arguments"),
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -130,6 +151,13 @@ mod tests {
             &Value::Struct(slime.clone())
         ));
         assert!(contract_holds(&defs, "Enemy", false, &Value::Struct(slime)));
+    }
+
+    #[test]
+    fn arity_accepts_the_variadic_sentinel_and_an_exact_match() {
+        assert!(check_arity(3, 3).is_ok());
+        assert!(check_arity(9, usize::MAX).is_ok());
+        assert!(check_arity(1, 2).is_err());
     }
 
     #[test]
