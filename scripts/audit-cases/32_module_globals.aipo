@@ -1,0 +1,9 @@
+let LIMIT = 10
+var counter = 0
+fn bump(n) {
+  counter = counter + n
+  return counter > LIMIT
+}
+io.println(bump(3))
+io.println(bump(4))
+io.println(bump(5))

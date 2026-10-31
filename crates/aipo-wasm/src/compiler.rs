@@ -51,8 +51,11 @@ pub(super) enum LocalKind {
     /// the pointer it occupies: a list element is staged in an `i64` slot, so the
     /// storage type alone cannot tell a `String` from an `Int`.
     List(Box<LocalKind>),
-    /// A `Dict` value, carrying the value kind.
-    Dict(Box<LocalKind>),
+    /// A `Dict` value, carrying the key kind and the value kind.
+    ///
+    /// The key kind is separate because `keys()` yields keys: an `Int`-keyed
+    /// dictionary must not print its keys as text.
+    Dict(Box<LocalKind>, Box<LocalKind>),
     /// A `Bytes` value produced by `Bytes(len)`.
     Bytes,
     /// A value whose declared contract is `T?`: it is either a `T` or `none`.
@@ -486,7 +489,7 @@ fn check_declared_contracts(
             (kind, "String") => !matches!(kind, LocalKind::String),
             (kind, "Bytes") => !matches!(kind, LocalKind::Bytes),
             (kind, "List") => !matches!(kind, LocalKind::List(_)),
-            (kind, "Dict") => !matches!(kind, LocalKind::Dict(_)),
+            (kind, "Dict") => !matches!(kind, LocalKind::Dict(..)),
             (kind, "Range") => !matches!(kind, LocalKind::Range),
             (kind, "Task") => !matches!(kind, LocalKind::Task),
             // A declared struct, or an enum parent whose variants are registered as
@@ -539,7 +542,7 @@ fn kind_label(kind: &LocalKind) -> &'static str {
         LocalKind::String => "String",
         LocalKind::Bytes => "Bytes",
         LocalKind::List(_) => "List",
-        LocalKind::Dict(_) => "Dict",
+        LocalKind::Dict(..) => "Dict",
         LocalKind::Range => "Range",
         LocalKind::Task => "Task",
         LocalKind::Struct(_) => "Struct",
@@ -2945,12 +2948,12 @@ fn pre_scan_stmts(
                     infer_expr_kind(iterable, locals, functions, table_indices, anon_map);
                 let element_kind = match &iterable_kind {
                     LocalKind::List(element) => (**element).clone(),
-                    LocalKind::Dict(value) => (**value).clone(),
+                    LocalKind::Dict(_, value) => (**value).clone(),
                     _ => LocalKind::Unknown,
                 };
                 // A `Dict` iterates String keys, and its second binding holds the
                 // value kind. A `List`/`Range` keeps the positional `Int` index.
-                let is_dict = matches!(iterable_kind, LocalKind::Dict(_));
+                let is_dict = matches!(iterable_kind, LocalKind::Dict(..));
                 // A `String` iterates one-character Strings, so its binding is a string
                 // pointer, not an element index. Leaving it `Unknown`/`i64` made the
                 // printer treat the pointer as an `Int` and emit its address.
@@ -3840,7 +3843,7 @@ fn compile_stmts(
                 HirExpr::Index(target_coll, index, _) => {
                     let coll_kind =
                         infer_expr_kind(target_coll, locals, functions, table_indices, anon_map);
-                    if matches!(coll_kind, LocalKind::Dict(_)) {
+                    if matches!(coll_kind, LocalKind::Dict(..)) {
                         let (dict_set_idx, _, _) = functions["__aipo_dict_set"];
                         let (string_hash_idx, _, _) = functions["__aipo_string_hash"];
 
@@ -4322,7 +4325,7 @@ fn compile_stmts(
                     coerce_type(func, c_ty, WasmType::I32);
                     func.instruction(&Instruction::LocalSet(dot_temp));
 
-                    if matches!(coll_kind, LocalKind::Dict(_)) {
+                    if matches!(coll_kind, LocalKind::Dict(..)) {
                         let (dict_get_idx, _, _) = functions["__aipo_dict_get"];
                         let (dict_set_idx, _, _) = functions["__aipo_dict_set"];
                         let (string_hash_idx, _, _) = functions["__aipo_string_hash"];
@@ -5310,7 +5313,7 @@ fn compile_each_stmt(
     // element count comes from the dict header and each entry yields its key and,
     // with two bindings, its value.
     let iterable_kind = infer_expr_kind(iterable, locals, functions, table_indices, anon_map);
-    let is_dict = matches!(iterable_kind, LocalKind::Dict(_));
+    let is_dict = matches!(iterable_kind, LocalKind::Dict(..));
     // A `String` iterates its code points, each a one-character String. Iterating it
     // as a List read the pool header as an element count, so the loop body never ran.
     let is_string = matches!(iterable_kind, LocalKind::String);
@@ -6264,7 +6267,7 @@ fn compile_print_arg(
                         io,
                     )?;
                 }
-                LocalKind::Dict(value) => {
+                LocalKind::Dict(_, value) => {
                     compile_print_dict(
                         func,
                         actual_ty,
@@ -6742,7 +6745,7 @@ fn compile_expr(
                     | (LocalKind::Bool, "Bool")
                     | (LocalKind::String, "String")
                     | (LocalKind::List(_), "List")
-                    | (LocalKind::Dict(_), "Dict")
+                    | (LocalKind::Dict(..), "Dict")
                     | (LocalKind::Bytes, "Bytes") => (true, false),
                     (LocalKind::Struct(name), expected) => (
                         name == expected
@@ -6761,7 +6764,7 @@ fn compile_expr(
                             | (LocalKind::Bool, "Bool")
                             | (LocalKind::String, "String")
                             | (LocalKind::List(_), "List")
-                            | (LocalKind::Dict(_), "Dict")
+                            | (LocalKind::Dict(..), "Dict")
                             | (LocalKind::Bytes, "Bytes") => true,
                             (LocalKind::Struct(name), expected) => {
                                 name == expected
@@ -8899,7 +8902,7 @@ fn compile_expr(
                 if matches!(
                     receiver_kind,
                     LocalKind::List(_)
-                        | LocalKind::Dict(_)
+                        | LocalKind::Dict(..)
                         | LocalKind::Range
                         | LocalKind::String
                         | LocalKind::Bytes
@@ -8985,7 +8988,7 @@ fn compile_expr(
                     && matches!(
                         receiver_kind,
                         LocalKind::List(_)
-                            | LocalKind::Dict(_)
+                            | LocalKind::Dict(..)
                             | LocalKind::Range
                             | LocalKind::String
                             | LocalKind::Bytes
@@ -9530,7 +9533,7 @@ fn compile_expr(
             {
                 let receiver_kind =
                     infer_expr_kind(receiver, locals, functions, table_indices, anon_map);
-                if matches!(receiver_kind, LocalKind::Dict(_)) {
+                if matches!(receiver_kind, LocalKind::Dict(..)) {
                     let (dict_has_idx, _, _) = functions["__aipo_dict_has"];
                     let (string_hash_idx, _, _) = functions["__aipo_string_hash"];
                     let r_ty = compile_expr(
@@ -9585,7 +9588,7 @@ fn compile_expr(
             if let HirExpr::Dot(receiver, method_name, _) = &**callee {
                 let receiver_kind =
                     infer_expr_kind(receiver, locals, functions, table_indices, anon_map);
-                if matches!(receiver_kind, LocalKind::Dict(_))
+                if matches!(receiver_kind, LocalKind::Dict(..))
                     && matches!(
                         method_name.as_str(),
                         "is_empty" | "remove" | "keys" | "values"
@@ -10941,7 +10944,7 @@ fn compile_expr(
                     func.instruction(&Instruction::Call(list_len_idx));
                     return Ok(WasmType::I64);
                 }
-                if matches!(receiver_kind, LocalKind::Dict(_)) {
+                if matches!(receiver_kind, LocalKind::Dict(..)) {
                     let (dict_len_idx, _, _) = functions["__aipo_dict_len"];
                     let r_ty = compile_expr(
                         receiver,
@@ -11271,6 +11274,9 @@ fn compile_expr(
             for (i, element) in elements.iter().enumerate() {
                 func.instruction(&Instruction::LocalGet(list_temp));
                 func.instruction(&Instruction::I32Const(i as i32));
+                // A nested list literal needs its own scratch slot: at the same depth
+                // it overwrote the outer list's handle, and the outer `list_set` then
+                // wrote into the inner block.
                 let val_ty = compile_expr(
                     element,
                     func,
@@ -11284,7 +11290,7 @@ fn compile_expr(
                     indirect_sigs,
                     alloc_func_idx,
                     async_helpers,
-                    struct_depth,
+                    struct_depth + 1,
                     call_depth,
                 )?;
                 coerce_type(func, val_ty, WasmType::I64);
@@ -11339,7 +11345,7 @@ fn compile_expr(
                 return Ok(WasmType::I64);
             }
 
-            if matches!(target_kind, LocalKind::Dict(_)) {
+            if matches!(target_kind, LocalKind::Dict(..)) {
                 let t_ty = compile_expr(
                     target,
                     func,

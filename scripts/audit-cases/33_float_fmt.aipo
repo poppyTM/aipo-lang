@@ -1,0 +1,5 @@
+io.println(String(1.0))
+io.println(String(1.5))
+io.println(String(0.1 + 0.2))
+io.println(Float(3) / Float(2))
+io.println(String(-0.5))

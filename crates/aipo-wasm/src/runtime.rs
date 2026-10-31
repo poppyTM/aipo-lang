@@ -964,10 +964,14 @@ pub(super) fn build_dict_keys_function(list_new_func_idx: u32, list_set_func_idx
     func.instruction(&Instruction::I32GeS);
     func.instruction(&Instruction::BrIf(1));
 
-    // key = dict[8 + i*16]
+    // raw key = dict + 8 (header) + i*24 + 8 (entry's key slot). The base already
+    // lands inside the entries, so the load carries no extra offset — adding one
+    // read the entry's value instead of its key.
     func.instruction(&Instruction::LocalGet(2));
     func.instruction(&Instruction::LocalGet(3));
     func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::I32Const(8));
+    func.instruction(&Instruction::I32Add);
     func.instruction(&Instruction::LocalGet(3));
     func.instruction(&Instruction::I32Const(24));
     func.instruction(&Instruction::I32Mul);
@@ -975,7 +979,7 @@ pub(super) fn build_dict_keys_function(list_new_func_idx: u32, list_set_func_idx
     func.instruction(&Instruction::I32Const(8));
     func.instruction(&Instruction::I32Add);
     func.instruction(&Instruction::I64Load(MemArg {
-        offset: 8,
+        offset: 0,
         align: 3,
         memory_index: 0,
     }));

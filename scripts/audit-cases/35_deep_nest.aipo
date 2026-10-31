@@ -1,0 +1,5 @@
+let d = {"a": {"b": {"c": {"d": 42}}}}
+let x = d["a"]["b"]["c"]["d"]
+io.println(x)
+let l = [[1,2],[3,4]]
+io.println(l[1][0])

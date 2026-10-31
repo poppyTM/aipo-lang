@@ -1,0 +1,6 @@
+var d = {1: "a", 2: "b"}
+io.println(d[1])
+io.println(d[2])
+d[3] = "c"
+io.println(len(d))
+io.println(d.keys())

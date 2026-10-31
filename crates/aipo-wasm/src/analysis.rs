@@ -31,7 +31,7 @@ pub(super) fn annotated_kind(
         "Bool" => LocalKind::Bool,
         "String" => LocalKind::String,
         "List" => LocalKind::List(Box::new(LocalKind::Unknown)),
-        "Dict" => LocalKind::Dict(Box::new(LocalKind::Unknown)),
+        "Dict" => LocalKind::Dict(Box::new(LocalKind::Unknown), Box::new(LocalKind::Unknown)),
         "Range" => LocalKind::Range,
         "Task" => LocalKind::Task,
         "Bytes" => LocalKind::Bytes,
@@ -329,10 +329,13 @@ pub(super) fn infer_expr_kind(
             LocalKind::List(Box::new(element))
         }
         HirExpr::Dict(entries, _) => {
+            let key = entries.first().map_or(LocalKind::Unknown, |(key, _)| {
+                infer_expr_kind(key, locals, functions, table_indices, anon_map)
+            });
             let value = entries.first().map_or(LocalKind::Unknown, |(_, value)| {
                 infer_expr_kind(value, locals, functions, table_indices, anon_map)
             });
-            LocalKind::Dict(Box::new(value))
+            LocalKind::Dict(Box::new(key), Box::new(value))
         }
         HirExpr::With(base, ..) => {
             infer_expr_kind(base, locals, functions, table_indices, anon_map)
@@ -361,7 +364,9 @@ pub(super) fn infer_expr_kind(
             if matches!(&**index, HirExpr::Binary(BinaryOp::Range, ..)) {
                 match &target_kind {
                     LocalKind::List(element) => return LocalKind::List(element.clone()),
-                    LocalKind::Dict(value) => return LocalKind::Dict(value.clone()),
+                    LocalKind::Dict(key, value) => {
+                        return LocalKind::Dict(key.clone(), value.clone());
+                    }
                     LocalKind::Bytes => return LocalKind::Bytes,
                     LocalKind::String => return LocalKind::String,
                     _ => {}
@@ -371,7 +376,7 @@ pub(super) fn infer_expr_kind(
             // makes `letters[0]` print text instead of the element's pointer.
             match target_kind {
                 LocalKind::List(element) => (*element).clone(),
-                LocalKind::Dict(value) => (*value).clone(),
+                LocalKind::Dict(_, value) => (*value).clone(),
                 LocalKind::Bytes => LocalKind::Int,
                 _ => LocalKind::Unknown,
             }
@@ -513,13 +518,13 @@ pub(super) fn infer_expr_kind(
                 if method_name == "split" {
                     return LocalKind::List(Box::new(LocalKind::String));
                 }
-                if matches!(rec_kind, LocalKind::Dict(_))
+                if matches!(rec_kind, LocalKind::Dict(..))
                     && matches!(method_name.as_str(), "keys" | "values")
                 {
-                    // `keys` yields String keys; `values` yields the stored values.
+                    // `keys` yields the key kind; `values` yields the stored values.
                     let element = match (&rec_kind, method_name.as_str()) {
-                        (_, "keys") => LocalKind::String,
-                        (LocalKind::Dict(value), _) => (**value).clone(),
+                        (LocalKind::Dict(key, _), "keys") => (**key).clone(),
+                        (LocalKind::Dict(_, value), _) => (**value).clone(),
                         _ => LocalKind::Unknown,
                     };
                     return LocalKind::List(Box::new(element));
@@ -818,7 +823,7 @@ pub(super) fn kind_with_env(
                 LocalKind::Int => WasmType::I64,
                 LocalKind::String
                 | LocalKind::List(_)
-                | LocalKind::Dict(_)
+                | LocalKind::Dict(..)
                 | LocalKind::Bytes
                 | LocalKind::Struct(_)
                 | LocalKind::Fn(_)

@@ -1,0 +1,5 @@
+async fn work(n) {
+  return n * 2
+}
+let t = task.spawn(work(5))
+io.println(await t)
