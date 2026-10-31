@@ -25,7 +25,7 @@ io.println(numbers)
 numbers.remove_last()
 io.println(numbers)
 
-let scores = {"alice": 10, "bob": 20}
+let scores = { "alice": 10, "bob": 20 }
 io.println(len(scores))
 io.println(scores.has("alice"))
 io.println(scores.keys())
