@@ -44,7 +44,10 @@ fn score_of(id: Int) -> Int {
 }
 
 #[test]
-fn test_dict_missing_key_returns_none() {
+fn test_dict_missing_key_faults() {
+    // Canon: `dict[key]` requires an existing key so a stored value stays
+    // distinguishable from absence. The Wasm backend used to answer zero, which made
+    // a typo read as the integer zero instead of the VM's `AIPO_RT_KEY_NOT_FOUND`.
     let code = r#"
 fn missing() -> Int {
   let scores = { 1: 10, 2: 20 }
@@ -56,7 +59,11 @@ fn missing() -> Int {
         .get_typed_func::<(), i64>(&mut store, "missing")
         .expect("exported `missing`");
 
-    assert_eq!(f.call(&mut store, ()).unwrap(), 0);
+    let outcome = f.call(&mut store, ());
+    assert!(
+        outcome.is_err(),
+        "a missing key must fault, not answer a value: {outcome:?}"
+    );
 }
 
 #[test]

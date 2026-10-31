@@ -1,0 +1,8 @@
+fn classify(c) {
+  if "abc".contains(c) { return "alpha" }
+  if "012".contains(c) { return "digit" }
+  return "other"
+}
+io.println(classify("b"))
+io.println(classify("1"))
+io.println(classify("!"))

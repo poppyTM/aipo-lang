@@ -1,0 +1,12 @@
+let x = 1
+fn f() {
+  let x = 2
+  return x
+}
+io.println(f())
+io.println(x)
+if true {
+  let x = 3
+  io.println(x)
+}
+io.println(x)

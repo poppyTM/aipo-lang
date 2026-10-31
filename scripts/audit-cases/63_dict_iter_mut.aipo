@@ -1,0 +1,6 @@
+var d = {"a": 1, "b": 2, "c": 3}
+var total = 0
+each k, v in d { total = total + v }
+io.println(total)
+var ks = d.keys()
+io.println(ks.sort())

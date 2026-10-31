@@ -1,0 +1,16 @@
+struct Acct {
+  var bal
+}
+Acct:invariant { self.bal >= 0 }
+Acct:withdraw(var self, n) {
+  self.bal = self.bal - n
+  return self.bal
+}
+var a = Acct{bal = 10}
+io.println(a.withdraw(3))
+attempt {
+  a.withdraw(100)
+} failed e {
+  io.println("blocked")
+}
+io.println(a.bal)

@@ -442,3 +442,28 @@ fn test_sort_by_descending() -> Int {
     assert_eq!(test_sort_last.call(&mut store, ()).unwrap(), 9);
     assert_eq!(test_sort_by_descending.call(&mut store, ()).unwrap(), 9);
 }
+
+#[test]
+fn test_each_over_string_binds_a_character_string() {
+    // A `String` iterates code points, and each binding is a one-character `String`.
+    // When the binding was classified as `Int`, `len(ch)` read the pointer and
+    // `io.println(ch)` printed the address instead of the character.
+    let code = r#"
+fn mark_score() -> Int {
+  let word = "aéb"
+  var marks = 0
+  var width = 0
+  each ch in word {
+    if ch == "é" { marks = marks + 1 }
+    width = width + len(ch)
+  }
+  return marks * 10 + width
+}
+"#;
+    let (mut store, instance) = instantiate_aipo(code);
+    let f = instance
+        .get_typed_func::<(), i64>(&mut store, "mark_score")
+        .expect("exported `mark_score`");
+
+    assert_eq!(f.call(&mut store, ()).unwrap(), 13);
+}

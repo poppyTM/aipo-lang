@@ -1,0 +1,5 @@
+fn apply(n, f) { return f(n) }
+io.println(apply(3, fn(x) { return x * x }))
+io.println(apply(3, fn(x) { return x + 100 }))
+let double = fn(y) { return y * 2 }
+io.println(apply(5, double))

@@ -1,0 +1,6 @@
+var out = ""
+each w in ["a", "b", "c"] {
+  out = out + w + "-"
+}
+io.println(out)
+io.println(len(out))

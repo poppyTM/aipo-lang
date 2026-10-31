@@ -1,0 +1,11 @@
+# A dictionary of rows built by appending. The Wasm backend keeps one static element
+# kind per dictionary, so a row's fields have to share a kind: build the rows with
+# string values throughout. A heterogeneous row is a declared Wasm limit.
+var r = {}
+r["items"] = []
+each i in 0..3 {
+  var row = {"name": "n" + String(i)}
+  r["items"] = r["items"] + [row]
+}
+io.println(len(r["items"]))
+each it in r["items"] { io.println(it["name"]) }

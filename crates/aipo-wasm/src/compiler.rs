@@ -684,6 +684,117 @@ struct JournalGlobals {
     live: u32,
 }
 
+/// Collects `name[key] = value` at any depth, keyed by the dictionary's name.
+///
+/// A write inside `each`/`if`/`while` names the dictionary's element kind just as
+/// a top-level one does, and the classification pass needs to see it.
+fn collect_index_writes<'a>(
+    statements: &'a [HirStmt],
+    out: &mut HashMap<String, Vec<&'a HirExpr>>,
+) {
+    for statement in statements {
+        match statement {
+            HirStmt::Assign(HirExpr::Index(base, _, _), value, _) => {
+                if let HirExpr::Identifier(name, _) = &**base {
+                    let witness = match value {
+                        HirExpr::Binary(BinaryOp::Add, _, right, _) => &**right,
+                        other => other,
+                    };
+                    out.entry(name.clone()).or_default().push(witness);
+                }
+            }
+            HirStmt::If(s) => {
+                collect_index_writes(&s.then_branch, out);
+                for (_, body) in &s.elif_branches {
+                    collect_index_writes(body, out);
+                }
+                if let Some(body) = &s.else_branch {
+                    collect_index_writes(body, out);
+                }
+            }
+            HirStmt::While(_, body, _)
+            | HirStmt::Loop(body, _)
+            | HirStmt::Repeat(_, _, body, _)
+            | HirStmt::Each(_, _, body, _)
+            | HirStmt::AwaitDo(body, _) => collect_index_writes(body, out),
+            HirStmt::Attempt(a) => {
+                collect_index_writes(&a.body, out);
+                collect_index_writes(&a.handler, out);
+            }
+            HirStmt::Match(m) => {
+                for arm in &m.when_arms {
+                    collect_index_writes(&arm.body, out);
+                }
+                if let Some(body) = &m.else_arm {
+                    collect_index_writes(body, out);
+                }
+            }
+            HirStmt::FnDecl(d) => collect_index_writes(&d.body, out),
+            _ => {}
+        }
+    }
+}
+
+/// Refines each module dictionary from the writes that name its element kind.
+///
+/// `var r = {}` states nothing, and `r["items"] = r["items"] + [row]` states the
+/// element kind only on its right-hand side. The refinement is idempotent, so the
+/// classification loop can run it before every statement.
+fn refine_module_dict_kinds(
+    statements: &[HirStmt],
+    module_env: &mut HashMap<String, LocalKind>,
+    functions: &FunctionTable,
+    anon_map: &HashMap<SourceSpan, String>,
+) {
+    let mut writes: HashMap<String, Vec<&HirExpr>> = HashMap::new();
+    collect_index_writes(statements, &mut writes);
+    let env: HashMap<String, (u32, WasmType, LocalKind)> = module_env
+        .iter()
+        .map(|(binding, kind)| {
+            let ty = match kind {
+                LocalKind::Float => WasmType::F64,
+                LocalKind::Int => WasmType::I64,
+                _ => WasmType::I32,
+            };
+            (binding.clone(), (0, ty, kind.clone()))
+        })
+        .collect();
+    for (name, witnesses) in &writes {
+        let Some(LocalKind::Dict(key, existing)) = module_env.get(name).cloned() else {
+            continue;
+        };
+        if !matches!(*existing, LocalKind::Unknown) {
+            continue;
+        }
+        let observed = witnesses
+            .iter()
+            .filter_map(|witness| {
+                match infer_expr_kind(witness, &env, functions, &HashMap::new(), anon_map) {
+                    LocalKind::List(e) if !matches!(*e, LocalKind::Unknown) => {
+                        Some(LocalKind::List(e))
+                    }
+                    LocalKind::Dict(k, v) if !matches!(*v, LocalKind::Unknown) => {
+                        Some(LocalKind::Dict(k, v))
+                    }
+                    LocalKind::String | LocalKind::Int | LocalKind::Float | LocalKind::Bool => {
+                        Some(infer_expr_kind(
+                            witness,
+                            &env,
+                            functions,
+                            &HashMap::new(),
+                            anon_map,
+                        ))
+                    }
+                    _ => None,
+                }
+            })
+            .next();
+        if let Some(observed) = observed {
+            module_env.insert(name.clone(), LocalKind::Dict(key, Box::new(observed)));
+        }
+    }
+}
+
 /// Compiles an `HirProgram` into a standard WebAssembly binary module (`.wasm`).
 ///
 /// Functions declared in the program are compiled into Wasm functions and exported
@@ -2167,7 +2278,29 @@ pub fn compile_hir(program: &HirProgram) -> Result<Vec<u8>, WasmCompileError> {
     // A binding may be initialized from an earlier one (`let a = ...; let b =
     // a.values()`), so the earlier bindings are already in the kind environment
     // when the later initializer is classified.
-    let mut module_env: HashMap<String, LocalKind> = HashMap::new();
+    let module_env: HashMap<String, LocalKind> = HashMap::new();
+    // A later `r["k"] = v` at module scope refines `r`'s value kind, the same way
+    // the statement prescan does for a local. Without this a `var r = {}` stayed
+    // `Dict(Unknown, Unknown)` and `r["items"]` read back as a number.
+    // The value written into a dictionary, in program order, is what later decides
+    // its element kind. A write whose value names the same dictionary
+    // (`r["items"] = r["items"] + [row]`) only says so through its right-hand side,
+    // which the resolver below reads directly.
+    let mut module_values: HashMap<String, Vec<&HirExpr>> = HashMap::new();
+    collect_index_writes(&program.statements, &mut module_values);
+    // A later `xs = xs + [row]` at module scope also refines the binding: the list
+    // started empty and only the concatenation names its element kind.
+    let mut reassignments: HashMap<String, Vec<&HirExpr>> = HashMap::new();
+    for statement in &program.statements {
+        if let HirStmt::Assign(HirExpr::Identifier(name, _), value, _) = statement {
+            reassignments.entry(name.clone()).or_default().push(value);
+        }
+    }
+    // Kinds are learned in two passes. The first records what each `let`/`var` states
+    // on its own; the second refines a dictionary from the writes that follow it,
+    // which may name a binding declared after the dictionary itself
+    // (`var r = {}` … `var row = {...}` … `r["items"] = r["items"] + [row]`).
+    let mut module_env: HashMap<String, LocalKind> = module_env;
     for statement in &program.statements {
         let (name, expr) = match statement {
             HirStmt::Let(name, expr, _) | HirStmt::Var(name, expr, _) => (name, expr),
@@ -2190,13 +2323,70 @@ pub fn compile_hir(program: &HirProgram) -> Result<Vec<u8>, WasmCompileError> {
             &HashMap::new(),
         )
         .unwrap_or(WasmType::I64);
-        let kind = infer_expr_kind(
+        // Refine any dictionary whose writes name an element kind, before this
+        // statement is classified. `let items = r["items"]` must see `r`'s element.
+        refine_module_dict_kinds(&program.statements, &mut module_env, &functions, &anon_map);
+        let locals_for_expr: HashMap<String, (u32, WasmType, LocalKind)> = module_env
+            .iter()
+            .map(|(binding, kind)| {
+                let ty = match kind {
+                    LocalKind::Float => WasmType::F64,
+                    LocalKind::Int => WasmType::I64,
+                    _ => WasmType::I32,
+                };
+                (binding.clone(), (0, ty, kind.clone()))
+            })
+            .collect();
+        let mut kind = infer_expr_kind(
             expr,
             &locals_for_expr,
             &functions,
             &HashMap::new(),
             &anon_map,
         );
+        // An element read of a dictionary resolves through the writes that name the
+        // element kind, which may appear after the dictionary's own declaration.
+        if matches!(kind, LocalKind::Unknown)
+            && let HirExpr::Index(base, _, _) = expr
+            && let HirExpr::Identifier(target, _) = &**base
+            && let Some(values) = module_values.get(target)
+        {
+            let mut env_all = locals_for_expr.clone();
+            for (binding, k) in &module_env {
+                let ty = match k {
+                    LocalKind::Float => WasmType::F64,
+                    LocalKind::Int => WasmType::I64,
+                    _ => WasmType::I32,
+                };
+                env_all.entry(binding.clone()).or_insert((0, ty, k.clone()));
+            }
+            if let Some(observed) = values.iter().find_map(|value| {
+                let witness = match value {
+                    HirExpr::Binary(BinaryOp::Add, _, right, _) => &**right,
+                    other => other,
+                };
+                match infer_expr_kind(witness, &env_all, &functions, &HashMap::new(), &anon_map) {
+                    LocalKind::List(e) if !matches!(*e, LocalKind::Unknown) => {
+                        Some(LocalKind::List(e))
+                    }
+                    LocalKind::Dict(k, v) if !matches!(*v, LocalKind::Unknown) => {
+                        Some(LocalKind::Dict(k, v))
+                    }
+                    LocalKind::String | LocalKind::Int | LocalKind::Float | LocalKind::Bool => {
+                        Some(infer_expr_kind(
+                            witness,
+                            &env_all,
+                            &functions,
+                            &HashMap::new(),
+                            &anon_map,
+                        ))
+                    }
+                    _ => None,
+                }
+            }) {
+                kind = observed;
+            }
+        }
         module_env.insert(name.clone(), kind.clone());
         let global_idx = emitter.add_global(
             GlobalType {
@@ -2217,6 +2407,88 @@ pub fn compile_hir(program: &HirProgram) -> Result<Vec<u8>, WasmCompileError> {
         functions
             .module_globals
             .insert(name.clone(), (global_idx, ty, kind));
+    }
+
+    // Second pass: a dictionary takes the element kind its writes name. This has to
+    // see every module binding, so it runs after the first pass has recorded them —
+    // `r["items"] = r["items"] + [row]` only makes sense once `row` is known.
+    {
+        let env_all: HashMap<String, (u32, WasmType, LocalKind)> = module_env
+            .iter()
+            .map(|(binding, kind)| {
+                let ty = match kind {
+                    LocalKind::Float => WasmType::F64,
+                    LocalKind::Int => WasmType::I64,
+                    _ => WasmType::I32,
+                };
+                (binding.clone(), (0, ty, kind.clone()))
+            })
+            .collect();
+        for (name, values) in &module_values {
+            let Some((global_idx, ty, current)) = functions.module_globals.get(name).cloned()
+            else {
+                continue;
+            };
+            let LocalKind::Dict(key, existing) = &current else {
+                continue;
+            };
+            if !matches!(**existing, LocalKind::Unknown)
+                && !matches!(&**existing, LocalKind::List(e) if matches!(**e, LocalKind::Unknown))
+            {
+                continue;
+            }
+            let observed = values
+                .iter()
+                .filter_map(|value| {
+                    let witness = match value {
+                        HirExpr::Binary(BinaryOp::Add, _, right, _) => &**right,
+                        other => other,
+                    };
+                    match infer_expr_kind(witness, &env_all, &functions, &HashMap::new(), &anon_map)
+                    {
+                        LocalKind::List(e) if !matches!(*e, LocalKind::Unknown) => {
+                            Some(LocalKind::List(e))
+                        }
+                        LocalKind::Dict(k, v) if !matches!(*v, LocalKind::Unknown) => {
+                            Some(LocalKind::Dict(k, v))
+                        }
+                        LocalKind::String
+                        | LocalKind::Int
+                        | LocalKind::Float
+                        | LocalKind::Bool
+                        | LocalKind::Struct(_)
+                        | LocalKind::Bytes
+                        | LocalKind::Range
+                        | LocalKind::Task
+                        | LocalKind::Fn(_) => Some(infer_expr_kind(
+                            witness,
+                            &env_all,
+                            &functions,
+                            &HashMap::new(),
+                            &anon_map,
+                        )),
+                        _ => None,
+                    }
+                })
+                .next();
+            let Some(observed) = observed else { continue };
+            let refined = LocalKind::Dict(key.clone(), Box::new(observed));
+            module_env.insert(name.clone(), refined.clone());
+            functions
+                .module_globals
+                .insert(name.clone(), (global_idx, ty, refined));
+        }
+    }
+
+    // The module bindings are all known now; refine the dictionaries whose writes
+    // (at any depth) name an element kind, then publish the refined kinds.
+    refine_module_dict_kinds(&program.statements, &mut module_env, &functions, &anon_map);
+    for (name, kind) in &module_env {
+        if let Some((global_idx, ty, _)) = functions.module_globals.get(name).cloned() {
+            functions
+                .module_globals
+                .insert(name.clone(), (global_idx, ty, kind.clone()));
+        }
     }
 
     // A parameter's semantic kind is declared, or else learned from the calls that
@@ -2804,7 +3076,68 @@ fn pre_scan_stmts(
                 if let Some((_, _, kind)) = locals.get_mut(name)
                     && *kind != assigned
                 {
-                    *kind = LocalKind::Unknown;
+                    // A list that grows by concatenation keeps its element kind: the
+                    // right-hand side may know what the empty literal did not.
+                    let refined = match (&*kind, &assigned) {
+                        (LocalKind::List(existing), LocalKind::List(found))
+                            if matches!(**existing, LocalKind::Unknown) =>
+                        {
+                            Some(LocalKind::List(found.clone()))
+                        }
+                        _ => None,
+                    };
+                    *kind = refined.unwrap_or(LocalKind::Unknown);
+                }
+            }
+            // `r["items"] = [row]` refines the dictionary's value kind. Without it a
+            // `var r = {}` stays `Dict(Unknown, Unknown)` and a later `r["items"]`
+            // answered `i64`, so a List handle read back as a number.
+            HirStmt::Assign(HirExpr::Index(base, _, _), value, _) => {
+                if let HirExpr::Identifier(name, _) = &**base {
+                    let value_kind =
+                        infer_expr_kind(value, locals, functions, table_indices, anon_map);
+                    // `r` may be a module binding, which the frame does not hold; the
+                    // module table is where its refined kind lives.
+                    if let Some((_, _, kind)) = locals.get_mut(name)
+                        && let LocalKind::Dict(_, existing) = kind
+                        && !matches!(value_kind, LocalKind::Unknown)
+                    {
+                        // A dictionary holds one static kind here, because everything
+                        // is stored in a raw `i64` slot. Mixing a number into a
+                        // dictionary that already holds strings would make the read
+                        // side interpret a pointer as a number (or the reverse), so
+                        // the first kind wins and a conflicting write is refused
+                        // rather than silently rendered wrongly.
+                        // Two values agree when their kinds are equal, when either side
+                        // is still unknown, or when both are lists/dicts — a container's
+                        // element kind may be discovered later.
+                        let compatible = **existing == value_kind
+                            || matches!(**existing, LocalKind::Unknown)
+                            || matches!(value_kind, LocalKind::Unknown)
+                            || matches!(
+                                (&**existing, &value_kind),
+                                (LocalKind::List(_), LocalKind::List(_))
+                                    | (LocalKind::Dict(..), LocalKind::Dict(..))
+                            );
+                        // A container whose element kind is still unknown is refined by
+                        // the write, not merely accepted as "compatible".
+                        let is_vague = matches!(**existing, LocalKind::Unknown)
+                            || matches!(&**existing, LocalKind::List(e) if matches!(**e, LocalKind::Unknown))
+                            || matches!(&**existing, LocalKind::Dict(_, v) if matches!(**v, LocalKind::Unknown));
+                        if is_vague {
+                            **existing = value_kind.clone();
+                        } else if !compatible {
+                            return Err(WasmCompileError::UnsupportedExpr {
+                                message: format!(
+                                    "dictionary `{name}` mixes a {} value with a {} one; \
+                                     use --engine=vm for a heterogeneous dictionary",
+                                    kind_label(existing),
+                                    kind_label(&value_kind)
+                                ),
+                                span: value.span(),
+                            });
+                        }
+                    }
                 }
             }
             HirStmt::If(s) => {
@@ -3039,8 +3372,37 @@ fn pre_scan_stmts(
                 // A single binding takes the element kind of the collection; with two
                 // bindings the first is the key/index (`Int`) and the second is the
                 // value (`String` for `keys`, the element otherwise).
-                let iterable_kind =
+                // The frame's copy of a module binding predates the write pass that
+                // refined it, so consult the module table when the frame's kind is
+                // the less specific of the two.
+                let mut iterable_kind =
                     infer_expr_kind(iterable, locals, functions, table_indices, anon_map);
+                // `r["items"]` is an element read of module state.
+                let module_owner = match iterable {
+                    HirExpr::Identifier(name, _) => Some(name.as_str()),
+                    HirExpr::Index(base, _, _) => match &**base {
+                        HirExpr::Identifier(name, _) => Some(name.as_str()),
+                        _ => None,
+                    },
+                    _ => None,
+                };
+                if let Some(owner) = module_owner
+                    && let Some((_, _, refined)) = functions.module_globals.get(owner)
+                {
+                    let frame_is_vague = matches!(iterable_kind, LocalKind::Unknown)
+                        || matches!(&iterable_kind, LocalKind::List(e) if matches!(**e, LocalKind::Unknown))
+                        || matches!(&iterable_kind, LocalKind::Dict(_, v) if matches!(**v, LocalKind::Unknown));
+                    if frame_is_vague {
+                        let refined = match iterable {
+                            HirExpr::Index(..) => match refined {
+                                LocalKind::Dict(_, value) => (**value).clone(),
+                                other => other.clone(),
+                            },
+                            _ => refined.clone(),
+                        };
+                        iterable_kind = refined;
+                    }
+                }
                 let element_kind = match &iterable_kind {
                     LocalKind::List(element) => (**element).clone(),
                     LocalKind::Dict(_, value) => (**value).clone(),
@@ -5427,7 +5789,20 @@ fn compile_each_stmt(
     // A `Dict` iterates its entries in insertion order, not its storage slots: the
     // element count comes from the dict header and each entry yields its key and,
     // with two bindings, its value.
-    let iterable_kind = infer_expr_kind(iterable, locals, functions, table_indices, anon_map);
+    // The pre-scan sees a `let` before the entry script promotes module bindings out
+    // of its frame, so its kind may be unknown while the module table already holds
+    // the refined one. Prefer a concrete kind over an unknown one.
+    let iterable_kind = {
+        let scanned = infer_expr_kind(iterable, locals, functions, table_indices, anon_map);
+        if matches!(scanned, LocalKind::Unknown)
+            && let HirExpr::Identifier(name, _) = iterable
+            && let Some((_, _, kind)) = functions.module_globals.get(name)
+        {
+            kind.clone()
+        } else {
+            scanned
+        }
+    };
     let is_dict = matches!(iterable_kind, LocalKind::Dict(..));
     // A `String` iterates its code points, each a one-character String. Iterating it
     // as a List read the pool header as an element count, so the loop body never ran.
@@ -7079,9 +7454,20 @@ fn compile_expr(
                     let l_kind = infer_expr_kind(left, locals, functions, table_indices, anon_map);
                     let r_kind = infer_expr_kind(right, locals, functions, table_indices, anon_map);
                     // `+` on two lists concatenates. Adding the two handles instead
-                    // produced a number that was not a list at all.
-                    if matches!(l_kind, LocalKind::List(_)) && matches!(r_kind, LocalKind::List(_))
-                    {
+                    // produced a number that was not a list at all. One side may still be
+                    // an unresolved read (`r["items"]`); the other side's literal says
+                    // it is a list, which is enough to choose concatenation.
+                    let either_known_list = matches!(l_kind, LocalKind::List(_))
+                        || matches!(r_kind, LocalKind::List(_));
+                    let neither_is_scalar =
+                        !matches!(l_kind, LocalKind::Int | LocalKind::Float | LocalKind::Bool)
+                            && !matches!(
+                                r_kind,
+                                LocalKind::Int | LocalKind::Float | LocalKind::Bool
+                            )
+                            && !matches!(l_kind, LocalKind::String)
+                            && !matches!(r_kind, LocalKind::String);
+                    if either_known_list && neither_is_scalar {
                         let (concat_idx, _, _) = functions["__aipo_list_concat"];
                         let l_ty = compile_expr(
                             left,
@@ -11216,7 +11602,18 @@ fn compile_expr(
                 // runtime helpers rather than the static string length path.
                 let receiver_kind =
                     infer_expr_kind(receiver, locals, functions, table_indices, anon_map);
-                if matches!(receiver_kind, LocalKind::List(_)) {
+                // An element read of a dictionary with no learned element kind is a
+                // container in practice, so `.len` reads the list header.
+                let unresolved_dict_read = matches!(receiver_kind, LocalKind::Unknown)
+                    && matches!(
+                        &**receiver,
+                        HirExpr::Index(base, _, _)
+                            if matches!(
+                                infer_expr_kind(base, locals, functions, table_indices, anon_map),
+                                LocalKind::Dict(..)
+                            )
+                    );
+                if matches!(receiver_kind, LocalKind::List(_)) || unresolved_dict_read {
                     let (list_len_idx, _, _) = functions["__aipo_list_len"];
                     let r_ty = compile_expr(
                         receiver,
@@ -11701,7 +12098,25 @@ fn compile_expr(
 
                 let (dict_get_idx, _, _) = functions["__aipo_dict_get"];
                 func.instruction(&Instruction::Call(dict_get_idx));
-                return Ok(WasmType::I64);
+                // A dictionary stores everything in an `i64` slot, but the value's own
+                // kind decides how the reader treats it: a List/Dict/String is an
+                // `i32` handle, and leaving it as `i64` made the next read take the
+                // handle's low half as an index.
+                let value_ty = match &target_kind {
+                    // An unresolved element kind is a container handle more often than a
+                    // scalar here: a `Dict` built by `{}` then filled with lists has no
+                    // static element kind, and treating the read as `i64` printed the
+                    // handle as a number.
+                    LocalKind::Dict(_, value) if matches!(**value, LocalKind::Unknown) => {
+                        WasmType::I32
+                    }
+                    LocalKind::Dict(_, value) => kind_wasm_type(value),
+                    _ => WasmType::I64,
+                };
+                if value_ty != WasmType::I64 {
+                    coerce_type(func, WasmType::I64, value_ty);
+                }
+                return Ok(value_ty);
             }
 
             if matches!(target_kind, LocalKind::Bytes) {
@@ -12012,7 +12427,17 @@ fn compile_expr(
             coerce_type(func, i_ty, WasmType::I32);
             let (list_get_idx, _, _) = functions["__aipo_list_get"];
             func.instruction(&Instruction::Call(list_get_idx));
-            Ok(WasmType::I64)
+            // An element keeps its own representation. A list of dictionaries stores
+            // an `i32` handle in an `i64` slot, and leaving the read as `i64` made the
+            // next index take the handle's low half as a position.
+            let element_ty = match &target_kind {
+                LocalKind::List(element) => kind_wasm_type(element),
+                _ => WasmType::I64,
+            };
+            if element_ty != WasmType::I64 {
+                coerce_type(func, WasmType::I64, element_ty);
+            }
+            Ok(element_ty)
         }
         HirExpr::Try(inner, _) => {
             // `expr?` reads the operand once, then propagates a pending failure to

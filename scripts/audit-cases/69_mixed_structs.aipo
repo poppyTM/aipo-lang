@@ -1,0 +1,8 @@
+struct P { var x
+ var y }
+struct Q { var p
+ var tag }
+let q = Q{p = P{x = 1, y = 2}, tag = "t"}
+io.println(q.p.x + q.p.y)
+io.println(q.tag)
+io.println(q.p.x == 1)

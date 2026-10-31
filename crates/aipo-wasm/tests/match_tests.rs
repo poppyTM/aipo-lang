@@ -330,3 +330,35 @@ fn sum_coords(p: Point) -> Int {
 
     assert_eq!(f.call(&mut store, ptr as i64).unwrap(), 42);
 }
+
+#[test]
+fn test_match_variant_single_positional_payload_binds() {
+    // `enum Shape { Circle(r) }` declares a one-field tuple payload. The match arm
+    // has to bind `r` to that field; an unbound payload made the arm fall through
+    // and answer the `else` value.
+    let code = r#"
+enum Shape {
+  Circle(r)
+  Square(s)
+}
+fn area(sh) {
+  match sh {
+  when Shape.Circle(r) { return r * r * 3 }
+  when Shape.Square(s) { return s * s }
+  else { return 0 }
+  }
+}
+fn circle_area() -> Int { return area(Shape.Circle{2}) }
+fn square_area() -> Int { return area(Shape.Square{3}) }
+"#;
+    let (mut store, instance) = instantiate_aipo(code);
+    let circle = instance
+        .get_typed_func::<(), i64>(&mut store, "circle_area")
+        .expect("exported `circle_area`");
+    let square = instance
+        .get_typed_func::<(), i64>(&mut store, "square_area")
+        .expect("exported `square_area`");
+
+    assert_eq!(circle.call(&mut store, ()).unwrap(), 12);
+    assert_eq!(square.call(&mut store, ()).unwrap(), 9);
+}

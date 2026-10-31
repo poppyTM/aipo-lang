@@ -340,9 +340,14 @@ pub(super) fn infer_expr_kind(
         }
         HirExpr::Binary(BinaryOp::Range, ..) => LocalKind::Range,
         HirExpr::List(items, _) => {
-            let element = items.first().map_or(LocalKind::Unknown, |first| {
-                infer_expr_kind(first, locals, functions, table_indices, anon_map)
-            });
+            // The whole literal witnesses the element kind, not just its first entry:
+            // an empty list leaves it unknown, and a later `[] + [row]` has to recover
+            // `row`'s kind from the right side.
+            let element = items
+                .iter()
+                .map(|item| infer_expr_kind(item, locals, functions, table_indices, anon_map))
+                .find(|kind| !matches!(kind, LocalKind::Unknown))
+                .unwrap_or(LocalKind::Unknown);
             LocalKind::List(Box::new(element))
         }
         HirExpr::Dict(entries, _) => {
@@ -377,7 +382,21 @@ pub(super) fn infer_expr_kind(
             // Slicing returns the container's own kind: a window over a List is a
             // List, so `len(xs[a..b])` must resolve through the list helper and not
             // through an element read.
-            let target_kind = infer_expr_kind(target, locals, functions, table_indices, anon_map);
+            let mut target_kind =
+                infer_expr_kind(target, locals, functions, table_indices, anon_map);
+            // The pre-scan runs before the entry script promotes module bindings out of
+            // its frame, so a global's refined kind may only be in the module table.
+            if let HirExpr::Identifier(name, _) = &**target
+                && let Some((_, _, kind)) = functions.module_globals.get(name)
+            {
+                // The module table is the refined copy: the frame's entry was created
+                // before the entry script had seen every write.
+                let less_specific = matches!(target_kind, LocalKind::Unknown)
+                    || matches!(&target_kind, LocalKind::Dict(_, v) if matches!(**v, LocalKind::Unknown));
+                if less_specific {
+                    target_kind = kind.clone();
+                }
+            }
             if matches!(&**index, HirExpr::Binary(BinaryOp::Range, ..)) {
                 match &target_kind {
                     LocalKind::List(element) => return LocalKind::List(element.clone()),
@@ -393,7 +412,32 @@ pub(super) fn infer_expr_kind(
             // makes `letters[0]` print text instead of the element's pointer.
             match target_kind {
                 LocalKind::List(element) => (*element).clone(),
-                LocalKind::Dict(_, value) => (*value).clone(),
+                LocalKind::Dict(_, value) => {
+                    // A dictionary that has not learned its element kind yet defers to
+                    // the module table, which the write pass refines.
+                    if matches!(*value, LocalKind::Unknown) {
+                        if let HirExpr::Identifier(name, _) = &**target
+                            && let Some((_, _, LocalKind::Dict(_, refined))) =
+                                functions.module_globals.get(name)
+                            && !matches!(**refined, LocalKind::Unknown)
+                        {
+                            return (**refined).clone();
+                        }
+                        // The frame's copy of a module dictionary may predate its writes.
+                        if let HirExpr::Identifier(name, _) = &**target
+                            && let Some((_, _, LocalKind::Dict(_, refined))) = locals.get(name)
+                            && !matches!(**refined, LocalKind::Unknown)
+                        {
+                            return (**refined).clone();
+                        }
+                        // The dictionary's writes have not been consolidated yet at this
+                        // point, so the element read answers a container handle: it is what
+                        // `r["items"]` means in practice, and a scalar read still resolves
+                        // through the value's own kind.
+                        return LocalKind::List(Box::new(LocalKind::Unknown));
+                    }
+                    (*value).clone()
+                }
                 LocalKind::Bytes => LocalKind::Int,
                 _ => LocalKind::Unknown,
             }
@@ -401,6 +445,49 @@ pub(super) fn infer_expr_kind(
         HirExpr::Binary(BinaryOp::Add, left, right, _) => {
             let lk = infer_expr_kind(left, locals, functions, table_indices, anon_map);
             let rk = infer_expr_kind(right, locals, functions, table_indices, anon_map);
+            match (&lk, &rk) {
+                // Concatenating lists yields a list of the element kind either side
+                // knows: `[] + [row]` must keep `row`'s kind, or a later read treats the
+                // element as a scalar.
+                (LocalKind::List(a), LocalKind::List(b)) => {
+                    // Take the more specific element kind: an empty literal says nothing
+                    // and must not shadow the element the other side names.
+                    let a_known = !matches!(**a, LocalKind::Unknown);
+                    let b_known = !matches!(**b, LocalKind::Unknown);
+                    let element = match (a_known, b_known) {
+                        (false, _) => (**b).clone(),
+                        (true, false) => (**a).clone(),
+                        // Both name one; a nested dict's inner kind may still be the
+                        // vaguer of the two.
+                        (true, true) => match (&**a, &**b) {
+                            (LocalKind::Dict(ka, va), LocalKind::Dict(kb, vb)) => {
+                                let key = if matches!(**ka, LocalKind::Unknown) {
+                                    (**kb).clone()
+                                } else {
+                                    (**ka).clone()
+                                };
+                                let value = if matches!(**va, LocalKind::Unknown) {
+                                    (**vb).clone()
+                                } else {
+                                    (**va).clone()
+                                };
+                                LocalKind::Dict(Box::new(key), Box::new(value))
+                            }
+                            _ => (**a).clone(),
+                        },
+                    };
+                    return LocalKind::List(Box::new(element));
+                }
+                // One side may still be an unresolved read of the same container
+                // (`r["items"] + [row]`); the literal names the element kind.
+                (LocalKind::List(a), LocalKind::Unknown) if !matches!(**a, LocalKind::Unknown) => {
+                    return LocalKind::List(a.clone());
+                }
+                (LocalKind::Unknown, LocalKind::List(b)) if !matches!(**b, LocalKind::Unknown) => {
+                    return LocalKind::List(b.clone());
+                }
+                _ => {}
+            }
             match (lk, rk) {
                 (LocalKind::String, _) | (_, LocalKind::String) => LocalKind::String,
                 (LocalKind::Int, LocalKind::Int) => LocalKind::Int,
@@ -751,14 +838,24 @@ pub(super) fn infer_expr_type(
         HirExpr::List(..) | HirExpr::Dict(..) => Ok(WasmType::I32),
         HirExpr::Index(target, index, _) => {
             // A range index yields the container's own handle, not an element.
-            // `Bytes`/`List` handles are `i32`; only an element read is `i64`.
+            // `Bytes`/`List` handles are `i32`; only a scalar element read is `i64`.
             if matches!(&**index, HirExpr::Binary(BinaryOp::Range, ..)) {
                 let is_string = matches!(&**target, HirExpr::Literal(Literal::String(..), _));
                 if !is_string {
                     return Ok(WasmType::I32);
                 }
             }
-            Ok(WasmType::I64)
+            // An element read carries the element's own type: `r["items"]` where the
+            // dictionary holds a List is a handle, and answering `i64` truncated it
+            // into a number.
+            let target_kind =
+                infer_expr_kind(target, locals, functions, table_indices, &HashMap::new());
+            Ok(match target_kind {
+                LocalKind::List(element) => kind_wasm_type(&element),
+                LocalKind::Dict(_, value) => kind_wasm_type(&value),
+                LocalKind::Bytes => WasmType::I64,
+                _ => WasmType::I64,
+            })
         }
         HirExpr::OrElse(left, right, _) => {
             let l_ty = infer_expr_type(left, locals, functions, structs, table_indices)?;
@@ -1813,6 +1910,27 @@ pub(super) fn collect_expr_strings(
 /// Falls back to a program-wide lookup because a destructuring pattern does not
 /// name its struct: `when { name }` on a `User` still has to know that `name`
 /// holds a `String`.
+/// Returns the storage type a value of `kind` occupies.
+///
+/// The distinction matters at an element read: a `String`, `List`, `Dict` or struct
+/// is an `i32` handle, while `Int`, `Float` and `Bool` are scalars.
+pub(super) fn kind_wasm_type(kind: &LocalKind) -> WasmType {
+    match kind {
+        LocalKind::Float => WasmType::F64,
+        LocalKind::Bool => WasmType::I32,
+        LocalKind::Int => WasmType::I64,
+        LocalKind::String
+        | LocalKind::List(_)
+        | LocalKind::Dict(..)
+        | LocalKind::Bytes
+        | LocalKind::Struct(_)
+        | LocalKind::Fn(_)
+        | LocalKind::Range
+        | LocalKind::Task => WasmType::I32,
+        _ => WasmType::I64,
+    }
+}
+
 pub(super) fn struct_field_kind(
     receiver: &LocalKind,
     field: &str,

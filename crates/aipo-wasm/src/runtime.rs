@@ -698,7 +698,12 @@ pub(super) fn build_dict_get_function() -> Function {
     func.instruction(&Instruction::End);
     func.instruction(&Instruction::End);
 
-    func.instruction(&Instruction::I64Const(0));
+    // A missing key is a runtime fault, not `none`: canon makes `dict[key]` require
+    // an existing key so a stored `none` stays distinguishable from absence. Returning
+    // 0 here made a missing key read as the integer zero (or as an empty container),
+    // which silently produced a wrong value instead of the VM's
+    // `AIPO_RT_KEY_NOT_FOUND`.
+    func.instruction(&Instruction::Unreachable);
     func.instruction(&Instruction::End);
     func
 }

@@ -1,0 +1,17 @@
+fn risky(n) {
+  if n < 0 { return fail("neg", n) }
+  return n
+}
+attempt {
+  let a = risky(5)
+  io.println(a)
+  let b = risky(-1)
+  io.println(b)
+} failed e {
+  io.println("caught: " + e.message)
+}
+attempt {
+  risky(-2)
+} failed e {
+  io.println(e.message)
+}
