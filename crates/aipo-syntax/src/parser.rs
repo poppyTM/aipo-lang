@@ -480,6 +480,16 @@ impl<'a> Parser<'a> {
         }
     }
 
+    /// Consumes the current token when the caller does not need it.
+    ///
+    /// Cloning the token copies its `String` payload; a discard site only needs the
+    /// cursor to move, so it takes this path instead of `advance`.
+    fn bump(&mut self) {
+        if self.cursor < self.tokens.len() {
+            self.cursor += 1;
+        }
+    }
+
     fn advance(&mut self) -> Token {
         if !self.is_at_end() {
             let tok = self.tokens[self.cursor].clone();
@@ -538,7 +548,7 @@ impl<'a> Parser<'a> {
 
     fn match_token(&mut self, expected: &TokenKind) -> bool {
         if self.check(expected) {
-            self.advance();
+            self.bump();
             true
         } else {
             false
@@ -547,7 +557,7 @@ impl<'a> Parser<'a> {
 
     fn skip_newlines(&mut self) {
         while matches!(self.peek(), TokenKind::Newline) {
-            self.advance();
+            self.bump();
         }
     }
 
@@ -866,7 +876,7 @@ impl<'a> Parser<'a> {
         let is_async_prefix = self.match_token(&TokenKind::Async);
         let start = self.tokens[self.cursor].span;
         let target = self.parse_ident()?;
-        self.advance(); // ':' or '::'
+        self.bump(); // ':' or '::'
 
         if matches!(
             self.tokens[self.cursor.saturating_sub(1)].kind,
@@ -922,7 +932,7 @@ impl<'a> Parser<'a> {
             );
             return None;
         }
-        self.advance(); // '['
+        self.bump(); // '['
         self.skip_newlines();
 
         let mut functions = Vec::new();
@@ -1047,7 +1057,7 @@ impl<'a> Parser<'a> {
             if let Some(method) = self.parse_function_signature() {
                 methods.push(method);
             } else {
-                self.advance();
+                self.bump();
             }
             self.skip_newlines();
         }
@@ -1146,7 +1156,7 @@ impl<'a> Parser<'a> {
         if result.is_none() {
             self.synchronize();
             if self.cursor == start && !self.is_at_end() {
-                self.advance();
+                self.bump();
             }
         }
         result
@@ -1193,7 +1203,7 @@ impl<'a> Parser<'a> {
                     .with_primary_span(self.source, span),
                 );
                 while !self.is_at_end() && !matches!(self.peek(), TokenKind::Newline) {
-                    self.advance();
+                    self.bump();
                 }
                 None
             }
@@ -1443,7 +1453,7 @@ impl<'a> Parser<'a> {
             loop {
                 // Struct destructuring: `when { name, age }`
                 if self.check(&TokenKind::LBrace) {
-                    let _ = self.advance(); // consume '{'
+                    let _ = self.bump(); // consume '{'
                     self.skip_newlines();
                     let mut fields = Vec::new();
                     while !self.check(&TokenKind::RBrace) && !self.is_at_end() {
@@ -1612,7 +1622,7 @@ impl<'a> Parser<'a> {
             )?;
             (VariantPatternPayload::Tuple(ids), rparen.span)
         } else if self.check(&TokenKind::LBrace) && self.is_variant_struct_payload() {
-            self.advance(); // consume '{'
+            self.bump(); // consume '{'
             self.skip_newlines();
             let mut ids = Vec::new();
             while !self.check(&TokenKind::RBrace) && !self.is_at_end() {
@@ -1882,7 +1892,7 @@ impl<'a> Parser<'a> {
             );
             return None;
         }
-        self.advance(); // 'fn'
+        self.bump(); // 'fn'
         self.parse_function_decl_rest(start, true)
     }
 
@@ -1997,7 +2007,7 @@ impl<'a> Parser<'a> {
     /// so later stages can apply the known-Task rule (canon: sugar, never a
     /// second async machine).
     fn parse_await_do_block(&mut self, start: SourceSpan) -> Option<Stmt> {
-        self.advance(); // 'do'
+        self.bump(); // 'do'
         self.skip_newlines();
 
         self.expect(&TokenKind::LBrace, "expected '{' to open await do block")?;
@@ -2033,7 +2043,7 @@ impl<'a> Parser<'a> {
             );
             return None;
         }
-        self.advance(); // 'fn'
+        self.bump(); // 'fn'
         // The expression spans the whole `async fn ... end` form, so it starts at `async`.
         self.parse_fn_expr_rest(async_start, true)
     }
@@ -2062,10 +2072,10 @@ impl<'a> Parser<'a> {
             match self.peek() {
                 TokenKind::LBracket => {
                     depth += 1;
-                    self.advance();
+                    self.bump();
                 }
                 TokenKind::RBracket => {
-                    self.advance();
+                    self.bump();
                     // The bracket that opened the skipped section closes it, so
                     // recovery stops before the caller's own `)` / `]`.
                     depth = depth.saturating_sub(1);
@@ -2074,7 +2084,7 @@ impl<'a> Parser<'a> {
                     }
                 }
                 _ => {
-                    self.advance();
+                    self.bump();
                 }
             }
         }
@@ -2474,7 +2484,7 @@ impl<'a> Parser<'a> {
                 // (`return fail(...)`), so it must parse wherever a value is expected.
                 let start = self.advance().span;
                 let value = if self.check(&TokenKind::LParen) {
-                    self.advance();
+                    self.bump();
                     let inner = self.parse_expr()?;
                     self.expect(&TokenKind::RParen, "expected ')' after 'fail' argument")?;
                     inner
@@ -2558,7 +2568,7 @@ impl<'a> Parser<'a> {
     #[inline(never)]
     fn parse_short_lambda_single(&mut self, ident: Ident) -> Option<Expr> {
         let span = ident.span;
-        self.advance(); // consume '=>'
+        self.bump(); // consume '=>'
         let body = self.parse_pratt_expr(Precedence::Lowest)?;
         let full_span = span.merge(body.span());
         let param = Param {
@@ -2580,7 +2590,7 @@ impl<'a> Parser<'a> {
 
     #[inline(never)]
     fn parse_short_lambda_discard(&mut self, span: SourceSpan) -> Option<Expr> {
-        self.advance(); // consume '=>'
+        self.bump(); // consume '=>'
         let body = self.parse_pratt_expr(Precedence::Lowest)?;
         let full_span = span.merge(body.span());
         let param = Param {
@@ -2623,7 +2633,7 @@ impl<'a> Parser<'a> {
 
     #[inline(never)]
     fn parse_paren_expr(&mut self) -> Option<Expr> {
-        self.advance();
+        self.bump();
         self.skip_newlines();
         let old = self.allow_comma_is;
         self.allow_comma_is = true;
@@ -2804,8 +2814,8 @@ impl<'a> Parser<'a> {
                                 "write `f(value, name = 1)`; `:` belongs to declarations (`Type:method`) and to struct literals (`User{ name: 1 }`)",
                             ),
                         );
-                        self.advance(); // the name
-                        self.advance(); // the ':'
+                        self.bump(); // the name
+                        self.bump(); // the ':'
                         self.skip_newlines();
                     }
                     // Check for named argument `name = value`
@@ -2813,7 +2823,7 @@ impl<'a> Parser<'a> {
                         && self.peek_ahead(1) == &TokenKind::Equal;
                     let (arg_name, value) = if is_named {
                         let id = self.parse_ident()?;
-                        self.advance(); // consume '='
+                        self.bump(); // consume '='
                         self.skip_newlines();
                         let old = self.allow_comma_is;
                         self.allow_comma_is = false;
@@ -3073,7 +3083,7 @@ impl<'a> Parser<'a> {
                 && matches!(self.peek_ahead(1), TokenKind::Colon | TokenKind::Equal);
             let (name, value) = if is_named {
                 let id = self.parse_ident()?;
-                self.advance(); // consume ':' or '='
+                self.bump(); // consume ':' or '='
                 self.skip_newlines();
                 let old = self.allow_comma_is;
                 self.allow_comma_is = false;
@@ -3288,7 +3298,7 @@ impl<'a> Parser<'a> {
             && (text.starts_with(|c: char| c.is_alphabetic() || c == '_')
                 && text.chars().all(|c| c.is_alphanumeric() || c == '_'))
         {
-            self.advance();
+            self.bump();
             return Some(Ident::new(text.to_string(), tok.span));
         }
         self.parse_ident()
