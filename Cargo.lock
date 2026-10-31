@@ -398,6 +398,7 @@ dependencies = [
  "aipo-lexer",
  "aipo-source",
  "aipo-syntax",
+ "unicode-normalization",
  "wasm-encoder 0.261.0",
  "wasmprinter 0.261.0",
  "wasmtime",

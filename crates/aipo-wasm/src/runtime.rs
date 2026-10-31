@@ -2514,7 +2514,7 @@ pub(super) fn build_list_sort_by_function(callback_type_idx: u32) -> Function {
 }
 
 /// Builds `__aipo_str_concat(ptr_a: i32, ptr_b: i32) -> i32`.
-pub(super) fn build_string_concat_function(alloc_func_idx: u32) -> Function {
+pub(super) fn build_string_concat_function(alloc_func_idx: u32, nfc_func_idx: u32) -> Function {
     let mut func = Function::new([(5, ValType::I32)]);
     // local 0: ptr_a (param)
     // local 1: ptr_b (param)
@@ -2639,6 +2639,8 @@ pub(super) fn build_string_concat_function(alloc_func_idx: u32) -> Function {
     func.instruction(&Instruction::End);
 
     func.instruction(&Instruction::LocalGet(5));
+    // `+` on strings is NFC on the VM, so concatenation normalizes its result.
+    func.instruction(&Instruction::Call(nfc_func_idx));
     func.instruction(&Instruction::End);
     func
 }
@@ -2825,270 +2827,6 @@ pub(super) fn build_str_to_int_function(
 ///
 /// Folding never changes the UTF-8 width of those ranges, so the output is the same
 /// size as the input and no buffer growth is needed.
-pub(super) fn build_str_case_function(alloc_func_idx: u32) -> Function {
-    // params: 0=ptr, 1=upper
-    // locals: 2=byte len, 3=out, 4=pos, 5=lead, 6=step, 7=code point, 8=out cursor
-    let mut func = Function::new([(7, ValType::I32)]);
-
-    func.instruction(&Instruction::LocalGet(0));
-    func.instruction(&Instruction::I32Load(MemArg {
-        offset: 0,
-        align: 2,
-        memory_index: 0,
-    }));
-    func.instruction(&Instruction::LocalSet(2));
-
-    func.instruction(&Instruction::LocalGet(2));
-    func.instruction(&Instruction::I32Const(4));
-    func.instruction(&Instruction::I32Add);
-    func.instruction(&Instruction::Call(alloc_func_idx));
-    func.instruction(&Instruction::LocalSet(3));
-    func.instruction(&Instruction::LocalGet(3));
-    func.instruction(&Instruction::I32Const(0));
-    func.instruction(&Instruction::I32Store(MemArg {
-        offset: 0,
-        align: 2,
-        memory_index: 0,
-    }));
-    func.instruction(&Instruction::I32Const(0));
-    func.instruction(&Instruction::LocalSet(4));
-    func.instruction(&Instruction::I32Const(0));
-    func.instruction(&Instruction::LocalSet(8));
-
-    func.instruction(&Instruction::Block(BlockType::Empty));
-    func.instruction(&Instruction::Loop(BlockType::Empty));
-    func.instruction(&Instruction::LocalGet(4));
-    func.instruction(&Instruction::LocalGet(2));
-    func.instruction(&Instruction::I32GeS);
-    func.instruction(&Instruction::BrIf(1));
-
-    // Lead byte and the UTF-8 width of this character.
-    func.instruction(&Instruction::LocalGet(0));
-    func.instruction(&Instruction::LocalGet(4));
-    func.instruction(&Instruction::I32Add);
-    func.instruction(&Instruction::I32Load8U(MemArg {
-        offset: 4,
-        align: 0,
-        memory_index: 0,
-    }));
-    func.instruction(&Instruction::LocalSet(5));
-    func.instruction(&Instruction::LocalGet(5));
-    func.instruction(&Instruction::I32Const(0x80));
-    func.instruction(&Instruction::I32LtU);
-    func.instruction(&Instruction::If(BlockType::Result(ValType::I32)));
-    func.instruction(&Instruction::I32Const(1));
-    func.instruction(&Instruction::Else);
-    func.instruction(&Instruction::LocalGet(5));
-    func.instruction(&Instruction::I32Const(0xE0));
-    func.instruction(&Instruction::I32LtU);
-    func.instruction(&Instruction::If(BlockType::Result(ValType::I32)));
-    func.instruction(&Instruction::I32Const(2));
-    func.instruction(&Instruction::Else);
-    func.instruction(&Instruction::LocalGet(5));
-    func.instruction(&Instruction::I32Const(0xF0));
-    func.instruction(&Instruction::I32LtU);
-    func.instruction(&Instruction::If(BlockType::Result(ValType::I32)));
-    func.instruction(&Instruction::I32Const(3));
-    func.instruction(&Instruction::Else);
-    func.instruction(&Instruction::I32Const(4));
-    func.instruction(&Instruction::End);
-    func.instruction(&Instruction::End);
-    func.instruction(&Instruction::End);
-    func.instruction(&Instruction::LocalSet(6));
-
-    // Decode: a one-byte character is its lead; a two-byte one combines both bytes.
-    func.instruction(&Instruction::LocalGet(6));
-    func.instruction(&Instruction::I32Const(1));
-    func.instruction(&Instruction::I32Eq);
-    func.instruction(&Instruction::If(BlockType::Empty));
-    func.instruction(&Instruction::LocalGet(5));
-    func.instruction(&Instruction::LocalSet(7));
-    func.instruction(&Instruction::Else);
-    func.instruction(&Instruction::LocalGet(0));
-    func.instruction(&Instruction::LocalGet(4));
-    func.instruction(&Instruction::I32Add);
-    func.instruction(&Instruction::I32Const(1));
-    func.instruction(&Instruction::I32Add);
-    func.instruction(&Instruction::I32Load8U(MemArg {
-        offset: 4,
-        align: 0,
-        memory_index: 0,
-    }));
-    func.instruction(&Instruction::I32Const(0x3F));
-    func.instruction(&Instruction::I32And);
-    func.instruction(&Instruction::LocalGet(5));
-    func.instruction(&Instruction::I32Const(0x1F));
-    func.instruction(&Instruction::I32And);
-    func.instruction(&Instruction::I32Const(6));
-    func.instruction(&Instruction::I32Shl);
-    func.instruction(&Instruction::I32Or);
-    func.instruction(&Instruction::LocalSet(7));
-    func.instruction(&Instruction::End);
-
-    // Fold the code point.
-    ascii_fold(&mut func, 7);
-    latin1_fold(&mut func);
-
-    // Encode it back: one byte below 0x80, two bytes otherwise.
-    func.instruction(&Instruction::LocalGet(7));
-    func.instruction(&Instruction::I32Const(0x80));
-    func.instruction(&Instruction::I32LtU);
-    func.instruction(&Instruction::If(BlockType::Empty));
-    func.instruction(&Instruction::LocalGet(3));
-    func.instruction(&Instruction::LocalGet(8));
-    func.instruction(&Instruction::I32Add);
-    func.instruction(&Instruction::LocalGet(7));
-    func.instruction(&Instruction::I32Store8(MemArg {
-        offset: 4,
-        align: 0,
-        memory_index: 0,
-    }));
-    func.instruction(&Instruction::LocalGet(8));
-    func.instruction(&Instruction::I32Const(1));
-    func.instruction(&Instruction::I32Add);
-    func.instruction(&Instruction::LocalSet(8));
-    func.instruction(&Instruction::Else);
-    func.instruction(&Instruction::LocalGet(3));
-    func.instruction(&Instruction::LocalGet(8));
-    func.instruction(&Instruction::I32Add);
-    func.instruction(&Instruction::I32Const(0xC0));
-    func.instruction(&Instruction::LocalGet(7));
-    func.instruction(&Instruction::I32Const(6));
-    func.instruction(&Instruction::I32ShrU);
-    func.instruction(&Instruction::I32Or);
-    func.instruction(&Instruction::I32Store8(MemArg {
-        offset: 4,
-        align: 0,
-        memory_index: 0,
-    }));
-    func.instruction(&Instruction::LocalGet(3));
-    func.instruction(&Instruction::LocalGet(8));
-    func.instruction(&Instruction::I32Add);
-    func.instruction(&Instruction::LocalGet(7));
-    func.instruction(&Instruction::I32Const(0x3F));
-    func.instruction(&Instruction::I32And);
-    func.instruction(&Instruction::I32Const(0x80));
-    func.instruction(&Instruction::I32Or);
-    func.instruction(&Instruction::I32Store8(MemArg {
-        offset: 5,
-        align: 0,
-        memory_index: 0,
-    }));
-    func.instruction(&Instruction::LocalGet(8));
-    func.instruction(&Instruction::I32Const(2));
-    func.instruction(&Instruction::I32Add);
-    func.instruction(&Instruction::LocalSet(8));
-    func.instruction(&Instruction::End);
-
-    func.instruction(&Instruction::LocalGet(4));
-    func.instruction(&Instruction::LocalGet(6));
-    func.instruction(&Instruction::I32Add);
-    func.instruction(&Instruction::LocalSet(4));
-    func.instruction(&Instruction::Br(0));
-    func.instruction(&Instruction::End);
-    func.instruction(&Instruction::End);
-
-    // Record the produced length.
-    func.instruction(&Instruction::LocalGet(3));
-    func.instruction(&Instruction::LocalGet(8));
-    func.instruction(&Instruction::I32Store(MemArg {
-        offset: 0,
-        align: 2,
-        memory_index: 0,
-    }));
-    func.instruction(&Instruction::LocalGet(3));
-    func.instruction(&Instruction::End);
-    func
-}
-
-/// Emits the ASCII case fold of local `slot`, leaving the result in it.
-fn ascii_fold(func: &mut Function, slot: u32) {
-    func.instruction(&Instruction::LocalGet(1));
-    func.instruction(&Instruction::If(BlockType::Empty));
-    func.instruction(&Instruction::LocalGet(slot));
-    func.instruction(&Instruction::I32Const(97));
-    func.instruction(&Instruction::I32GeS);
-    func.instruction(&Instruction::LocalGet(slot));
-    func.instruction(&Instruction::I32Const(122));
-    func.instruction(&Instruction::I32LeS);
-    func.instruction(&Instruction::I32And);
-    func.instruction(&Instruction::If(BlockType::Empty));
-    func.instruction(&Instruction::LocalGet(slot));
-    func.instruction(&Instruction::I32Const(0x20));
-    func.instruction(&Instruction::I32Sub);
-    func.instruction(&Instruction::LocalSet(slot));
-    func.instruction(&Instruction::End);
-    func.instruction(&Instruction::Else);
-    func.instruction(&Instruction::LocalGet(slot));
-    func.instruction(&Instruction::I32Const(65));
-    func.instruction(&Instruction::I32GeS);
-    func.instruction(&Instruction::LocalGet(slot));
-    func.instruction(&Instruction::I32Const(90));
-    func.instruction(&Instruction::I32LeS);
-    func.instruction(&Instruction::I32And);
-    func.instruction(&Instruction::If(BlockType::Empty));
-    func.instruction(&Instruction::LocalGet(slot));
-    func.instruction(&Instruction::I32Const(0x20));
-    func.instruction(&Instruction::I32Add);
-    func.instruction(&Instruction::LocalSet(slot));
-    func.instruction(&Instruction::End);
-    func.instruction(&Instruction::End);
-}
-
-/// Emits the Latin-1 case fold of the code point in local 7.
-///
-/// `À..Þ` (`U+00C0..=U+00DE`) is the uppercase run and folds *down* by 0x20; `à..þ`
-/// (`U+00E0..=U+00FE`) is the lowercase run and folds *up*. `×` (`D7`) and `÷`
-/// (`F7`) sit inside those ranges but have no case pair, so they are skipped.
-fn latin1_fold(func: &mut Function) {
-    // Lowercase run -> uppercase.
-    func.instruction(&Instruction::LocalGet(7));
-    func.instruction(&Instruction::I32Const(0xE0));
-    func.instruction(&Instruction::I32GeS);
-    func.instruction(&Instruction::LocalGet(7));
-    func.instruction(&Instruction::I32Const(0xFE));
-    func.instruction(&Instruction::I32LeS);
-    func.instruction(&Instruction::I32And);
-    func.instruction(&Instruction::LocalGet(7));
-    func.instruction(&Instruction::I32Const(0xF7));
-    func.instruction(&Instruction::I32Ne);
-    func.instruction(&Instruction::I32And);
-    func.instruction(&Instruction::LocalGet(1));
-    func.instruction(&Instruction::I32And);
-    func.instruction(&Instruction::If(BlockType::Empty));
-    func.instruction(&Instruction::LocalGet(7));
-    func.instruction(&Instruction::I32Const(0x20));
-    func.instruction(&Instruction::I32Sub);
-    func.instruction(&Instruction::LocalSet(7));
-    func.instruction(&Instruction::End);
-
-    // Uppercase run -> lowercase.
-    func.instruction(&Instruction::LocalGet(7));
-    func.instruction(&Instruction::I32Const(0xC0));
-    func.instruction(&Instruction::I32GeS);
-    func.instruction(&Instruction::LocalGet(7));
-    func.instruction(&Instruction::I32Const(0xDE));
-    func.instruction(&Instruction::I32LeS);
-    func.instruction(&Instruction::I32And);
-    func.instruction(&Instruction::LocalGet(7));
-    func.instruction(&Instruction::I32Const(0xD7));
-    func.instruction(&Instruction::I32Ne);
-    func.instruction(&Instruction::I32And);
-    func.instruction(&Instruction::LocalGet(1));
-    func.instruction(&Instruction::I32Eqz);
-    func.instruction(&Instruction::I32And);
-    func.instruction(&Instruction::If(BlockType::Empty));
-    func.instruction(&Instruction::LocalGet(7));
-    func.instruction(&Instruction::I32Const(0x20));
-    func.instruction(&Instruction::I32Add);
-    func.instruction(&Instruction::LocalSet(7));
-    func.instruction(&Instruction::End);
-}
-
-/// Builds `__aipo_str_find(haystack: i32, needle: i32) -> i64`.
-///
-/// Returns the code-point index of the first occurrence, or `-1` for none — the
-/// canonical `string.find` answer, which a caller reads as a plain Int.
 pub(super) fn build_str_find_function() -> Function {
     // params: 0=haystack, 1=needle
     // locals: 2=h_len, 3=n_len, 4=i, 5=j, 6=byte, 7=hit
@@ -3246,7 +2984,11 @@ pub(super) fn build_str_copy_function(alloc_func_idx: u32) -> Function {
 /// Builds `__aipo_str_reverse(ptr: i32, copy_idx: u32) -> i32`.
 ///
 /// Reverses by code point, so a multi-byte character keeps its byte order.
-pub(super) fn build_str_reverse_function(copy_idx: u32, alloc_func_idx: u32) -> Function {
+pub(super) fn build_str_reverse_function(
+    copy_idx: u32,
+    alloc_func_idx: u32,
+    nfc_func_idx: u32,
+) -> Function {
     // params: 0=ptr
     // locals: 1=len, 2=out, 3=cursor(dst), 4=pos, 5=char_start, 6=byte, 7=step, 8=i
     let mut func = Function::new([(8, ValType::I32)]);
@@ -3417,6 +3159,9 @@ pub(super) fn build_str_reverse_function(copy_idx: u32, alloc_func_idx: u32) -> 
     func.instruction(&Instruction::End);
 
     func.instruction(&Instruction::LocalGet(2));
+    // Reversing moves combining marks in front of their base, so the result is
+    // re-normalized like `string.reverse` on the VM.
+    func.instruction(&Instruction::Call(nfc_func_idx));
     func.instruction(&Instruction::End);
     func
 }
@@ -3438,7 +3183,7 @@ pub(super) fn build_str_format_function(
 ) -> Function {
     // params: 0=template, 1=dict
     // locals: 2=len, 3=out, 4=pos, 5=scan, 6=ch, 7=piece_start, 8=key, 9=value
-    let mut func = Function::new([(8, ValType::I32)]);
+    let mut func = Function::new([(9, ValType::I32), (1, ValType::I64)]);
 
     func.instruction(&Instruction::LocalGet(0));
     func.instruction(&Instruction::I32Load(MemArg {
@@ -3446,48 +3191,48 @@ pub(super) fn build_str_format_function(
         align: 2,
         memory_index: 0,
     }));
-    func.instruction(&Instruction::LocalSet(2));
+    func.instruction(&Instruction::LocalSet(3));
 
     func.instruction(&Instruction::I32Const(0));
     func.instruction(&Instruction::I32Const(0));
     func.instruction(&Instruction::Call(concat_idx));
-    func.instruction(&Instruction::LocalSet(3));
+    func.instruction(&Instruction::LocalSet(4));
 
     func.instruction(&Instruction::I32Const(0));
-    func.instruction(&Instruction::LocalSet(4));
+    func.instruction(&Instruction::LocalSet(5));
     func.instruction(&Instruction::I32Const(0));
-    func.instruction(&Instruction::LocalSet(7));
+    func.instruction(&Instruction::LocalSet(8));
 
     func.instruction(&Instruction::Block(BlockType::Empty));
     func.instruction(&Instruction::Loop(BlockType::Empty));
-    func.instruction(&Instruction::LocalGet(4));
-    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::LocalGet(3));
     func.instruction(&Instruction::I32GeS);
     func.instruction(&Instruction::BrIf(1));
     func.instruction(&Instruction::LocalGet(0));
-    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::LocalGet(5));
     func.instruction(&Instruction::I32Add);
     func.instruction(&Instruction::I32Load8U(MemArg {
         offset: 4,
         align: 0,
         memory_index: 0,
     }));
-    func.instruction(&Instruction::LocalSet(6));
+    func.instruction(&Instruction::LocalSet(7));
 
     // An interior `{` opens a placeholder; `{{` is an escaped literal brace.
-    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::LocalGet(7));
     func.instruction(&Instruction::I32Const(123));
     func.instruction(&Instruction::I32Eq);
     func.instruction(&Instruction::If(BlockType::Empty));
     let escaped = 1u32;
-    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::LocalGet(5));
     func.instruction(&Instruction::I32Const(1));
     func.instruction(&Instruction::I32Add);
-    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::LocalGet(3));
     func.instruction(&Instruction::I32LtS);
     func.instruction(&Instruction::If(BlockType::Empty));
     func.instruction(&Instruction::LocalGet(0));
-    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::LocalGet(5));
     func.instruction(&Instruction::I32Add);
     func.instruction(&Instruction::I32Const(1));
     func.instruction(&Instruction::I32Add);
@@ -3500,45 +3245,45 @@ pub(super) fn build_str_format_function(
     func.instruction(&Instruction::I32Eq);
     func.instruction(&Instruction::If(BlockType::Empty));
     // Flush [piece_start, pos) then one brace.
-    func.instruction(&Instruction::LocalGet(3));
-    func.instruction(&Instruction::LocalGet(0));
-    func.instruction(&Instruction::LocalGet(7));
     func.instruction(&Instruction::LocalGet(4));
-    func.instruction(&Instruction::LocalGet(7));
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::LocalGet(8));
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::LocalGet(8));
     func.instruction(&Instruction::I32Sub);
     func.instruction(&Instruction::Call(copy_idx));
     func.instruction(&Instruction::Call(concat_idx));
-    func.instruction(&Instruction::LocalSet(3));
-    func.instruction(&Instruction::LocalGet(3));
-    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::LocalSet(4));
     func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::LocalGet(5));
     func.instruction(&Instruction::I32Const(1));
     func.instruction(&Instruction::Call(copy_idx));
     func.instruction(&Instruction::Call(concat_idx));
-    func.instruction(&Instruction::LocalSet(3));
-    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::LocalSet(4));
+    func.instruction(&Instruction::LocalGet(5));
     func.instruction(&Instruction::I32Const(2));
     func.instruction(&Instruction::I32Add);
-    func.instruction(&Instruction::LocalSet(4));
-    func.instruction(&Instruction::LocalGet(4));
-    func.instruction(&Instruction::LocalSet(7));
+    func.instruction(&Instruction::LocalSet(5));
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::LocalSet(8));
     func.instruction(&Instruction::Br(escaped + 2));
     func.instruction(&Instruction::End);
     func.instruction(&Instruction::End);
 
     // A placeholder: the key runs from pos+1 to the closing `}`.
-    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::LocalGet(5));
     func.instruction(&Instruction::I32Const(1));
     func.instruction(&Instruction::I32Add);
-    func.instruction(&Instruction::LocalSet(5));
+    func.instruction(&Instruction::LocalSet(6));
     func.instruction(&Instruction::Block(BlockType::Empty));
     func.instruction(&Instruction::Loop(BlockType::Empty));
-    func.instruction(&Instruction::LocalGet(5));
-    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::LocalGet(3));
     func.instruction(&Instruction::I32GeS);
     func.instruction(&Instruction::BrIf(1));
     func.instruction(&Instruction::LocalGet(0));
-    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::LocalGet(6));
     func.instruction(&Instruction::I32Add);
     func.instruction(&Instruction::I32Load8U(MemArg {
         offset: 4,
@@ -3548,6 +3293,66 @@ pub(super) fn build_str_format_function(
     func.instruction(&Instruction::I32Const(125));
     func.instruction(&Instruction::I32Eq);
     func.instruction(&Instruction::BrIf(1));
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::I32Const(1));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::LocalSet(6));
+    func.instruction(&Instruction::Br(0));
+    func.instruction(&Instruction::End);
+    func.instruction(&Instruction::End);
+
+    // key = template[pos+1 .. scan]
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::I32Const(1));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::I32Const(0));
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::I32Sub);
+    func.instruction(&Instruction::I32Const(1));
+    func.instruction(&Instruction::I32Sub);
+    func.instruction(&Instruction::Call(copy_idx));
+    func.instruction(&Instruction::LocalSet(9));
+
+    // Flush the piece before the placeholder, then the looked-up value.
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::LocalGet(8));
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::LocalGet(8));
+    func.instruction(&Instruction::I32Sub);
+    func.instruction(&Instruction::Call(copy_idx));
+    func.instruction(&Instruction::Call(concat_idx));
+    func.instruction(&Instruction::LocalSet(4));
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::LocalGet(9));
+    func.instruction(&Instruction::Call(hash_idx));
+    func.instruction(&Instruction::Call(dict_get_idx));
+    func.instruction(&Instruction::LocalSet(12));
+    func.instruction(&Instruction::LocalGet(12));
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::LocalGet(12));
+    func.instruction(&Instruction::Call(int_to_str_idx));
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I32Const(1));
+    func.instruction(&Instruction::I32Eq);
+    func.instruction(&Instruction::Select);
+    func.instruction(&Instruction::LocalSet(11));
+    func.instruction(&Instruction::LocalGet(11));
+    func.instruction(&Instruction::Call(concat_idx));
+    func.instruction(&Instruction::LocalSet(4));
+
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::I32Const(1));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::LocalSet(5));
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::LocalSet(8));
+    func.instruction(&Instruction::Br(1));
+    func.instruction(&Instruction::End);
     func.instruction(&Instruction::LocalGet(5));
     func.instruction(&Instruction::I32Const(1));
     func.instruction(&Instruction::I32Add);
@@ -3556,62 +3361,12 @@ pub(super) fn build_str_format_function(
     func.instruction(&Instruction::End);
     func.instruction(&Instruction::End);
 
-    // key = template[pos+1 .. scan]
-    func.instruction(&Instruction::LocalGet(0));
-    func.instruction(&Instruction::LocalGet(4));
-    func.instruction(&Instruction::I32Const(1));
-    func.instruction(&Instruction::I32Add);
-    func.instruction(&Instruction::I32Add);
-    func.instruction(&Instruction::I32Const(0));
-    func.instruction(&Instruction::LocalGet(5));
-    func.instruction(&Instruction::LocalGet(4));
-    func.instruction(&Instruction::I32Sub);
-    func.instruction(&Instruction::I32Const(1));
-    func.instruction(&Instruction::I32Sub);
-    func.instruction(&Instruction::Call(copy_idx));
-    func.instruction(&Instruction::LocalSet(8));
-
-    // Flush the piece before the placeholder, then the looked-up value.
-    func.instruction(&Instruction::LocalGet(3));
-    func.instruction(&Instruction::LocalGet(0));
-    func.instruction(&Instruction::LocalGet(7));
-    func.instruction(&Instruction::LocalGet(4));
-    func.instruction(&Instruction::LocalGet(7));
-    func.instruction(&Instruction::I32Sub);
-    func.instruction(&Instruction::Call(copy_idx));
-    func.instruction(&Instruction::Call(concat_idx));
-    func.instruction(&Instruction::LocalSet(3));
-    func.instruction(&Instruction::LocalGet(3));
-    func.instruction(&Instruction::LocalGet(1));
-    func.instruction(&Instruction::LocalGet(8));
-    func.instruction(&Instruction::Call(hash_idx));
-    func.instruction(&Instruction::Call(dict_get_idx));
-    func.instruction(&Instruction::Call(int_to_str_idx));
-    func.instruction(&Instruction::Call(concat_idx));
-    func.instruction(&Instruction::LocalSet(3));
-
-    func.instruction(&Instruction::LocalGet(5));
-    func.instruction(&Instruction::I32Const(1));
-    func.instruction(&Instruction::I32Add);
-    func.instruction(&Instruction::LocalSet(4));
-    func.instruction(&Instruction::LocalGet(4));
-    func.instruction(&Instruction::LocalSet(7));
-    func.instruction(&Instruction::Br(1));
-    func.instruction(&Instruction::End);
-    func.instruction(&Instruction::LocalGet(4));
-    func.instruction(&Instruction::I32Const(1));
-    func.instruction(&Instruction::I32Add);
-    func.instruction(&Instruction::LocalSet(4));
-    func.instruction(&Instruction::Br(0));
-    func.instruction(&Instruction::End);
-    func.instruction(&Instruction::End);
-
     // Flush the trailing piece.
-    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::LocalGet(4));
     func.instruction(&Instruction::LocalGet(0));
-    func.instruction(&Instruction::LocalGet(7));
-    func.instruction(&Instruction::LocalGet(2));
-    func.instruction(&Instruction::LocalGet(7));
+    func.instruction(&Instruction::LocalGet(8));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::LocalGet(8));
     func.instruction(&Instruction::I32Sub);
     func.instruction(&Instruction::Call(copy_idx));
     func.instruction(&Instruction::Call(concat_idx));
@@ -4070,164 +3825,6 @@ pub(super) fn build_str_affix_function(at_end: bool) -> Function {
 ///
 /// Drops leading and trailing whitespace, returning a fresh string. Only the ends
 /// are trimmed, so an interior run is preserved.
-pub(super) fn build_str_trim_function(alloc_func_idx: u32) -> Function {
-    // params: 0=ptr
-    // locals: 1=len, 2=start, 3=end, 4=out, 5=i, 6=byte
-    let mut func = Function::new([(6, ValType::I32)]);
-
-    func.instruction(&Instruction::LocalGet(0));
-    func.instruction(&Instruction::I32Load(MemArg {
-        offset: 0,
-        align: 2,
-        memory_index: 0,
-    }));
-    func.instruction(&Instruction::LocalSet(1));
-
-    // start: advance while the byte is whitespace (space, or < 0x20).
-    func.instruction(&Instruction::I32Const(0));
-    func.instruction(&Instruction::LocalSet(2));
-    func.instruction(&Instruction::Block(BlockType::Empty));
-    func.instruction(&Instruction::Loop(BlockType::Empty));
-    func.instruction(&Instruction::LocalGet(2));
-    func.instruction(&Instruction::LocalGet(1));
-    func.instruction(&Instruction::I32GeS);
-    func.instruction(&Instruction::BrIf(1));
-    func.instruction(&Instruction::LocalGet(0));
-    func.instruction(&Instruction::LocalGet(2));
-    func.instruction(&Instruction::I32Add);
-    func.instruction(&Instruction::I32Load8U(MemArg {
-        offset: 4,
-        align: 0,
-        memory_index: 0,
-    }));
-    func.instruction(&Instruction::LocalSet(6));
-    func.instruction(&Instruction::LocalGet(6));
-    func.instruction(&Instruction::I32Const(32));
-    func.instruction(&Instruction::I32GtU);
-    func.instruction(&Instruction::BrIf(1));
-    func.instruction(&Instruction::LocalGet(6));
-    func.instruction(&Instruction::I32Const(32));
-    func.instruction(&Instruction::I32Ne);
-    func.instruction(&Instruction::LocalGet(6));
-    func.instruction(&Instruction::I32Const(32));
-    func.instruction(&Instruction::I32GeU);
-    func.instruction(&Instruction::I32And);
-    func.instruction(&Instruction::BrIf(1));
-    func.instruction(&Instruction::LocalGet(2));
-    func.instruction(&Instruction::I32Const(1));
-    func.instruction(&Instruction::I32Add);
-    func.instruction(&Instruction::LocalSet(2));
-    func.instruction(&Instruction::Br(0));
-    func.instruction(&Instruction::End);
-    func.instruction(&Instruction::End);
-
-    // end: retreat from the tail while the byte is whitespace.
-    func.instruction(&Instruction::LocalGet(1));
-    func.instruction(&Instruction::LocalSet(3));
-    func.instruction(&Instruction::Block(BlockType::Empty));
-    func.instruction(&Instruction::Loop(BlockType::Empty));
-    func.instruction(&Instruction::LocalGet(3));
-    func.instruction(&Instruction::LocalGet(2));
-    func.instruction(&Instruction::I32LeS);
-    func.instruction(&Instruction::BrIf(1));
-    func.instruction(&Instruction::LocalGet(0));
-    func.instruction(&Instruction::LocalGet(3));
-    func.instruction(&Instruction::I32Add);
-    func.instruction(&Instruction::I32Const(1));
-    func.instruction(&Instruction::I32Sub);
-    func.instruction(&Instruction::I32Load8U(MemArg {
-        offset: 4,
-        align: 0,
-        memory_index: 0,
-    }));
-    func.instruction(&Instruction::LocalSet(6));
-    func.instruction(&Instruction::LocalGet(6));
-    func.instruction(&Instruction::I32Const(32));
-    func.instruction(&Instruction::I32GtU);
-    func.instruction(&Instruction::BrIf(1));
-    func.instruction(&Instruction::LocalGet(6));
-    func.instruction(&Instruction::I32Const(32));
-    func.instruction(&Instruction::I32Ne);
-    func.instruction(&Instruction::LocalGet(6));
-    func.instruction(&Instruction::I32Const(32));
-    func.instruction(&Instruction::I32GeU);
-    func.instruction(&Instruction::I32And);
-    func.instruction(&Instruction::BrIf(1));
-    func.instruction(&Instruction::LocalGet(3));
-    func.instruction(&Instruction::I32Const(1));
-    func.instruction(&Instruction::I32Sub);
-    func.instruction(&Instruction::LocalSet(3));
-    func.instruction(&Instruction::Br(0));
-    func.instruction(&Instruction::End);
-    func.instruction(&Instruction::End);
-
-    // out = alloc(4 + (end - start))
-    func.instruction(&Instruction::LocalGet(3));
-    func.instruction(&Instruction::LocalGet(2));
-    func.instruction(&Instruction::I32Sub);
-    func.instruction(&Instruction::I32Const(4));
-    func.instruction(&Instruction::I32Add);
-    func.instruction(&Instruction::Call(alloc_func_idx));
-    func.instruction(&Instruction::LocalSet(4));
-    func.instruction(&Instruction::LocalGet(4));
-    func.instruction(&Instruction::LocalGet(3));
-    func.instruction(&Instruction::LocalGet(2));
-    func.instruction(&Instruction::I32Sub);
-    func.instruction(&Instruction::I32Store(MemArg {
-        offset: 0,
-        align: 2,
-        memory_index: 0,
-    }));
-
-    func.instruction(&Instruction::LocalGet(2));
-    func.instruction(&Instruction::LocalSet(5));
-    func.instruction(&Instruction::Block(BlockType::Empty));
-    func.instruction(&Instruction::Loop(BlockType::Empty));
-    func.instruction(&Instruction::LocalGet(5));
-    func.instruction(&Instruction::LocalGet(3));
-    func.instruction(&Instruction::I32GeS);
-    func.instruction(&Instruction::BrIf(1));
-    func.instruction(&Instruction::LocalGet(4));
-    func.instruction(&Instruction::LocalGet(5));
-    func.instruction(&Instruction::LocalGet(2));
-    func.instruction(&Instruction::I32Sub);
-    func.instruction(&Instruction::I32Add);
-    func.instruction(&Instruction::LocalGet(0));
-    func.instruction(&Instruction::LocalGet(5));
-    func.instruction(&Instruction::I32Add);
-    func.instruction(&Instruction::I32Load8U(MemArg {
-        offset: 4,
-        align: 0,
-        memory_index: 0,
-    }));
-    func.instruction(&Instruction::I32Store8(MemArg {
-        offset: 4,
-        align: 0,
-        memory_index: 0,
-    }));
-    func.instruction(&Instruction::LocalGet(5));
-    func.instruction(&Instruction::I32Const(1));
-    func.instruction(&Instruction::I32Add);
-    func.instruction(&Instruction::LocalSet(5));
-    func.instruction(&Instruction::Br(0));
-    func.instruction(&Instruction::End);
-    func.instruction(&Instruction::End);
-
-    func.instruction(&Instruction::LocalGet(4));
-    func.instruction(&Instruction::End);
-    func
-}
-
-/// Builds `__aipo_float_to_str(value: f64) -> i32`.
-///
-/// Matches the VM's rendering: an integral value prints with one decimal (`1.0`);
-/// anything else prints its integer part, a separator, and the fraction digits it
-/// needs. Wasm has no formatting runtime, so the digits are produced here — each
-/// one becomes a one-character string before `str_concat`.
-///
-/// Locals are declared floats first so their indices follow the `f64` parameter;
-/// mixing the order put the `f64` staging slots on `i32` indices, which the Wasm
-/// validator rejects.
 pub(super) fn build_float_to_str_function(
     alloc_func_idx: u32,
     int_to_str_idx: u32,

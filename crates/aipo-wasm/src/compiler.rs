@@ -1117,12 +1117,24 @@ pub fn compile_hir(program: &HirProgram) -> Result<Vec<u8>, WasmCompileError> {
         );
     }
 
+    // The Unicode tables sit in static memory beside the string pool. They are
+    // emitted before the heap pointer is fixed, because the allocator must start
+    // above them.
+    let (unicode_tables, next_static_offset) =
+        crate::unicode::embed(&mut emitter, next_static_offset);
+
     for (offset, bytes) in data_segments {
         emitter.add_data_segment(0, offset, bytes);
     }
 
     // Global 0: Dynamic Heap Pointer (`__aipo_heap_ptr`)
     let heap_start = next_static_offset;
+
+    // Data segments are applied at instantiation, before the allocator can grow
+    // anything, so the initial memory has to cover the whole static region. One
+    // spare page keeps the first allocation off the growth path.
+    emitter.enable_memory((u64::from(heap_start as u32) / 65_536) + 1, None);
+
     emitter.add_global(
         GlobalType {
             val_type: ValType::I32,
@@ -1208,6 +1220,15 @@ pub fn compile_hir(program: &HirProgram) -> Result<Vec<u8>, WasmCompileError> {
     functions.insert(
         "__aipo_alloc".to_string(),
         (alloc_func_idx, alloc_type_idx, alloc_fn_type),
+    );
+
+    // Unicode helpers. They read the tables embedded above, so they are emitted
+    // after the allocator they call and before any string helper that normalizes.
+    let unicode_nfc_idx = crate::unicode::register(
+        &mut emitter,
+        &unicode_tables,
+        alloc_func_idx,
+        &mut functions,
     );
 
     // Pre-register standard indirect call signatures for arities 0..=8
@@ -1832,7 +1853,7 @@ pub fn compile_hir(program: &HirProgram) -> Result<Vec<u8>, WasmCompileError> {
     let str_concat_fn_type =
         WasmFnType::new(vec![WasmType::I32, WasmType::I32], vec![WasmType::I32]);
     let str_concat_type_idx = emitter.add_type(str_concat_fn_type.clone());
-    let str_concat_fn = build_string_concat_function(alloc_func_idx);
+    let str_concat_fn = build_string_concat_function(alloc_func_idx, unicode_nfc_idx);
     let str_concat_func_idx = emitter.add_function(str_concat_type_idx, str_concat_fn);
     emitter.export_function("__aipo_str_concat", str_concat_func_idx);
     functions.insert(
@@ -1998,7 +2019,8 @@ pub fn compile_hir(program: &HirProgram) -> Result<Vec<u8>, WasmCompileError> {
     // Function 19.9c: `__aipo_str_reverse(ptr: i32) -> i32`
     let str_reverse_fn_type = WasmFnType::new(vec![WasmType::I32], vec![WasmType::I32]);
     let str_reverse_type_idx = emitter.add_type(str_reverse_fn_type.clone());
-    let str_reverse_fn = build_str_reverse_function(str_concat_func_idx, alloc_func_idx);
+    let str_reverse_fn =
+        build_str_reverse_function(str_concat_func_idx, alloc_func_idx, unicode_nfc_idx);
     let str_reverse_func_idx = emitter.add_function(str_reverse_type_idx, str_reverse_fn);
     emitter.export_function("__aipo_str_reverse", str_reverse_func_idx);
     functions.insert(
@@ -2022,28 +2044,6 @@ pub fn compile_hir(program: &HirProgram) -> Result<Vec<u8>, WasmCompileError> {
             (func_idx, type_idx, str_affix_fn_type.clone()),
         );
     }
-
-    // Function 19.6: `__aipo_str_trim(ptr: i32) -> i32`
-    let str_trim_fn_type = WasmFnType::new(vec![WasmType::I32], vec![WasmType::I32]);
-    let str_trim_type_idx = emitter.add_type(str_trim_fn_type.clone());
-    let str_trim_fn = build_str_trim_function(alloc_func_idx);
-    let str_trim_func_idx = emitter.add_function(str_trim_type_idx, str_trim_fn);
-    emitter.export_function("__aipo_str_trim", str_trim_func_idx);
-    functions.insert(
-        "__aipo_str_trim".to_string(),
-        (str_trim_func_idx, str_trim_type_idx, str_trim_fn_type),
-    );
-
-    // Function 19.7: `__aipo_str_case(ptr: i32, upper: i32) -> i32`
-    let str_case_fn_type = WasmFnType::new(vec![WasmType::I32, WasmType::I32], vec![WasmType::I32]);
-    let str_case_type_idx = emitter.add_type(str_case_fn_type.clone());
-    let str_case_fn = build_str_case_function(alloc_func_idx);
-    let str_case_func_idx = emitter.add_function(str_case_type_idx, str_case_fn);
-    emitter.export_function("__aipo_str_case", str_case_func_idx);
-    functions.insert(
-        "__aipo_str_case".to_string(),
-        (str_case_func_idx, str_case_type_idx, str_case_fn_type),
-    );
 
     // Function 19.8: `__aipo_str_find(haystack: i32, needle: i32) -> i64`
     let str_find_fn_type = WasmFnType::new(vec![WasmType::I32, WasmType::I32], vec![WasmType::I64]);
@@ -2083,9 +2083,11 @@ pub fn compile_hir(program: &HirProgram) -> Result<Vec<u8>, WasmCompileError> {
         (int_to_str_func_idx, int_to_str_type_idx, int_to_str_fn_type),
     );
 
-    // Function 19.9h: `__aipo_str_format(template: i32, dict: i32) -> i32`
-    let str_format_fn_type =
-        WasmFnType::new(vec![WasmType::I32, WasmType::I32], vec![WasmType::I32]);
+    // Function 19.9h: `__aipo_str_format(template: i32, dict: i32, kind: i32) -> i32`
+    let str_format_fn_type = WasmFnType::new(
+        vec![WasmType::I32, WasmType::I32, WasmType::I32],
+        vec![WasmType::I32],
+    );
     let str_format_type_idx = emitter.add_type(str_format_fn_type.clone());
     let str_format_fn = build_str_format_function(
         str_concat_func_idx,
@@ -8996,6 +8998,20 @@ fn compile_expr(
                             return Ok(WasmType::I32);
                         }
                         "format" => {
+                            // The dict's value type is statically known, so the
+                            // conversion is chosen here rather than in the helper.
+                            let format_kind = match infer_expr_kind(
+                                &args[1].value,
+                                locals,
+                                functions,
+                                table_indices,
+                                anon_map,
+                            ) {
+                                LocalKind::Dict(_, v) if matches!(*v, LocalKind::String) => 1i32,
+                                LocalKind::Dict(_, v) if matches!(*v, LocalKind::Float) => 2i32,
+                                LocalKind::Dict(_, v) if matches!(*v, LocalKind::Bool) => 3i32,
+                                _ => 0i32,
+                            };
                             let values_ty = compile_expr(
                                 &args[1].value,
                                 func,
@@ -9013,6 +9029,7 @@ fn compile_expr(
                                 call_depth,
                             )?;
                             coerce_type(func, values_ty, WasmType::I32);
+                            func.instruction(&Instruction::I32Const(format_kind));
                             let (idx, _, _) = functions["__aipo_str_format"];
                             func.instruction(&Instruction::Call(idx));
                             return Ok(WasmType::I32);

@@ -20,6 +20,9 @@ wasm-encoder = { version = "0.261", default-features = false, features = ["std"]
 wasmprinter = "0.261"
 wasmtime = { version = "49.0", default-features = false, features = ["cranelift", "runtime", "std"], optional = true }
 
+[build-dependencies]
+unicode-normalization = { workspace = true }
+
 [features]
 default = ["wasmtime"]
 wasmtime = ["dep:wasmtime"]

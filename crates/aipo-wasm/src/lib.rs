@@ -7,6 +7,8 @@ pub mod error;
 pub mod runner;
 mod runtime;
 pub mod types;
+mod unicode;
+mod unicode_tables;
 
 pub use compiler::compile_hir;
 pub use emitter::WasmEmitter;
