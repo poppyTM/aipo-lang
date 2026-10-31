@@ -1,0 +1,5 @@
+enum Shape {
+  Circle
+}
+fn take(s: Shape) -> String { return "ok" }
+io.println(take(1))

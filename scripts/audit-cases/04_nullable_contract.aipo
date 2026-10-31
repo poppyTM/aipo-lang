@@ -1,0 +1,6 @@
+fn f(x: Int?) -> String {
+  if x is Int { return "some" }
+  return "none"
+}
+io.println(f(none))
+io.println(f(3))

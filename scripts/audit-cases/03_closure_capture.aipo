@@ -1,0 +1,6 @@
+var n = 0
+let inc = fn () { n = n + 1
+ return n }
+io.println(inc())
+io.println(inc())
+io.println(n)

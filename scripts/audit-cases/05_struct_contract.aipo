@@ -1,0 +1,3 @@
+struct P { x }
+fn f(p: P) -> String { return "ok" }
+io.println(f(P{x = 1}))

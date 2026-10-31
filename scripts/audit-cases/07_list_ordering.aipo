@@ -1,0 +1,5 @@
+let xs = [3,1,2]
+io.println(xs.sort())
+io.println(xs)
+io.println(xs.reverse())
+io.println(xs)

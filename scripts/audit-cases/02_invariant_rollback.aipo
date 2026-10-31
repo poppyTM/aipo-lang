@@ -1,0 +1,6 @@
+struct B { var hi }
+B:init(hi) { self.hi = hi }
+B:invariant { self.hi > 0 }
+let b = B{hi = 5}
+attempt { b.hi = -1 } failed e { io.println("caught") }
+io.println(String(b.hi))

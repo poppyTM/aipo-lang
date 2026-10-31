@@ -1,0 +1,4 @@
+fn f(a, b = 2) { return a + b }
+io.println(f(1))
+io.println(f(1, 5))
+io.println(f(b = 9, a = 1))

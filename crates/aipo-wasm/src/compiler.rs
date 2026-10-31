@@ -94,6 +94,12 @@ pub(super) struct FunctionTable {
     pub(super) module_globals: HashMap<String, (u32, WasmType, LocalKind)>,
     /// Struct types that declare an `invariant()` hook.
     pub(super) invariant_types: HashSet<String>,
+    /// Written parameter contracts, by function name, in declaration order.
+    ///
+    /// Wasm cannot verify a contract dynamically, so the backend refuses a call whose
+    /// argument provably contradicts one of these instead of compiling a program that
+    /// means something the other backends would fault on.
+    pub(super) declared_param_types: HashMap<String, Vec<Option<aipo_ast::TypeAnnotation>>>,
     /// Semantic kind of each declared parameter, by function name.
     ///
     /// An unannotated parameter that receives an `i32` may hold a `String`, a
@@ -170,6 +176,20 @@ impl FunctionTable {
                 .collect(),
             return_kinds: HashMap::new(),
             module_globals: HashMap::new(),
+            declared_param_types: program
+                .items
+                .iter()
+                .filter_map(|item| match item {
+                    HirItem::Fn(decl) => Some((
+                        decl.name.clone(),
+                        decl.params
+                            .iter()
+                            .map(|param| param.type_annotation.clone())
+                            .collect(),
+                    )),
+                    _ => None,
+                })
+                .collect(),
             invariant_types: program
                 .items
                 .iter()
@@ -288,6 +308,118 @@ fn compile_dict_key_pair(
         func.instruction(&Instruction::LocalGet(raw_slot));
     }
     Ok(())
+}
+
+/// Refuses a call whose argument provably violates a declared parameter contract.
+///
+/// Wasm has no runtime type tags, so a contract cannot be verified dynamically the
+/// way the VM verifies it. What it *can* do is refuse the cases where the argument's
+/// kind already contradicts the declared type: passing an `Int` where the parameter
+/// says `Shape` is a boundary violation on every engine, and this backend must not
+/// silently compile a program that means something else.
+///
+/// A value of an unknown kind still passes — refusing it would reject programs that
+/// are valid at runtime, which is worse than deferring to the dynamic check the
+/// other backends perform.
+#[allow(clippy::too_many_arguments)]
+fn check_declared_contracts(
+    func_name: &str,
+    args: &[HirCallArg],
+    locals: &HashMap<String, (u32, WasmType, LocalKind)>,
+    functions: &FunctionTable,
+    table_indices: &HashMap<String, u32>,
+    anon_map: &HashMap<SourceSpan, String>,
+    structs: &HashMap<String, StructLayout>,
+    span: SourceSpan,
+) -> Result<(), WasmCompileError> {
+    let Some(declared) = functions.declared_param_types.get(func_name) else {
+        return Ok(());
+    };
+    let names = functions.param_names.get(func_name);
+    for (position, annotation) in declared.iter().enumerate() {
+        let Some(annotation) = annotation else {
+            continue;
+        };
+        // Resolve the argument at this position: by name first, then by order.
+        let argument = names
+            .and_then(|names| names.get(position))
+            .and_then(|param_name| {
+                args.iter()
+                    .find(|arg| arg.name.as_deref() == Some(param_name.as_str()))
+            })
+            .or_else(|| args.get(position));
+        let Some(argument) = argument else {
+            continue;
+        };
+        let kind = infer_expr_kind(&argument.value, locals, functions, table_indices, anon_map);
+        let violated = match (&kind, annotation.name.as_str()) {
+            (LocalKind::Unknown | LocalKind::None | LocalKind::Nullable(_), _) => false,
+            (kind, "Int") => !matches!(kind, LocalKind::Int),
+            (kind, "Float") => !matches!(kind, LocalKind::Float),
+            (kind, "Bool") => !matches!(kind, LocalKind::Bool),
+            (kind, "String") => !matches!(kind, LocalKind::String),
+            (kind, "Bytes") => !matches!(kind, LocalKind::Bytes),
+            (kind, "List") => !matches!(kind, LocalKind::List(_)),
+            (kind, "Dict") => !matches!(kind, LocalKind::Dict(_)),
+            (kind, "Range") => !matches!(kind, LocalKind::Range),
+            (kind, "Task") => !matches!(kind, LocalKind::Task),
+            // A declared struct, or an enum parent whose variants are registered as
+            // `Parent.Variant`.
+            (kind, nominal)
+                if structs.contains_key(nominal)
+                    || structs.keys().any(|name| {
+                        name.split_once('.')
+                            .is_some_and(|(parent, _)| parent == nominal)
+                    }) =>
+            {
+                match kind {
+                    // A variant satisfies its own parent's contract.
+                    LocalKind::Struct(actual) => {
+                        !(actual == nominal
+                            || actual
+                                .split_once('.')
+                                .is_some_and(|(parent, _)| parent == nominal))
+                    }
+                    _ => true,
+                }
+            }
+            // An interface or a type this backend cannot prove: leave it to runtime.
+            _ => false,
+        };
+        if violated {
+            return Err(WasmCompileError::UnsupportedExpr {
+                message: format!(
+                    "contract violation at parameter `{}`: argument {} does not satisfy `{}`",
+                    names
+                        .and_then(|n| n.get(position))
+                        .cloned()
+                        .unwrap_or_else(|| position.to_string()),
+                    kind_label(&kind),
+                    annotation.name
+                ),
+                span,
+            });
+        }
+    }
+    Ok(())
+}
+
+/// Names a [`LocalKind`] the way a fault message reads.
+fn kind_label(kind: &LocalKind) -> &'static str {
+    match kind {
+        LocalKind::Int => "Int",
+        LocalKind::Float => "Float",
+        LocalKind::Bool => "Bool",
+        LocalKind::String => "String",
+        LocalKind::Bytes => "Bytes",
+        LocalKind::List(_) => "List",
+        LocalKind::Dict(_) => "Dict",
+        LocalKind::Range => "Range",
+        LocalKind::Task => "Task",
+        LocalKind::Struct(_) => "Struct",
+        LocalKind::Fn(_) => "Function",
+        _ => "a value",
+    }
 }
 
 fn collect_declared_vars(stmts: &[HirStmt], out: &mut HashSet<String>) {
@@ -9923,6 +10055,22 @@ fn compile_expr(
                     return Ok(WasmType::I32);
                 }
                 if !locals.contains_key(func_name) && functions.contains_key(func_name) {
+                    // A written parameter contract is checked before the call. Wasm has
+                    // no runtime type tags, so the check is static: an argument whose
+                    // kind provably contradicts the declared type would violate the
+                    // contract at the boundary, and the VM raises exactly that fault.
+                    // Refusing it here keeps the two backends from disagreeing about a
+                    // program instead of only about its output.
+                    check_declared_contracts(
+                        func_name,
+                        args,
+                        locals,
+                        functions,
+                        table_indices,
+                        anon_map,
+                        structs,
+                        *span,
+                    )?;
                     let (func_idx, _, ref fn_type) = functions[func_name];
                     // Named arguments are reordered into declaration order before
                     // anything is evaluated. `scale(factor = 5, x = 4)` otherwise passed

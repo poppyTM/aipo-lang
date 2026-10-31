@@ -1,0 +1,9 @@
+interface Shape {
+  area() -> Float
+}
+struct Sq {
+  s
+}
+Sq:area(self) { return 1.0 }
+fn f(x: Shape) -> String { return "ok" }
+io.println(f(Sq{s = 2}))

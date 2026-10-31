@@ -1,0 +1,3 @@
+var d = {"a": 1}
+d["b"] = 2
+io.println(d.keys())

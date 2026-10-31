@@ -1,0 +1,6 @@
+let d = {"a": 1}
+io.println(d.has("a"))
+io.println(d["a"])
+d["b"] = 2
+io.println(len(d))
+io.println(d.keys())
