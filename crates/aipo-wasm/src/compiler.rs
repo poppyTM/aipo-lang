@@ -1850,17 +1850,12 @@ pub fn compile_hir(program: &HirProgram) -> Result<Vec<u8>, WasmCompileError> {
     let mut async_wrapper_infos = Vec::new();
     for (name, inner_body_name, params) in &async_wrappers {
         let params_wasm = params.iter().map(param_wasm_type).collect::<Vec<_>>();
-        let fn_type = WasmFnType::new(params_wasm, vec![WasmType::I32]);
+        let fn_type = WasmFnType::new(params_wasm.clone(), vec![WasmType::I32]);
         let type_idx = emitter.add_type(fn_type.clone());
         let func_idx = next_func_idx;
         next_func_idx += 1;
         functions.insert(name.clone(), (func_idx, type_idx, fn_type));
-        async_wrapper_infos.push((
-            name.clone(),
-            inner_body_name.clone(),
-            params.len(),
-            type_idx,
-        ));
+        async_wrapper_infos.push((name.clone(), inner_body_name.clone(), params_wasm, type_idx));
     }
 
     // Pass 1.5: Setup Table 0 for indirect function calls (call_indirect)
@@ -1920,11 +1915,11 @@ pub fn compile_hir(program: &HirProgram) -> Result<Vec<u8>, WasmCompileError> {
     }
 
     // Compile async wrapper functions
-    for (name, inner_body_name, param_count, type_idx) in async_wrapper_infos {
+    for (name, inner_body_name, param_types, type_idx) in async_wrapper_infos {
         let inner_table_idx = table_indices[&inner_body_name];
         let wrapper_fn = build_async_wrapper_function(
             inner_table_idx,
-            param_count,
+            &param_types,
             async_helpers.task_create_idx,
         );
         let assigned_idx = emitter.add_function(type_idx, wrapper_fn);
@@ -7744,9 +7739,10 @@ fn build_str_len_function() -> Function {
 /// Builds a wrapper function for an `async fn` that creates a `Task` handle and returns it (`task_ptr: i32`).
 fn build_async_wrapper_function(
     inner_table_idx: u32,
-    param_count: usize,
+    param_types: &[WasmType],
     task_create_func_idx: u32,
 ) -> Function {
+    let param_count = param_types.len();
     let mut func = Function::new([]);
     // arg 0: fn_table_idx
     func.instruction(&Instruction::I32Const(inner_table_idx as i32));
@@ -7754,18 +7750,25 @@ fn build_async_wrapper_function(
     // arg 1: arg_count
     func.instruction(&Instruction::I32Const(param_count as i32));
 
-    // arg 2: arg0
-    if param_count > 0 {
-        func.instruction(&Instruction::LocalGet(0));
-    } else {
-        func.instruction(&Instruction::I64Const(0));
-    }
-
-    // arg 3: arg1
-    if param_count > 1 {
-        func.instruction(&Instruction::LocalGet(1));
-    } else {
-        func.instruction(&Instruction::I64Const(0));
+    // arg 2: arg0 — `task_create` carries both arguments as `i64`, so a pointer
+    // parameter is widened rather than left as `i32`.
+    for (index, ty) in [(0usize, param_types.first()), (1usize, param_types.get(1))] {
+        match ty {
+            Some(WasmType::I64) => {
+                func.instruction(&Instruction::LocalGet(index as u32));
+            }
+            Some(WasmType::F64) => {
+                func.instruction(&Instruction::LocalGet(index as u32));
+                func.instruction(&Instruction::I64ReinterpretF64);
+            }
+            Some(WasmType::I32) => {
+                func.instruction(&Instruction::LocalGet(index as u32));
+                func.instruction(&Instruction::I64ExtendI32U);
+            }
+            None => {
+                func.instruction(&Instruction::I64Const(0));
+            }
+        }
     }
 
     // call __aipo_task_create
@@ -9647,18 +9650,23 @@ fn infer_expr_kind(
                     return LocalKind::List(element.clone());
                 }
                 // A predicate answers `Bool`, whatever the receiver kind; without
-                // this the result printed as a string pointer.
-                if matches!(
-                    method_name.as_str(),
-                    "is_empty"
-                        | "contains"
-                        | "any"
-                        | "all"
-                        | "has"
-                        | "starts_with"
-                        | "ends_with"
-                        | "is_match"
-                ) {
+                // this the result printed as a string pointer. `task.all` is not one:
+                // it answers the list of completed values.
+                let is_task_module = matches!(&**receiver, HirExpr::Identifier(name, _)
+                    if name == "task" && !locals.contains_key(name));
+                if !is_task_module
+                    && matches!(
+                        method_name.as_str(),
+                        "is_empty"
+                            | "contains"
+                            | "any"
+                            | "all"
+                            | "has"
+                            | "starts_with"
+                            | "ends_with"
+                            | "is_match"
+                    )
+                {
                     return LocalKind::Bool;
                 }
                 // String-valued helpers answer a pool pointer, which prints as text.
@@ -9698,9 +9706,13 @@ fn infer_expr_kind(
                     && rec_name == "task"
                     && !locals.contains_key(rec_name)
                     && functions.builtin_is_unshadowed(rec_name)
-                    && method_name == "spawn"
                 {
-                    return LocalKind::Task;
+                    return match method_name.as_str() {
+                        "spawn" => LocalKind::Task,
+                        // `task.all`/`task.race` answer the list of completed values.
+                        "all" | "race" => LocalKind::List(Box::new(LocalKind::Unknown)),
+                        _ => LocalKind::Unknown,
+                    };
                 }
                 // `math` helpers answer numbers; the integer-valued ones print as
                 // integers, which the representation alone cannot distinguish.
@@ -15246,34 +15258,40 @@ fn compile_expr(
                 && mod_name == "task"
                 && !locals.contains_key(mod_name)
             {
-                for a in args {
-                    let at = compile_expr(
-                        &a.value,
-                        func,
-                        locals,
-                        functions,
-                        control_stack,
-                        structs,
-                        static_strings,
-                        table_indices,
-                        anon_map,
-                        indirect_sigs,
-                        alloc_func_idx,
-                        async_helpers,
-                        struct_depth,
-                        call_depth,
-                    )?;
-                    let kind =
-                        infer_expr_kind(&a.value, locals, functions, table_indices, anon_map);
-                    // A `task.*` argument is only ever consumed by the stub that drives
-                    // the call; its representation is irrelevant here, so every kind
-                    // collapses onto the same coercion-and-drop.
-                    let arg_ty = match kind {
-                        LocalKind::Int => WasmType::I64,
-                        _ => WasmType::I32,
-                    };
-                    coerce_type(func, at, arg_ty);
-                    func.instruction(&Instruction::Drop);
+                // `task.all`/`task.race` consume their argument list below, so it is
+                // not discarded here.
+                let handles_args =
+                    matches!(method_name.as_str(), "all" | "race") && !args.is_empty();
+                if !handles_args {
+                    for a in args {
+                        let at = compile_expr(
+                            &a.value,
+                            func,
+                            locals,
+                            functions,
+                            control_stack,
+                            structs,
+                            static_strings,
+                            table_indices,
+                            anon_map,
+                            indirect_sigs,
+                            alloc_func_idx,
+                            async_helpers,
+                            struct_depth,
+                            call_depth,
+                        )?;
+                        let kind =
+                            infer_expr_kind(&a.value, locals, functions, table_indices, anon_map);
+                        // A `task.*` argument is only ever consumed by the stub that
+                        // drives the call; its representation is irrelevant here, so
+                        // every kind collapses onto the same coercion-and-drop.
+                        let arg_ty = match kind {
+                            LocalKind::Int => WasmType::I64,
+                            _ => WasmType::I32,
+                        };
+                        coerce_type(func, at, arg_ty);
+                        func.instruction(&Instruction::Drop);
+                    }
                 }
                 let returns_list = matches!(method_name.as_str(), "all" | "race");
                 if method_name == "group" {
@@ -15281,13 +15299,117 @@ fn compile_expr(
                     return Ok(WasmType::I32);
                 }
                 if returns_list {
+                    // `task.all`/`task.race` drive every task in the argument list and
+                    // collect the values, so the result is a List of what each returned.
+                    if args.len() == 1 {
+                        let (list_new_idx, _, _) = functions["__aipo_list_new"];
+                        let (list_len_idx, _, _) = functions["__aipo_list_len"];
+                        let (list_get_idx, _, _) = functions["__aipo_list_get"];
+                        let (list_add_idx, _, _) = functions["__aipo_list_add"];
+                        let tasks_ty = compile_expr(
+                            &args[0].value,
+                            func,
+                            locals,
+                            functions,
+                            control_stack,
+                            structs,
+                            static_strings,
+                            table_indices,
+                            anon_map,
+                            indirect_sigs,
+                            alloc_func_idx,
+                            async_helpers,
+                            struct_depth,
+                            call_depth,
+                        )?;
+                        coerce_type(func, tasks_ty, WasmType::I32);
+                        let tasks_slot = locals[&format!("__call_temp_{}", call_depth.min(7))].0;
+                        func.instruction(&Instruction::LocalSet(tasks_slot));
+                        func.instruction(&Instruction::I32Const(0));
+                        func.instruction(&Instruction::Call(list_new_idx));
+                        let out_slot = locals[&format!("__list_temp_{}", struct_depth.min(7))].0;
+                        func.instruction(&Instruction::LocalSet(out_slot));
+                        let idx_slot = locals[&format!("__i64_temp_{}", call_depth.min(7))].0;
+                        let len_slot = locals[&format!("__i64_temp_{}", (call_depth + 1).min(7))].0;
+                        func.instruction(&Instruction::I32Const(0));
+                        func.instruction(&Instruction::I64ExtendI32U);
+                        func.instruction(&Instruction::LocalSet(idx_slot));
+                        func.instruction(&Instruction::LocalGet(tasks_slot));
+                        func.instruction(&Instruction::Call(list_len_idx));
+                        func.instruction(&Instruction::LocalSet(len_slot));
+                        func.instruction(&Instruction::Block(BlockType::Empty));
+                        func.instruction(&Instruction::Loop(BlockType::Empty));
+                        func.instruction(&Instruction::LocalGet(idx_slot));
+                        func.instruction(&Instruction::LocalGet(len_slot));
+                        func.instruction(&Instruction::I64GeS);
+                        func.instruction(&Instruction::BrIf(1));
+                        func.instruction(&Instruction::LocalGet(out_slot));
+                        func.instruction(&Instruction::LocalGet(tasks_slot));
+                        func.instruction(&Instruction::LocalGet(idx_slot));
+                        func.instruction(&Instruction::I32WrapI64);
+                        func.instruction(&Instruction::Call(list_get_idx));
+                        func.instruction(&Instruction::I32WrapI64);
+                        func.instruction(&Instruction::Call(async_helpers.await_idx));
+                        func.instruction(&Instruction::Call(list_add_idx));
+                        func.instruction(&Instruction::Drop);
+                        func.instruction(&Instruction::LocalGet(idx_slot));
+                        func.instruction(&Instruction::I64Const(1));
+                        func.instruction(&Instruction::I64Add);
+                        func.instruction(&Instruction::LocalSet(idx_slot));
+                        func.instruction(&Instruction::Br(0));
+                        func.instruction(&Instruction::End);
+                        func.instruction(&Instruction::End);
+                        func.instruction(&Instruction::LocalGet(out_slot));
+                        return Ok(WasmType::I32);
+                    }
                     let (list_new_idx, _, _) = functions["__aipo_list_new"];
                     func.instruction(&Instruction::I32Const(0));
                     func.instruction(&Instruction::Call(list_new_idx));
                     return Ok(WasmType::I32);
                 }
                 if matches!(method_name.as_str(), "spawn") {
-                    func.instruction(&Instruction::I32Const(0));
+                    // `task.spawn(f, [a, b])` starts the task eagerly. The function's
+                    // table index and up to two of its arguments travel as the task
+                    // body's payload, which is what `__aipo_task_create` stores.
+                    let (callee_name, table_idx) = match args.first().map(|a| &a.value) {
+                        Some(HirExpr::Identifier(name, _)) => {
+                            // An async function's table entry is its body: the wrapper
+                            // spawns, the body runs inside the task.
+                            let body_name = format!("__async_body_{name}");
+                            match table_indices
+                                .get(&body_name)
+                                .or_else(|| table_indices.get(name.as_str()))
+                            {
+                                Some(&index) => (Some(name.clone()), Some(index)),
+                                None => (Some(name.clone()), None),
+                            }
+                        }
+                        _ => (None, None),
+                    };
+                    let Some(table_idx) = table_idx else {
+                        // A dynamic target cannot be spawned by this backend.
+                        func.instruction(&Instruction::I32Const(0));
+                        return Ok(WasmType::I32);
+                    };
+                    let _ = callee_name;
+                    // The argument count and values come from the list literal in the
+                    // second position.
+                    let (mut arg_count, mut arg0, mut arg1) = (0i32, 0i64, 0i64);
+                    if let Some(HirExpr::List(items, _)) = args.get(1).map(|a| &a.value) {
+                        arg_count = i32::try_from(items.len().min(2)).unwrap_or(2);
+                        if let Some(HirExpr::Literal(Literal::Int(raw), _)) = items.first() {
+                            arg0 = raw.parse().unwrap_or(0);
+                        }
+                        if let Some(HirExpr::Literal(Literal::Int(raw), _)) = items.get(1) {
+                            arg1 = raw.parse().unwrap_or(0);
+                        }
+                    }
+                    func.instruction(&Instruction::I32Const(table_idx as i32));
+                    func.instruction(&Instruction::I32Const(arg_count));
+                    func.instruction(&Instruction::I64Const(arg0));
+                    func.instruction(&Instruction::I64Const(arg1));
+                    let (create_idx, _, _) = functions["__aipo_task_create"];
+                    func.instruction(&Instruction::Call(create_idx));
                     return Ok(WasmType::I32);
                 }
                 // sleep, cancel, timeout -> i64/none
