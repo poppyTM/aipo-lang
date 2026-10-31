@@ -444,6 +444,22 @@ impl<'a> Parser<'a> {
 
     // --- Helpers ---
 
+    /// Reports a token that does not match what the caller was told to expect.
+    ///
+    /// This only fires if a `take` after a matching `peek` returns something else,
+    /// which no current path does; it exists so that case is a parse error instead
+    /// of a panic.
+    fn unexpected_token(&mut self, span: SourceSpan, expected: &str) -> Option<Expr> {
+        self.diagnostics.push(
+            Diagnostic::error(
+                DiagnosticCode::AIPO_PARSE_UNEXPECTED_TOKEN,
+                format!("expected {expected}, found '{:?}'", self.peek()),
+            )
+            .with_primary_span(self.source, span),
+        );
+        None
+    }
+
     fn peek(&self) -> &TokenKind {
         self.tokens
             .get(self.cursor)
@@ -2325,14 +2341,14 @@ impl<'a> Parser<'a> {
             TokenKind::IntLiteral(_) => {
                 let token = self.take();
                 let TokenKind::IntLiteral(digits) = token.kind else {
-                    unreachable!("take() returned a different token")
+                    return self.unexpected_token(token.span, "integer literal");
                 };
                 Some(Expr::Literal(Literal::Int(digits), token.span))
             }
             TokenKind::FloatLiteral(_) => {
                 let token = self.take();
                 let TokenKind::FloatLiteral(digits) = token.kind else {
-                    unreachable!("take() returned a different token")
+                    return self.unexpected_token(token.span, "float literal");
                 };
                 Some(Expr::Literal(Literal::Float(digits), token.span))
             }
@@ -2395,7 +2411,7 @@ impl<'a> Parser<'a> {
                 let token = self.take();
                 let span = token.span;
                 let TokenKind::Identifier(name) = token.kind else {
-                    unreachable!("take() returned a different token")
+                    return self.unexpected_token(token.span, "identifier");
                 };
                 let ident = Ident::new(name, span);
 
@@ -3272,7 +3288,8 @@ impl<'a> Parser<'a> {
         if matches!(self.peek(), TokenKind::Identifier(_)) {
             let token = self.take();
             let TokenKind::Identifier(name) = token.kind else {
-                unreachable!("take() returned a different token")
+                self.unexpected_token(token.span, "identifier");
+                return None;
             };
             Some(Ident::new(name, token.span))
         } else {
