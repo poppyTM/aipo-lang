@@ -32,7 +32,7 @@ use aipo_lexer::{Lexer, Token, TokenKind};
 use aipo_source::{Source, SourceId};
 use std::fmt;
 use tokens::{
-    Class, classify, group_delta, is_branch_keyword, minus_is_prefix, opens_block, text_of,
+    Class, classify, group_delta, is_branch_keyword, minus_is_prefix, opens_block, write_text_of,
 };
 
 /// Indentation width used by the canonical formatter.
@@ -142,13 +142,14 @@ fn render(source: &Source, lines: &[Line<'_>]) -> String {
     let mut group_depth: i64 = 0;
 
     for (index, line) in lines.iter().enumerate() {
+        // Borrow the kind: cloning a `TokenKind` copies its `String` payload, and this
+        // runs once per source line only to compare against fixed keywords.
         let first = line
             .tokens
             .first()
-            .map(|token| token.kind.clone())
-            .unwrap_or(TokenKind::Eof);
+            .map_or(&TokenKind::Eof, |token| &token.kind);
 
-        let starts_with_branch = is_branch_keyword(&first);
+        let starts_with_branch = is_branch_keyword(first);
         // A branch keyword closes the branch opened by the previous `when`/`elif`/`else`/
         // `failed` before opening its own body.
         let closes_previous_branch = matches!(
@@ -251,7 +252,7 @@ fn render_line(source: &Source, tokens: &[&Token]) -> String {
         if needs_space(previous, previous_kind, class, &token.kind, tokens) {
             out.push(' ');
         }
-        out.push_str(&text_of(token, source));
+        write_text_of(token, source, &mut out);
         previous = Some(class);
         previous_kind = Some(&token.kind);
     }

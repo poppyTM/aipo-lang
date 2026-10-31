@@ -187,19 +187,29 @@ pub fn is_branch_keyword(kind: &TokenKind) -> bool {
 /// prefixes and comment content survive byte for byte.
 #[must_use]
 pub fn text_of(token: &Token, source: &Source) -> String {
+    let mut out = String::new();
+    write_text_of(token, source, &mut out);
+    out
+}
+
+/// Appends the canonical source text of a token to `out`.
+///
+/// This is the form the renderer uses: a `String` per token is an allocation per
+/// token, and the formatter already knows where the whole line is going.
+pub fn write_text_of(token: &Token, source: &Source, out: &mut String) {
     match &token.kind {
-        TokenKind::Identifier(name) => name.clone(),
-        TokenKind::IntLiteral(raw) | TokenKind::FloatLiteral(raw) => raw.clone(),
+        TokenKind::Identifier(name) => out.push_str(name),
+        TokenKind::IntLiteral(raw) | TokenKind::FloatLiteral(raw) => out.push_str(raw),
         TokenKind::Comment(_) | TokenKind::Directive(_) | TokenKind::Error(_) => {
-            slice(source, token)
+            write_slice(source, token, out)
         }
-        TokenKind::StringLiteral { .. } => slice(source, token),
-        other => keyword_text(other).to_string(),
+        TokenKind::StringLiteral { .. } => write_slice(source, token, out),
+        other => out.push_str(keyword_text(other)),
     }
 }
 
-fn slice(source: &Source, token: &Token) -> String {
-    source.text()[token.span.start..token.span.end].to_string()
+fn write_slice(source: &Source, token: &Token, out: &mut String) {
+    out.push_str(&source.text()[token.span.start..token.span.end]);
 }
 
 /// Returns the canonical spelling of a non-literal token kind.
