@@ -974,8 +974,8 @@ pub fn compile_hir(program: &HirProgram) -> Result<Vec<u8>, WasmCompileError> {
         (list_find_func_idx, list_find_type_idx, list_find_fn_type),
     );
 
-    // Function 11.14: `__aipo_list_reverse(list_ptr: i32) -> i64`
-    let list_reverse_fn_type = WasmFnType::new(vec![WasmType::I32], vec![WasmType::I64]);
+    // Function 11.14: `__aipo_list_reverse(list_ptr: i32) -> i32`
+    let list_reverse_fn_type = WasmFnType::new(vec![WasmType::I32], vec![WasmType::I32]);
     let list_reverse_type_idx = emitter.add_type(list_reverse_fn_type.clone());
     let list_reverse_fn = build_list_reverse_function();
     let list_reverse_func_idx = emitter.add_function(list_reverse_type_idx, list_reverse_fn);
@@ -1134,9 +1134,12 @@ pub fn compile_hir(program: &HirProgram) -> Result<Vec<u8>, WasmCompileError> {
         (dict_new_func_idx, dict_new_type_idx, dict_new_fn_type),
     );
 
-    // Function 14: `__aipo_dict_set(dict: i32, key: i64, value: i64) -> i64`
+    // Function 14: `__aipo_dict_set(dict: i32, hash: i64, raw_key: i64, value: i64) -> i64`
+    //
+    // Both keys travel: the hash answers lookup, the raw key is what `keys()` and
+    // `each key, value in dict` hand back, because a hash cannot be reversed.
     let dict_set_fn_type = WasmFnType::new(
-        vec![WasmType::I32, WasmType::I64, WasmType::I64],
+        vec![WasmType::I32, WasmType::I64, WasmType::I64, WasmType::I64],
         vec![WasmType::I64],
     );
     let dict_set_type_idx = emitter.add_type(dict_set_fn_type.clone());
@@ -1193,6 +1196,38 @@ pub fn compile_hir(program: &HirProgram) -> Result<Vec<u8>, WasmCompileError> {
             dict_is_empty_func_idx,
             dict_is_empty_type_idx,
             dict_is_empty_fn_type,
+        ),
+    );
+
+    // Function 17.2: `__aipo_dict_key_at(dict: i32, index: i32) -> i64`
+    let dict_key_at_fn_type =
+        WasmFnType::new(vec![WasmType::I32, WasmType::I32], vec![WasmType::I64]);
+    let dict_key_at_type_idx = emitter.add_type(dict_key_at_fn_type.clone());
+    let dict_key_at_fn = build_dict_key_at_function();
+    let dict_key_at_func_idx = emitter.add_function(dict_key_at_type_idx, dict_key_at_fn);
+    emitter.export_function("__aipo_dict_key_at", dict_key_at_func_idx);
+    functions.insert(
+        "__aipo_dict_key_at".to_string(),
+        (
+            dict_key_at_func_idx,
+            dict_key_at_type_idx,
+            dict_key_at_fn_type,
+        ),
+    );
+
+    // Function 17.3: `__aipo_dict_value_at(dict: i32, index: i32) -> i64`
+    let dict_value_at_fn_type =
+        WasmFnType::new(vec![WasmType::I32, WasmType::I32], vec![WasmType::I64]);
+    let dict_value_at_type_idx = emitter.add_type(dict_value_at_fn_type.clone());
+    let dict_value_at_fn = build_dict_value_at_function();
+    let dict_value_at_func_idx = emitter.add_function(dict_value_at_type_idx, dict_value_at_fn);
+    emitter.export_function("__aipo_dict_value_at", dict_value_at_func_idx);
+    functions.insert(
+        "__aipo_dict_value_at".to_string(),
+        (
+            dict_value_at_func_idx,
+            dict_value_at_type_idx,
+            dict_value_at_fn_type,
         ),
     );
 
@@ -1408,20 +1443,40 @@ pub fn compile_hir(program: &HirProgram) -> Result<Vec<u8>, WasmCompileError> {
     // The initializer runs in the entry script, not here: a global starts at zero
     // and `__top_level__` assigns it, which keeps the evaluation order and side
     // effects of `let x = expensive()` intact.
+    // A binding may be initialized from an earlier one (`let a = ...; let b =
+    // a.values()`), so the earlier bindings are already in the kind environment
+    // when the later initializer is classified.
+    let mut module_env: HashMap<String, LocalKind> = HashMap::new();
     for statement in &program.statements {
         let (name, expr) = match statement {
             HirStmt::Let(name, expr, _) | HirStmt::Var(name, expr, _) => (name, expr),
             _ => continue,
         };
-        let ty = infer_expr_type(expr, &HashMap::new(), &functions, &structs, &HashMap::new())
-            .unwrap_or(WasmType::I64);
+        let env_ty = |kind: &LocalKind| match kind {
+            LocalKind::Float => WasmType::F64,
+            LocalKind::Int => WasmType::I64,
+            _ => WasmType::I32,
+        };
+        let locals_for_expr: HashMap<String, (u32, WasmType, LocalKind)> = module_env
+            .iter()
+            .map(|(binding, kind)| (binding.clone(), (0, env_ty(kind), kind.clone())))
+            .collect();
+        let ty = infer_expr_type(
+            expr,
+            &locals_for_expr,
+            &functions,
+            &structs,
+            &HashMap::new(),
+        )
+        .unwrap_or(WasmType::I64);
         let kind = infer_expr_kind(
             expr,
-            &HashMap::new(),
+            &locals_for_expr,
             &functions,
             &HashMap::new(),
             &anon_map,
         );
+        module_env.insert(name.clone(), kind.clone());
         let global_idx = emitter.add_global(
             GlobalType {
                 val_type: match ty {
@@ -2872,8 +2927,14 @@ fn build_range_get_function() -> Function {
 /// Builds `__aipo_dict_new(capacity: i32) -> i32`.
 ///
 /// A dictionary is a heap block laid out as an 8-byte entry count header
-/// followed by `capacity` fixed-width 16-byte entries (`key: i64`,
-/// `value: i64`). Entries are filled in order and searched linearly.
+/// followed by `capacity` fixed-width 24-byte entries (`hash: i64`,
+/// `key: i64`, `value: i64`). Entries are filled in order and searched
+/// linearly.
+///
+/// The hashed key is what lookup compares; the raw key is kept beside it so
+/// `keys()` and `each key, value in dict` can hand back the value the program
+/// wrote. A hash alone cannot be reversed, and a String key's raw pointer is what
+/// the caller expects to receive.
 ///
 /// `ponytail:` linear scan is `O(n)` per lookup. Replace with an open-addressing
 /// table once dictionaries above a few dozen entries show up in benchmarks.
@@ -2881,8 +2942,8 @@ fn build_dict_new_function(alloc_func_idx: u32) -> Function {
     let mut func = Function::new([(1, ValType::I32)]);
     // bytes = 8 (8-byte aligned entry count header) + capacity * 16
     func.instruction(&Instruction::LocalGet(0));
-    func.instruction(&Instruction::I32Const(4));
-    func.instruction(&Instruction::I32Shl);
+    func.instruction(&Instruction::I32Const(24));
+    func.instruction(&Instruction::I32Mul);
     func.instruction(&Instruction::I32Const(8));
     func.instruction(&Instruction::I32Add);
     func.instruction(&Instruction::Call(alloc_func_idx));
@@ -2907,7 +2968,8 @@ fn build_dict_new_function(alloc_func_idx: u32) -> Function {
 /// Replaces the value when the key is already present, otherwise appends a new
 /// entry. Returns `value` so the call can stay in expression position.
 fn build_dict_set_function() -> Function {
-    // locals: 0=dict, 1=key, 2=value, 3=index, 4=entry_count
+    // params: 0=dict, 1=hash, 2=raw key, 3=value
+    // locals: 4=index, 5=entry_count
     let mut func = Function::new([(2, ValType::I32)]);
 
     // entry_count = dict[0]
@@ -2917,11 +2979,11 @@ fn build_dict_set_function() -> Function {
         align: 2,
         memory_index: 0,
     }));
-    func.instruction(&Instruction::LocalSet(4));
+    func.instruction(&Instruction::LocalSet(5));
 
     // Scan for an existing key, remembering the first free slot.
     func.instruction(&Instruction::I32Const(0));
-    func.instruction(&Instruction::LocalSet(3));
+    func.instruction(&Instruction::LocalSet(4));
 
     // block $done
     func.instruction(&Instruction::Block(BlockType::Empty));
@@ -2929,16 +2991,16 @@ fn build_dict_set_function() -> Function {
     func.instruction(&Instruction::Loop(BlockType::Empty));
 
     // if index == entry_count then leave the loop
-    func.instruction(&Instruction::LocalGet(3));
     func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::LocalGet(5));
     func.instruction(&Instruction::I32GeS);
     func.instruction(&Instruction::BrIf(1));
 
     // entry key = dict[4 + index*16]
     func.instruction(&Instruction::LocalGet(0));
-    func.instruction(&Instruction::LocalGet(3));
-    func.instruction(&Instruction::I32Const(4));
-    func.instruction(&Instruction::I32Shl);
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I32Const(24));
+    func.instruction(&Instruction::I32Mul);
     func.instruction(&Instruction::I32Add);
     func.instruction(&Instruction::I32Const(8));
     func.instruction(&Instruction::I32Add);
@@ -2952,38 +3014,38 @@ fn build_dict_set_function() -> Function {
     func.instruction(&Instruction::If(BlockType::Empty));
     // key matched: overwrite the value in place.
     func.instruction(&Instruction::LocalGet(0));
-    func.instruction(&Instruction::LocalGet(3));
-    func.instruction(&Instruction::I32Const(4));
-    func.instruction(&Instruction::I32Shl);
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I32Const(24));
+    func.instruction(&Instruction::I32Mul);
     func.instruction(&Instruction::I32Add);
     func.instruction(&Instruction::I32Const(8));
     func.instruction(&Instruction::I32Add);
-    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::LocalGet(3));
     func.instruction(&Instruction::I64Store(MemArg {
-        offset: 8,
+        offset: 16,
         align: 3,
         memory_index: 0,
     }));
     // Return `value` immediately without appending or altering entry_count.
-    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::LocalGet(3));
     func.instruction(&Instruction::Return);
     func.instruction(&Instruction::End);
 
     // index += 1
-    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::LocalGet(4));
     func.instruction(&Instruction::I32Const(1));
     func.instruction(&Instruction::I32Add);
-    func.instruction(&Instruction::LocalSet(3));
+    func.instruction(&Instruction::LocalSet(4));
     func.instruction(&Instruction::Br(0));
 
     func.instruction(&Instruction::End);
     func.instruction(&Instruction::End);
 
-    // Append at index.
+    // Append at index: hash first, then the raw key beside it.
     func.instruction(&Instruction::LocalGet(0));
-    func.instruction(&Instruction::LocalGet(3));
-    func.instruction(&Instruction::I32Const(4));
-    func.instruction(&Instruction::I32Shl);
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I32Const(24));
+    func.instruction(&Instruction::I32Mul);
     func.instruction(&Instruction::I32Add);
     func.instruction(&Instruction::I32Const(8));
     func.instruction(&Instruction::I32Add);
@@ -2995,9 +3057,9 @@ fn build_dict_set_function() -> Function {
     }));
 
     func.instruction(&Instruction::LocalGet(0));
-    func.instruction(&Instruction::LocalGet(3));
-    func.instruction(&Instruction::I32Const(4));
-    func.instruction(&Instruction::I32Shl);
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I32Const(24));
+    func.instruction(&Instruction::I32Mul);
     func.instruction(&Instruction::I32Add);
     func.instruction(&Instruction::I32Const(8));
     func.instruction(&Instruction::I32Add);
@@ -3008,9 +3070,23 @@ fn build_dict_set_function() -> Function {
         memory_index: 0,
     }));
 
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I32Const(24));
+    func.instruction(&Instruction::I32Mul);
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::I32Const(8));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I64Store(MemArg {
+        offset: 16,
+        align: 3,
+        memory_index: 0,
+    }));
+
     // entry_count = index + 1
     func.instruction(&Instruction::LocalGet(0));
-    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::LocalGet(4));
     func.instruction(&Instruction::I32Const(1));
     func.instruction(&Instruction::I32Add);
     func.instruction(&Instruction::I32Store(MemArg {
@@ -3019,7 +3095,7 @@ fn build_dict_set_function() -> Function {
         memory_index: 0,
     }));
 
-    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::LocalGet(3));
     func.instruction(&Instruction::End);
     func
 }
@@ -3052,8 +3128,8 @@ fn build_dict_get_function() -> Function {
 
     func.instruction(&Instruction::LocalGet(0));
     func.instruction(&Instruction::LocalGet(2));
-    func.instruction(&Instruction::I32Const(4));
-    func.instruction(&Instruction::I32Shl);
+    func.instruction(&Instruction::I32Const(24));
+    func.instruction(&Instruction::I32Mul);
     func.instruction(&Instruction::I32Add);
     func.instruction(&Instruction::I32Const(8));
     func.instruction(&Instruction::I32Add);
@@ -3067,13 +3143,13 @@ fn build_dict_get_function() -> Function {
     func.instruction(&Instruction::If(BlockType::Empty));
     func.instruction(&Instruction::LocalGet(0));
     func.instruction(&Instruction::LocalGet(2));
-    func.instruction(&Instruction::I32Const(4));
-    func.instruction(&Instruction::I32Shl);
+    func.instruction(&Instruction::I32Const(24));
+    func.instruction(&Instruction::I32Mul);
     func.instruction(&Instruction::I32Add);
     func.instruction(&Instruction::I32Const(8));
     func.instruction(&Instruction::I32Add);
     func.instruction(&Instruction::I64Load(MemArg {
-        offset: 8,
+        offset: 16,
         align: 3,
         memory_index: 0,
     }));
@@ -3209,8 +3285,8 @@ fn build_dict_remove_function() -> Function {
     // entry_addr = dict + 8 + index * 16
     func.instruction(&Instruction::LocalGet(0));
     func.instruction(&Instruction::LocalGet(2));
-    func.instruction(&Instruction::I32Const(4));
-    func.instruction(&Instruction::I32Shl);
+    func.instruction(&Instruction::I32Const(24));
+    func.instruction(&Instruction::I32Mul);
     func.instruction(&Instruction::I32Add);
     func.instruction(&Instruction::I32Const(8));
     func.instruction(&Instruction::I32Add);
@@ -3239,8 +3315,8 @@ fn build_dict_remove_function() -> Function {
     // dest = dict + 8 + j*16
     func.instruction(&Instruction::LocalGet(0));
     func.instruction(&Instruction::LocalGet(4));
-    func.instruction(&Instruction::I32Const(4));
-    func.instruction(&Instruction::I32Shl);
+    func.instruction(&Instruction::I32Const(24));
+    func.instruction(&Instruction::I32Mul);
     func.instruction(&Instruction::I32Add);
     func.instruction(&Instruction::I32Const(8));
     func.instruction(&Instruction::I32Add);
@@ -3249,8 +3325,8 @@ fn build_dict_remove_function() -> Function {
     func.instruction(&Instruction::LocalGet(4));
     func.instruction(&Instruction::I32Const(1));
     func.instruction(&Instruction::I32Add);
-    func.instruction(&Instruction::I32Const(4));
-    func.instruction(&Instruction::I32Shl);
+    func.instruction(&Instruction::I32Const(24));
+    func.instruction(&Instruction::I32Mul);
     func.instruction(&Instruction::I32Add);
     func.instruction(&Instruction::I32Const(8));
     func.instruction(&Instruction::I32Add);
@@ -3268,8 +3344,8 @@ fn build_dict_remove_function() -> Function {
     // copy entry j+1 value to entry j value
     func.instruction(&Instruction::LocalGet(0));
     func.instruction(&Instruction::LocalGet(4));
-    func.instruction(&Instruction::I32Const(4));
-    func.instruction(&Instruction::I32Shl);
+    func.instruction(&Instruction::I32Const(24));
+    func.instruction(&Instruction::I32Mul);
     func.instruction(&Instruction::I32Add);
     func.instruction(&Instruction::I32Const(16));
     func.instruction(&Instruction::I32Add);
@@ -3277,8 +3353,8 @@ fn build_dict_remove_function() -> Function {
     func.instruction(&Instruction::LocalGet(4));
     func.instruction(&Instruction::I32Const(1));
     func.instruction(&Instruction::I32Add);
-    func.instruction(&Instruction::I32Const(4));
-    func.instruction(&Instruction::I32Shl);
+    func.instruction(&Instruction::I32Const(24));
+    func.instruction(&Instruction::I32Mul);
     func.instruction(&Instruction::I32Add);
     func.instruction(&Instruction::I32Const(16));
     func.instruction(&Instruction::I32Add);
@@ -3360,13 +3436,13 @@ fn build_dict_keys_function(list_new_func_idx: u32, list_set_func_idx: u32) -> F
     func.instruction(&Instruction::LocalGet(3));
     func.instruction(&Instruction::LocalGet(0));
     func.instruction(&Instruction::LocalGet(3));
-    func.instruction(&Instruction::I32Const(4));
-    func.instruction(&Instruction::I32Shl);
+    func.instruction(&Instruction::I32Const(24));
+    func.instruction(&Instruction::I32Mul);
     func.instruction(&Instruction::I32Add);
     func.instruction(&Instruction::I32Const(8));
     func.instruction(&Instruction::I32Add);
     func.instruction(&Instruction::I64Load(MemArg {
-        offset: 0,
+        offset: 8,
         align: 3,
         memory_index: 0,
     }));
@@ -3381,6 +3457,106 @@ fn build_dict_keys_function(list_new_func_idx: u32, list_set_func_idx: u32) -> F
     func.instruction(&Instruction::End);
     func.instruction(&Instruction::End);
     func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::End);
+    func
+}
+
+/// Builds `__aipo_dict_key_at(dict: i32, index: i32) -> i64` (returns the raw key).
+/// Compiles a dictionary key onto the stack as `(hash: i64, raw: i64)`.
+///
+/// The hash answers lookup, and the raw value is what iteration hands back. A
+/// String key's raw value is its pointer; a non-String key hashes to itself.
+#[allow(clippy::too_many_arguments)]
+fn compile_dict_key_pair(
+    key: &HirExpr,
+    func: &mut Function,
+    locals: &HashMap<String, (u32, WasmType, LocalKind)>,
+    functions: &FunctionTable,
+    control_stack: &mut Vec<ControlFrame>,
+    structs: &HashMap<String, StructLayout>,
+    static_strings: &HashMap<String, i32>,
+    table_indices: &HashMap<String, u32>,
+    anon_map: &HashMap<SourceSpan, String>,
+    indirect_sigs: &HashMap<usize, u32>,
+    alloc_func_idx: u32,
+    async_helpers: AsyncHelpers,
+    struct_depth: usize,
+    call_depth: usize,
+) -> Result<(), WasmCompileError> {
+    let key_kind = infer_expr_kind(key, locals, functions, table_indices, anon_map);
+    let key_ty = compile_expr(
+        key,
+        func,
+        locals,
+        functions,
+        control_stack,
+        structs,
+        static_strings,
+        table_indices,
+        anon_map,
+        indirect_sigs,
+        alloc_func_idx,
+        async_helpers,
+        struct_depth,
+        call_depth,
+    )?;
+    let raw_slot = locals[&format!("__i64_temp_{}", call_depth.min(7))].0;
+    if matches!(key_kind, LocalKind::String) {
+        // Keep the pointer for the raw key, and hash a copy for lookup.
+        let ptr_slot = locals[&format!("__call_temp_{}", call_depth.min(7))].0;
+        coerce_type(func, key_ty, WasmType::I32);
+        func.instruction(&Instruction::LocalSet(ptr_slot));
+        func.instruction(&Instruction::LocalGet(ptr_slot));
+        func.instruction(&Instruction::I64ExtendI32U);
+        func.instruction(&Instruction::LocalSet(raw_slot));
+        // Push in the callee's order: hash first, then the raw key.
+        func.instruction(&Instruction::LocalGet(ptr_slot));
+        let (string_hash_idx, _, _) = functions["__aipo_string_hash"];
+        func.instruction(&Instruction::Call(string_hash_idx));
+        func.instruction(&Instruction::LocalGet(raw_slot));
+    } else {
+        // A scalar key hashes to itself, so the two pushes carry the same value.
+        coerce_type(func, key_ty, WasmType::I64);
+        func.instruction(&Instruction::LocalSet(raw_slot));
+        func.instruction(&Instruction::LocalGet(raw_slot));
+        func.instruction(&Instruction::LocalGet(raw_slot));
+    }
+    Ok(())
+}
+
+fn build_dict_key_at_function() -> Function {
+    let mut func = Function::new([]);
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I32Const(24));
+    func.instruction(&Instruction::I32Mul);
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::I32Const(8));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::I64Load(MemArg {
+        offset: 8,
+        align: 3,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::End);
+    func
+}
+
+/// Builds `__aipo_dict_value_at(dict: i32, index: i32) -> i64`.
+fn build_dict_value_at_function() -> Function {
+    let mut func = Function::new([]);
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I32Const(24));
+    func.instruction(&Instruction::I32Mul);
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::I32Const(8));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::I64Load(MemArg {
+        offset: 16,
+        align: 3,
+        memory_index: 0,
+    }));
     func.instruction(&Instruction::End);
     func
 }
@@ -3411,13 +3587,16 @@ fn build_dict_values_function(list_new_func_idx: u32, list_set_func_idx: u32) ->
     func.instruction(&Instruction::I32GeS);
     func.instruction(&Instruction::BrIf(1));
 
-    // value = dict[8 + i*16 + 8]
+    // value = dict header + i*24 + offset 16
+    // value = dict + 8 (header) + i*24 + 16
     func.instruction(&Instruction::LocalGet(2));
     func.instruction(&Instruction::LocalGet(3));
     func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::I32Const(8));
+    func.instruction(&Instruction::I32Add);
     func.instruction(&Instruction::LocalGet(3));
-    func.instruction(&Instruction::I32Const(4));
-    func.instruction(&Instruction::I32Shl);
+    func.instruction(&Instruction::I32Const(24));
+    func.instruction(&Instruction::I32Mul);
     func.instruction(&Instruction::I32Add);
     func.instruction(&Instruction::I32Const(16));
     func.instruction(&Instruction::I32Add);
@@ -4461,7 +4640,9 @@ fn build_list_reverse_function() -> Function {
     func.instruction(&Instruction::Br(0));
     func.instruction(&Instruction::End);
     func.instruction(&Instruction::End);
-    func.instruction(&Instruction::I64Const(0));
+    // Reversing mutates in place and yields the same list handle, so the result
+    // keeps its `i32` representation and can be chained.
+    func.instruction(&Instruction::LocalGet(0));
     func.instruction(&Instruction::End);
     func
 }
@@ -6336,7 +6517,7 @@ fn collect_program_strings(
     // `none` prints as its own word wherever a value of unknown type is rendered.
     add_static_string("none", static_strings, data_segments, next_offset);
     // Collection rendering punctuation, shared by every shape that prints them.
-    for punctuation in ["[", "]", ", ", "{", "}"] {
+    for punctuation in ["[", "]", ", ", "{", "}", ": "] {
         add_static_string(punctuation, static_strings, data_segments, next_offset);
     }
 }
@@ -7077,9 +7258,21 @@ fn observe_stmts_inner(
                 observe_stmts_inner(body, locals, hints, signatures, structs, changed);
             }
             HirStmt::Each(bindings, iterable, body, _) => {
+                // A `Dict` binds a String key (and a value), which is more precise
+                // than the scalar default; without it the key printed as a pointer.
+                let iterable_type = static_expr_type(iterable, locals, signatures, structs);
+                let binds_dict = matches!(iterable, HirExpr::Dict(..))
+                    || iterable_type == Some(WasmType::I32)
+                        && matches!(iterable, HirExpr::Identifier(name, _)
+                            if locals.get(name).is_some_and(|ty| *ty == WasmType::I32));
                 observe_expr(iterable, locals, hints, signatures, structs, changed);
-                for name in bindings {
-                    locals.insert(name.clone(), WasmType::I64);
+                for (index, name) in bindings.iter().enumerate() {
+                    let ty = if binds_dict && index == 0 {
+                        WasmType::I32
+                    } else {
+                        WasmType::I64
+                    };
+                    locals.insert(name.clone(), ty);
                 }
                 observe_stmts_inner(body, locals, hints, signatures, structs, changed);
             }
@@ -7882,25 +8075,37 @@ fn pre_scan_stmts(
                 // A single binding takes the element kind of the collection; with two
                 // bindings the first is the key/index (`Int`) and the second is the
                 // value (`String` for `keys`, the element otherwise).
-                let element_kind =
-                    match infer_expr_kind(iterable, locals, functions, table_indices, anon_map) {
-                        LocalKind::List(element) => (*element).clone(),
-                        LocalKind::Dict(value) => (*value).clone(),
-                        _ => LocalKind::Unknown,
-                    };
+                let iterable_kind =
+                    infer_expr_kind(iterable, locals, functions, table_indices, anon_map);
+                let element_kind = match &iterable_kind {
+                    LocalKind::List(element) => (**element).clone(),
+                    LocalKind::Dict(value) => (**value).clone(),
+                    _ => LocalKind::Unknown,
+                };
+                // A `Dict` iterates String keys, and its second binding holds the
+                // value kind. A `List`/`Range` keeps the positional `Int` index.
+                let is_dict = matches!(iterable_kind, LocalKind::Dict(_));
                 for (position, name) in bindings.iter().enumerate() {
                     let slot = (params_count + declared_locals.len()) as u32;
-                    declared_locals.push(WasmType::I64);
+                    let ty = if bindings.len() > 1 && position == 0 && is_dict {
+                        declared_locals.push(WasmType::I32);
+                        WasmType::I32
+                    } else {
+                        declared_locals.push(WasmType::I64);
+                        WasmType::I64
+                    };
                     let kind = if bindings.len() > 1 {
-                        if position == 0 {
-                            LocalKind::Int
-                        } else {
-                            element_kind.clone()
+                        match (is_dict, position) {
+                            (true, 0) => LocalKind::String,
+                            (_, 0) => LocalKind::Int,
+                            (_, _) => element_kind.clone(),
                         }
+                    } else if is_dict {
+                        LocalKind::String
                     } else {
                         element_kind.clone()
                     };
-                    locals.insert(name.clone(), (slot, WasmType::I64, kind));
+                    locals.insert(name.clone(), (slot, ty, kind));
                 }
                 pre_scan_stmts(
                     body,
@@ -8132,6 +8337,21 @@ fn infer_expr_kind(
                     )
                 {
                     return LocalKind::List(element.clone());
+                }
+                // A predicate answers `Bool`, whatever the receiver kind; without
+                // this the result printed as a string pointer.
+                if matches!(
+                    method_name.as_str(),
+                    "is_empty"
+                        | "contains"
+                        | "any"
+                        | "all"
+                        | "has"
+                        | "starts_with"
+                        | "ends_with"
+                        | "is_match"
+                ) {
+                    return LocalKind::Bool;
                 }
                 if matches!(rec_kind, LocalKind::Dict(_))
                     && matches!(method_name.as_str(), "keys" | "values")
@@ -8677,46 +8897,23 @@ fn compile_stmts(
                         )?;
                         coerce_type(func, c_ty, WasmType::I32);
 
-                        let index_kind =
-                            infer_expr_kind(index, locals, functions, table_indices, anon_map);
-                        if matches!(index_kind, LocalKind::String) {
-                            let i_ty = compile_expr(
-                                index,
-                                func,
-                                locals,
-                                functions,
-                                control_stack,
-                                structs,
-                                static_strings,
-                                table_indices,
-                                anon_map,
-                                indirect_sigs,
-                                alloc_func_idx,
-                                async_helpers,
-                                struct_depth,
-                                call_depth,
-                            )?;
-                            coerce_type(func, i_ty, WasmType::I32);
-                            func.instruction(&Instruction::Call(string_hash_idx));
-                        } else {
-                            let i_ty = compile_expr(
-                                index,
-                                func,
-                                locals,
-                                functions,
-                                control_stack,
-                                structs,
-                                static_strings,
-                                table_indices,
-                                anon_map,
-                                indirect_sigs,
-                                alloc_func_idx,
-                                async_helpers,
-                                struct_depth,
-                                call_depth,
-                            )?;
-                            coerce_type(func, i_ty, WasmType::I64);
-                        }
+                        let _ = (string_hash_idx,);
+                        compile_dict_key_pair(
+                            index,
+                            func,
+                            locals,
+                            functions,
+                            control_stack,
+                            structs,
+                            static_strings,
+                            table_indices,
+                            anon_map,
+                            indirect_sigs,
+                            alloc_func_idx,
+                            async_helpers,
+                            struct_depth,
+                            call_depth,
+                        )?;
 
                         let val_ty = compile_expr(
                             expr,
@@ -9167,9 +9364,11 @@ fn compile_stmts(
                         let key_temp = locals["__or_else_temp_0"].0;
                         let val_temp = locals["__or_else_temp_1"].0;
 
-                        let index_kind =
-                            infer_expr_kind(index, locals, functions, table_indices, anon_map);
-                        let i_ty = compile_expr(
+                        let _ = (string_hash_idx,);
+                        // The key pair is `(hash, raw)`: the hash drives lookup, the raw
+                        // value is stored beside it so `keys()` can hand it back.
+                        let raw_temp = locals["__or_else_temp_2"].0;
+                        compile_dict_key_pair(
                             index,
                             func,
                             locals,
@@ -9185,12 +9384,7 @@ fn compile_stmts(
                             struct_depth,
                             call_depth,
                         )?;
-                        if matches!(index_kind, LocalKind::String) {
-                            coerce_type(func, i_ty, WasmType::I32);
-                            func.instruction(&Instruction::Call(string_hash_idx));
-                        } else {
-                            coerce_type(func, i_ty, WasmType::I64);
-                        }
+                        func.instruction(&Instruction::LocalSet(raw_temp));
                         func.instruction(&Instruction::LocalSet(key_temp));
 
                         // Load current value
@@ -9218,9 +9412,10 @@ fn compile_stmts(
                         emit_binary_op(func, *op, WasmType::I64, expr_ty, *index_span)?;
                         func.instruction(&Instruction::LocalSet(val_temp));
 
-                        // Store new value
+                        // Store new value: the hash and the raw key both go back in.
                         func.instruction(&Instruction::LocalGet(dot_temp));
                         func.instruction(&Instruction::LocalGet(key_temp));
+                        func.instruction(&Instruction::LocalGet(raw_temp));
                         func.instruction(&Instruction::LocalGet(val_temp));
                         func.instruction(&Instruction::Call(dict_set_idx));
                         func.instruction(&Instruction::Drop);
@@ -10108,6 +10303,13 @@ fn compile_each_stmt(
     let len_slot = locals[&format!("__each_len_{id}")].0;
 
     let is_range = infer_expr_is_range(iterable, locals, functions, structs, table_indices);
+    // A `Dict` iterates its entries in insertion order, not its storage slots: the
+    // element count comes from the dict header and each entry yields its key and,
+    // with two bindings, its value.
+    let is_dict = matches!(
+        infer_expr_kind(iterable, locals, functions, table_indices, anon_map),
+        LocalKind::Dict(_)
+    );
 
     let iter_ty = compile_expr(
         iterable,
@@ -10132,6 +10334,9 @@ fn compile_each_stmt(
     if is_range {
         let (range_len_idx, _, _) = functions["__aipo_range_len"];
         func.instruction(&Instruction::Call(range_len_idx));
+    } else if is_dict {
+        let (dict_len_idx, _, _) = functions["__aipo_dict_len"];
+        func.instruction(&Instruction::Call(dict_len_idx));
     } else {
         let (list_len_idx, _, _) = functions["__aipo_list_len"];
         func.instruction(&Instruction::Call(list_len_idx));
@@ -10163,7 +10368,17 @@ fn compile_each_stmt(
     // is the value.
     if bindings.len() == 1 {
         let slot = locals[&bindings[0]].0;
-        if is_range {
+        if is_dict {
+            // One binding takes the key, matching canon's primary iteration.
+            let (dict_key_idx, _, _) = functions["__aipo_dict_key_at"];
+            func.instruction(&Instruction::LocalGet(seq_slot));
+            func.instruction(&Instruction::LocalGet(cur_slot));
+            func.instruction(&Instruction::I32WrapI64);
+            func.instruction(&Instruction::Call(dict_key_idx));
+            // The key is a raw `i64` from the entry, but its slot is `i32` for a
+            // String key so the printer treats it as text.
+            func.instruction(&Instruction::I32WrapI64);
+        } else if is_range {
             func.instruction(&Instruction::LocalGet(seq_slot));
             func.instruction(&Instruction::I64Load(MemArg {
                 offset: 0,
@@ -10182,10 +10397,65 @@ fn compile_each_stmt(
         func.instruction(&Instruction::LocalSet(slot));
     } else if bindings.len() >= 2 {
         let key_slot = locals[&bindings[0]].0;
+        let value_slot = locals[&bindings[1]].0;
+        if is_dict {
+            let (dict_key_idx, _, _) = functions["__aipo_dict_key_at"];
+            let (dict_value_idx, _, _) = functions["__aipo_dict_value_at"];
+            func.instruction(&Instruction::LocalGet(seq_slot));
+            func.instruction(&Instruction::LocalGet(cur_slot));
+            func.instruction(&Instruction::I32WrapI64);
+            func.instruction(&Instruction::Call(dict_key_idx));
+            func.instruction(&Instruction::I32WrapI64);
+            func.instruction(&Instruction::LocalSet(key_slot));
+            func.instruction(&Instruction::LocalGet(seq_slot));
+            func.instruction(&Instruction::LocalGet(cur_slot));
+            func.instruction(&Instruction::I32WrapI64);
+            func.instruction(&Instruction::Call(dict_value_idx));
+            func.instruction(&Instruction::LocalSet(value_slot));
+            // The second binding holds the value kind the dict carries.
+            let _ = &value_slot;
+            control_stack.push(ControlFrame::RepeatStep);
+            func.instruction(&Instruction::Block(BlockType::Empty));
+            compile_stmts(
+                loop_body,
+                func,
+                locals,
+                functions,
+                control_stack,
+                structs,
+                static_strings,
+                table_indices,
+                anon_map,
+                indirect_sigs,
+                alloc_func_idx,
+                async_helpers,
+                return_type,
+                false,
+                repeat_id,
+                struct_depth,
+                call_depth,
+            )?;
+            control_stack.pop();
+            func.instruction(&Instruction::End);
+            func.instruction(&Instruction::LocalGet(cur_slot));
+            func.instruction(&Instruction::I64Const(1));
+            func.instruction(&Instruction::I64Add);
+            func.instruction(&Instruction::LocalSet(cur_slot));
+            let loop_depth = control_stack
+                .iter()
+                .rev()
+                .position(|f| *f == ControlFrame::LoopContinue)
+                .unwrap() as u32;
+            func.instruction(&Instruction::Br(loop_depth));
+            control_stack.pop();
+            func.instruction(&Instruction::End);
+            control_stack.pop();
+            func.instruction(&Instruction::End);
+            return Ok(());
+        }
         func.instruction(&Instruction::LocalGet(cur_slot));
         func.instruction(&Instruction::LocalSet(key_slot));
 
-        let value_slot = locals[&bindings[1]].0;
         if is_range {
             func.instruction(&Instruction::LocalGet(seq_slot));
             func.instruction(&Instruction::I64Load(MemArg {
@@ -10941,10 +11211,11 @@ fn compile_print_arg(
                         io,
                     )?;
                 }
-                LocalKind::Dict(_) => {
+                LocalKind::Dict(value) => {
                     compile_print_dict(
                         func,
                         actual_ty,
+                        &value,
                         locals,
                         static_strings,
                         functions,
@@ -11087,6 +11358,7 @@ fn compile_print_list(
 fn compile_print_dict(
     func: &mut Function,
     value_ty: WasmType,
+    value_kind: &LocalKind,
     locals: &HashMap<String, (u32, WasmType, LocalKind)>,
     static_strings: &HashMap<String, i32>,
     functions: &FunctionTable,
@@ -11095,12 +11367,15 @@ fn compile_print_dict(
     io: HostIoHelpers,
 ) -> Result<(), WasmCompileError> {
     let (dict_len_idx, _, _) = functions["__aipo_dict_len"];
+    let (dict_key_idx, _, _) = functions["__aipo_dict_key_at"];
+    let (dict_value_idx, _, _) = functions["__aipo_dict_value_at"];
 
     let handle = locals[&format!("__i64_temp_{}", call_depth.min(7))].0;
     let len_slot = locals[&format!("__i64_temp_{}", (call_depth + 1).min(7))].0;
+    let cursor = locals[&format!("__i64_temp_{}", (call_depth + 2).min(7))].0;
 
-    // Architecture: the handle travels as a pointer, but the staging locals are
-    // shared with `_i64` scratch, so widen before storing.
+    // The handle travels as a pointer, but the staging locals are shared with the
+    // `i64` scratch pool, so widen before storing.
     coerce_type(func, value_ty, WasmType::I32);
     func.instruction(&Instruction::I64ExtendI32U);
     func.instruction(&Instruction::LocalSet(handle));
@@ -11111,13 +11386,73 @@ fn compile_print_dict(
 
     let open = static_strings.get("{").copied().unwrap_or_default();
     let close = static_strings.get("}").copied().unwrap_or_default();
+    let sep = static_strings.get(", ").copied().unwrap_or_default();
+    let colon = static_strings.get(": ").copied().unwrap_or_default();
+
     func.instruction(&Instruction::I32Const(open));
     func.instruction(&Instruction::Call(io.print_str_idx));
-    // The pair walker needs a key cursor; the dict helpers index by hash, so a
-    // faithful `{k: v}` render waits on a positional accessor. Emit the count so
-    // the output at least distinguishes an empty dict from a populated one.
+
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::LocalSet(cursor));
+    func.instruction(&Instruction::Block(BlockType::Empty));
+    func.instruction(&Instruction::Loop(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(cursor));
     func.instruction(&Instruction::LocalGet(len_slot));
-    func.instruction(&Instruction::Call(io.print_int_idx));
+    func.instruction(&Instruction::I64GeS);
+    func.instruction(&Instruction::BrIf(1));
+
+    // A separator precedes every pair but the first.
+    func.instruction(&Instruction::LocalGet(cursor));
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::I64GtS);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    func.instruction(&Instruction::I32Const(sep));
+    func.instruction(&Instruction::Call(io.print_str_idx));
+    func.instruction(&Instruction::End);
+
+    func.instruction(&Instruction::LocalGet(handle));
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::LocalGet(cursor));
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::Call(dict_key_idx));
+    // Keys are stored as their raw value; a String key is a pool pointer.
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::Call(io.print_str_idx));
+
+    func.instruction(&Instruction::I32Const(colon));
+    func.instruction(&Instruction::Call(io.print_str_idx));
+
+    func.instruction(&Instruction::LocalGet(handle));
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::LocalGet(cursor));
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::Call(dict_value_idx));
+    match value_kind {
+        LocalKind::String => {
+            func.instruction(&Instruction::I32WrapI64);
+            func.instruction(&Instruction::Call(io.print_str_idx));
+        }
+        LocalKind::Bool => {
+            func.instruction(&Instruction::I32WrapI64);
+            func.instruction(&Instruction::Call(io.print_bool_idx));
+        }
+        LocalKind::Float => {
+            func.instruction(&Instruction::F64ReinterpretI64);
+            func.instruction(&Instruction::Call(io.print_float_idx));
+        }
+        _ => {
+            func.instruction(&Instruction::Call(io.print_int_idx));
+        }
+    }
+
+    func.instruction(&Instruction::LocalGet(cursor));
+    func.instruction(&Instruction::I64Const(1));
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::LocalSet(cursor));
+    func.instruction(&Instruction::Br(0));
+    func.instruction(&Instruction::End);
+    func.instruction(&Instruction::End);
+
     func.instruction(&Instruction::I32Const(close));
     func.instruction(&Instruction::Call(io.print_str_idx));
     let _ = async_helpers;
@@ -13528,6 +13863,7 @@ fn compile_expr(
                     && args.is_empty()
                 {
                     let (list_reverse_idx, _, _) = functions["__aipo_list_reverse"];
+                    let (list_slice_idx, _, _) = functions["__aipo_list_slice"];
                     let r_ty = compile_expr(
                         receiver,
                         func,
@@ -13545,8 +13881,11 @@ fn compile_expr(
                         call_depth,
                     )?;
                     coerce_type(func, r_ty, WasmType::I32);
+                    func.instruction(&Instruction::I32Const(0));
+                    func.instruction(&Instruction::I32Const(i32::MAX));
+                    func.instruction(&Instruction::Call(list_slice_idx));
                     func.instruction(&Instruction::Call(list_reverse_idx));
-                    return Ok(WasmType::I64);
+                    return Ok(WasmType::I32);
                 }
                 if matches!(receiver_kind, LocalKind::List(_))
                     && (method_name == "transform" || method_name == "map")
@@ -13637,6 +13976,7 @@ fn compile_expr(
                     && args.is_empty()
                 {
                     let (list_sort_idx, _, _) = functions["__aipo_list_sort"];
+                    let (list_slice_idx, _, _) = functions["__aipo_list_slice"];
                     let r_ty = compile_expr(
                         receiver,
                         func,
@@ -13654,6 +13994,11 @@ fn compile_expr(
                         call_depth,
                     )?;
                     coerce_type(func, r_ty, WasmType::I32);
+                    // Canon's `sort` yields a new ordered list and leaves the receiver
+                    // as it was, so sorting happens on a window over the whole list.
+                    func.instruction(&Instruction::I32Const(0));
+                    func.instruction(&Instruction::I32Const(i32::MAX));
+                    func.instruction(&Instruction::Call(list_slice_idx));
                     func.instruction(&Instruction::Call(list_sort_idx));
                     return Ok(WasmType::I32);
                 }
@@ -13662,6 +14007,7 @@ fn compile_expr(
                     && args.len() == 1
                 {
                     let (list_sort_by_idx, _, _) = functions["__aipo_list_sort_by"];
+                    let (list_slice_idx, _, _) = functions["__aipo_list_slice"];
                     let r_ty = compile_expr(
                         receiver,
                         func,
@@ -13679,6 +14025,9 @@ fn compile_expr(
                         call_depth,
                     )?;
                     coerce_type(func, r_ty, WasmType::I32);
+                    func.instruction(&Instruction::I32Const(0));
+                    func.instruction(&Instruction::I32Const(i32::MAX));
+                    func.instruction(&Instruction::Call(list_slice_idx));
                     let cb_ty = compile_expr(
                         &args[0].value,
                         func,
@@ -14732,50 +15081,25 @@ fn compile_expr(
             for (key, value) in entries {
                 func.instruction(&Instruction::LocalGet(dict_temp));
 
-                // Keys are unboxed to an i64 that the dict search compares raw.
-                // Float, Bool, and small numeric keys use their bit pattern;
-                // strings hash to their FNV-1a value first.
-                let key_kind = infer_expr_kind(key, locals, functions, table_indices, anon_map);
-                if matches!(key_kind, LocalKind::String) {
-                    let key_ty = compile_expr(
-                        key,
-                        func,
-                        locals,
-                        functions,
-                        control_stack,
-                        structs,
-                        static_strings,
-                        table_indices,
-                        anon_map,
-                        indirect_sigs,
-                        alloc_func_idx,
-                        async_helpers,
-                        struct_depth,
-                        call_depth,
-                    )?;
-                    coerce_type(func, key_ty, WasmType::I32);
-                    func.instruction(&Instruction::Call(string_hash_idx));
-                } else {
-                    // Float keys round-trip through their bit pattern so a
-                    // Float(1.5) and an Int(1.5-bits) never compare equal.
-                    let key_ty = compile_expr(
-                        key,
-                        func,
-                        locals,
-                        functions,
-                        control_stack,
-                        structs,
-                        static_strings,
-                        table_indices,
-                        anon_map,
-                        indirect_sigs,
-                        alloc_func_idx,
-                        async_helpers,
-                        struct_depth,
-                        call_depth,
-                    )?;
-                    coerce_type(func, key_ty, WasmType::I64);
-                }
+                // The entry keeps both keys: the hash lookup compares, and the raw
+                // value is what `keys()` and dict iteration hand back.
+                compile_dict_key_pair(
+                    key,
+                    func,
+                    locals,
+                    functions,
+                    control_stack,
+                    structs,
+                    static_strings,
+                    table_indices,
+                    anon_map,
+                    indirect_sigs,
+                    alloc_func_idx,
+                    async_helpers,
+                    struct_depth,
+                    call_depth,
+                )?;
+                let _ = (string_hash_idx,);
 
                 let val_ty = compile_expr(
                     value,
