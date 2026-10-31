@@ -1578,6 +1578,24 @@ pub fn compile_hir(program: &HirProgram) -> Result<Vec<u8>, WasmCompileError> {
         (int_to_str_func_idx, int_to_str_type_idx, int_to_str_fn_type),
     );
 
+    // Function 19.9h: `__aipo_str_format(template: i32, dict: i32) -> i32`
+    let str_format_fn_type =
+        WasmFnType::new(vec![WasmType::I32, WasmType::I32], vec![WasmType::I32]);
+    let str_format_type_idx = emitter.add_type(str_format_fn_type.clone());
+    let str_format_fn = build_str_format_function(
+        str_concat_func_idx,
+        str_copy_func_idx,
+        string_hash_func_idx,
+        dict_get_func_idx,
+        int_to_str_func_idx,
+    );
+    let str_format_func_idx = emitter.add_function(str_format_type_idx, str_format_fn);
+    emitter.export_function("__aipo_str_format", str_format_func_idx);
+    functions.insert(
+        "__aipo_str_format".to_string(),
+        (str_format_func_idx, str_format_type_idx, str_format_fn_type),
+    );
+
     // Function 21: `__aipo_bool_to_str(val: i32) -> i32`
     let true_ptr = static_strings.get("true").copied().unwrap_or(0);
     let false_ptr = static_strings.get("false").copied().unwrap_or(0);
@@ -5761,8 +5779,7 @@ fn build_str_find_function() -> Function {
 
     func.instruction(&Instruction::LocalGet(7));
     func.instruction(&Instruction::If(BlockType::Empty));
-    // Report a code-point index, matching `string.find`'s canonical answer.
-    func.instruction(&Instruction::LocalGet(0));
+    // Report the byte index of the match, widened to the `i64` the caller reads.
     func.instruction(&Instruction::LocalGet(4));
     func.instruction(&Instruction::I64ExtendI32S);
     func.instruction(&Instruction::Return);
@@ -6021,6 +6038,200 @@ fn build_str_reverse_function(copy_idx: u32, alloc_func_idx: u32) -> Function {
 ///
 /// Splits on every occurrence of a non-empty separator and returns a List of the
 /// pieces, in order. The separator itself is never part of a piece.
+/// Builds `__aipo_str_format(template: i32, dict: i32) -> i32`.
+///
+/// Replaces `{name}` placeholders with the dictionary entry named by `name`. A
+/// `{{` escape emits a literal brace. Values render as their stored `i64`.
+fn build_str_format_function(
+    concat_idx: u32,
+    copy_idx: u32,
+    hash_idx: u32,
+    dict_get_idx: u32,
+    int_to_str_idx: u32,
+) -> Function {
+    // params: 0=template, 1=dict
+    // locals: 2=len, 3=out, 4=pos, 5=scan, 6=ch, 7=piece_start, 8=key, 9=value
+    let mut func = Function::new([(8, ValType::I32)]);
+
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::I32Load(MemArg {
+        offset: 0,
+        align: 2,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalSet(2));
+
+    func.instruction(&Instruction::I32Const(0));
+    func.instruction(&Instruction::I32Const(0));
+    func.instruction(&Instruction::Call(concat_idx));
+    func.instruction(&Instruction::LocalSet(3));
+
+    func.instruction(&Instruction::I32Const(0));
+    func.instruction(&Instruction::LocalSet(4));
+    func.instruction(&Instruction::I32Const(0));
+    func.instruction(&Instruction::LocalSet(7));
+
+    func.instruction(&Instruction::Block(BlockType::Empty));
+    func.instruction(&Instruction::Loop(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I32GeS);
+    func.instruction(&Instruction::BrIf(1));
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::I32Load8U(MemArg {
+        offset: 4,
+        align: 0,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalSet(6));
+
+    // An interior `{` opens a placeholder; `{{` is an escaped literal brace.
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::I32Const(123));
+    func.instruction(&Instruction::I32Eq);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    let escaped = 1u32;
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I32Const(1));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I32LtS);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::I32Const(1));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::I32Load8U(MemArg {
+        offset: 4,
+        align: 0,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::I32Const(123));
+    func.instruction(&Instruction::I32Eq);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    // Flush [piece_start, pos) then one brace.
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::LocalGet(7));
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::LocalGet(7));
+    func.instruction(&Instruction::I32Sub);
+    func.instruction(&Instruction::Call(copy_idx));
+    func.instruction(&Instruction::Call(concat_idx));
+    func.instruction(&Instruction::LocalSet(3));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I32Const(1));
+    func.instruction(&Instruction::Call(copy_idx));
+    func.instruction(&Instruction::Call(concat_idx));
+    func.instruction(&Instruction::LocalSet(3));
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I32Const(2));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::LocalSet(4));
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::LocalSet(7));
+    func.instruction(&Instruction::Br(escaped + 2));
+    func.instruction(&Instruction::End);
+    func.instruction(&Instruction::End);
+
+    // A placeholder: the key runs from pos+1 to the closing `}`.
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I32Const(1));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::LocalSet(5));
+    func.instruction(&Instruction::Block(BlockType::Empty));
+    func.instruction(&Instruction::Loop(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I32GeS);
+    func.instruction(&Instruction::BrIf(1));
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::I32Load8U(MemArg {
+        offset: 4,
+        align: 0,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::I32Const(125));
+    func.instruction(&Instruction::I32Eq);
+    func.instruction(&Instruction::BrIf(1));
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::I32Const(1));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::LocalSet(5));
+    func.instruction(&Instruction::Br(0));
+    func.instruction(&Instruction::End);
+    func.instruction(&Instruction::End);
+
+    // key = template[pos+1 .. scan]
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I32Const(1));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::I32Const(0));
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I32Sub);
+    func.instruction(&Instruction::I32Const(1));
+    func.instruction(&Instruction::I32Sub);
+    func.instruction(&Instruction::Call(copy_idx));
+    func.instruction(&Instruction::LocalSet(8));
+
+    // Flush the piece before the placeholder, then the looked-up value.
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::LocalGet(7));
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::LocalGet(7));
+    func.instruction(&Instruction::I32Sub);
+    func.instruction(&Instruction::Call(copy_idx));
+    func.instruction(&Instruction::Call(concat_idx));
+    func.instruction(&Instruction::LocalSet(3));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::LocalGet(8));
+    func.instruction(&Instruction::Call(hash_idx));
+    func.instruction(&Instruction::Call(dict_get_idx));
+    func.instruction(&Instruction::Call(int_to_str_idx));
+    func.instruction(&Instruction::Call(concat_idx));
+    func.instruction(&Instruction::LocalSet(3));
+
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::I32Const(1));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::LocalSet(4));
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::LocalSet(7));
+    func.instruction(&Instruction::Br(1));
+    func.instruction(&Instruction::End);
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I32Const(1));
+    func.instruction(&Instruction::I32Add);
+    func.instruction(&Instruction::LocalSet(4));
+    func.instruction(&Instruction::Br(0));
+    func.instruction(&Instruction::End);
+    func.instruction(&Instruction::End);
+
+    // Flush the trailing piece.
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::LocalGet(7));
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::LocalGet(7));
+    func.instruction(&Instruction::I32Sub);
+    func.instruction(&Instruction::Call(copy_idx));
+    func.instruction(&Instruction::Call(concat_idx));
+    func.instruction(&Instruction::End);
+    func
+}
+
 /// Builds `__aipo_str_join(sep: i32, list: i32) -> i32`.
 ///
 /// Concatenates every element (a String pointer) with `sep` between them.
@@ -9685,8 +9896,15 @@ fn infer_expr_kind(
                 ) {
                     return LocalKind::String;
                 }
-                if matches!(method_name.as_str(), "len" | "byte_len" | "find") {
+                if matches!(method_name.as_str(), "len" | "byte_len") {
                     return LocalKind::Int;
+                }
+                // `string.find` answers an `Int` or `none`; it stays an Int here so a
+                // found index prints as a number. The absent case is the `none`
+                // sentinel, which `String`/`io.println` render as the word only when
+                // the value is statically `none`.
+                if method_name == "find" {
+                    return LocalKind::Nullable(Box::new(LocalKind::Int));
                 }
                 if method_name == "split" {
                     return LocalKind::List(Box::new(LocalKind::String));
@@ -12927,6 +13145,22 @@ fn compile_print_arg(
                 }
             }
             match kind {
+                LocalKind::Nullable(inner) if matches!(inner.as_ref(), LocalKind::Int) => {
+                    // An optional Int renders the word `none` for the zero sentinel and
+                    // the number otherwise, which is what `string.find` needs.
+                    let none_ptr = static_strings.get("none").copied().unwrap_or_default();
+                    let staged = locals[&format!("__i64_temp_{}", call_depth.min(7))].0;
+                    func.instruction(&Instruction::LocalSet(staged));
+                    func.instruction(&Instruction::LocalGet(staged));
+                    func.instruction(&Instruction::I64Eqz);
+                    func.instruction(&Instruction::If(BlockType::Empty));
+                    func.instruction(&Instruction::I32Const(none_ptr));
+                    func.instruction(&Instruction::Call(io.print_str_idx));
+                    func.instruction(&Instruction::Else);
+                    func.instruction(&Instruction::LocalGet(staged));
+                    func.instruction(&Instruction::Call(io.print_int_idx));
+                    func.instruction(&Instruction::End);
+                }
                 LocalKind::None => {
                     // `none` renders as the literal word, not as the sentinel the
                     // backend uses internally.
@@ -14949,6 +15183,7 @@ fn compile_expr(
                         | "split"
                         | "join"
                         | "replace"
+                        | "format"
                 );
                 if implemented {
                     let arity_ok = match method_name.as_str() {
@@ -15057,6 +15292,28 @@ fn compile_expr(
                             )?;
                             coerce_type(func, list_ty, WasmType::I32);
                             let (idx, _, _) = functions["__aipo_str_join"];
+                            func.instruction(&Instruction::Call(idx));
+                            return Ok(WasmType::I32);
+                        }
+                        "format" => {
+                            let values_ty = compile_expr(
+                                &args[1].value,
+                                func,
+                                locals,
+                                functions,
+                                control_stack,
+                                structs,
+                                static_strings,
+                                table_indices,
+                                anon_map,
+                                indirect_sigs,
+                                alloc_func_idx,
+                                async_helpers,
+                                struct_depth,
+                                call_depth,
+                            )?;
+                            coerce_type(func, values_ty, WasmType::I32);
+                            let (idx, _, _) = functions["__aipo_str_format"];
                             func.instruction(&Instruction::Call(idx));
                             return Ok(WasmType::I32);
                         }
