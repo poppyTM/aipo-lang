@@ -462,6 +462,24 @@ impl<'a> Parser<'a> {
             .unwrap_or(&TokenKind::Eof)
     }
 
+    /// Consumes the current token and moves it out, leaving `Eof` behind.
+    ///
+    /// The caller has already looked at the token and wants its payload; cloning
+    /// would allocate a second copy of every identifier and string literal.
+    fn take(&mut self) -> Token {
+        if self.cursor < self.tokens.len() {
+            let eof = Token::new(TokenKind::Eof, SourceSpan::empty(self.source.len()));
+            let tok = std::mem::replace(&mut self.tokens[self.cursor], eof);
+            self.cursor += 1;
+            tok
+        } else {
+            self.tokens
+                .last()
+                .cloned()
+                .unwrap_or_else(|| Token::new(TokenKind::Eof, SourceSpan::empty(self.source.len())))
+        }
+    }
+
     fn advance(&mut self) -> Token {
         if !self.is_at_end() {
             let tok = self.tokens[self.cursor].clone();
@@ -2293,33 +2311,42 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_prefix_expr(&mut self) -> Option<Expr> {
-        match self.peek().clone() {
-            TokenKind::IntLiteral(digits) => {
-                let span = self.advance().span;
-                Some(Expr::Literal(Literal::Int(digits), span))
+        match self.peek() {
+            TokenKind::IntLiteral(_) => {
+                let token = self.take();
+                let TokenKind::IntLiteral(digits) = token.kind else {
+                    unreachable!("take() returned a different token")
+                };
+                Some(Expr::Literal(Literal::Int(digits), token.span))
             }
-            TokenKind::FloatLiteral(digits) => {
-                let span = self.advance().span;
-                Some(Expr::Literal(Literal::Float(digits), span))
+            TokenKind::FloatLiteral(_) => {
+                let token = self.take();
+                let TokenKind::FloatLiteral(digits) = token.kind else {
+                    unreachable!("take() returned a different token")
+                };
+                Some(Expr::Literal(Literal::Float(digits), token.span))
             }
             TokenKind::True => {
-                let span = self.advance().span;
+                let span = self.take().span;
                 Some(Expr::Literal(Literal::Bool(true), span))
             }
             TokenKind::False => {
-                let span = self.advance().span;
+                let span = self.take().span;
                 Some(Expr::Literal(Literal::Bool(false), span))
             }
             TokenKind::None => {
-                let span = self.advance().span;
+                let span = self.take().span;
                 Some(Expr::Literal(Literal::None, span))
             }
-            TokenKind::StringLiteral {
-                content,
-                prefix,
-                is_multiline: _,
-            } => {
-                let span = self.advance().span;
+            TokenKind::StringLiteral { .. } => {
+                let token = self.take();
+                let span = token.span;
+                let TokenKind::StringLiteral {
+                    content, prefix, ..
+                } = token.kind
+                else {
+                    unreachable!("take() returned a different token")
+                };
                 let ast_prefix = match prefix {
                     LexerStringPrefix::Normal => StringPrefix::Normal,
                     LexerStringPrefix::Format => StringPrefix::Format,
@@ -2354,8 +2381,12 @@ impl<'a> Parser<'a> {
                 );
                 None
             }
-            TokenKind::Identifier(name) => {
-                let span = self.advance().span;
+            TokenKind::Identifier(_) => {
+                let token = self.take();
+                let span = token.span;
+                let TokenKind::Identifier(name) = token.kind else {
+                    unreachable!("take() returned a different token")
+                };
                 let ident = Ident::new(name, span);
 
                 // Check for single-parameter short lambda `x => expr`
@@ -3228,9 +3259,12 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_ident(&mut self) -> Option<Ident> {
-        if let TokenKind::Identifier(name) = self.peek().clone() {
-            let span = self.advance().span;
-            Some(Ident::new(name, span))
+        if matches!(self.peek(), TokenKind::Identifier(_)) {
+            let token = self.take();
+            let TokenKind::Identifier(name) = token.kind else {
+                unreachable!("take() returned a different token")
+            };
+            Some(Ident::new(name, token.span))
         } else {
             let span = self
                 .peek_token()

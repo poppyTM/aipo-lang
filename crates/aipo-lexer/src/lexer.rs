@@ -12,16 +12,24 @@ pub struct Lexer<'a> {
     source: &'a Source,
     byte_offset: usize,
     diagnostics: Vec<Diagnostic>,
+    /// The code point at `byte_offset`, decoded once.
+    ///
+    /// `peek` runs on every character of every token, and each call would re-slice
+    /// the source (a UTF-8 boundary check) and decode again. Keeping the decoded
+    /// character beside the offset turns the steady-state peek into a field read.
+    current: Option<char>,
 }
 
 impl<'a> Lexer<'a> {
     /// Creates a new lexer for the given source.
     #[must_use]
     pub fn new(source: &'a Source) -> Self {
+        let current = source.text().chars().next();
         Self {
             source,
             byte_offset: 0,
             diagnostics: Vec::new(),
+            current,
         }
     }
 
@@ -42,7 +50,7 @@ impl<'a> Lexer<'a> {
     }
 
     fn peek(&self) -> Option<char> {
-        self.source.text()[self.byte_offset..].chars().next()
+        self.current
     }
 
     fn peek_ahead(&self, offset: usize) -> Option<char> {
@@ -58,8 +66,9 @@ impl<'a> Lexer<'a> {
     }
 
     fn advance(&mut self) -> Option<char> {
-        let ch = self.source.text()[self.byte_offset..].chars().next()?;
+        let ch = self.current?;
         self.byte_offset += ch.len_utf8();
+        self.current = self.source.text()[self.byte_offset..].chars().next();
         Some(ch)
     }
 
