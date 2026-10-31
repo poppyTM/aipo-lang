@@ -1,5 +1,43 @@
 # Current Project State
 
+> **P09 W3, 2026-10-31:** rodada de **performance, arquitetura e contratos** sobre o
+> workspace, guiada pela doutrina do repositório (god-crate guardrail, public API
+> budget, "sem panic vazando como erro do usuário", performance só com dado).
+>
+> **Performance (medido em `aipo-bench`, 99 KiB):** o parser deixou de clonar o
+> `TokenKind` inteiro para ler um payload e outra vez para consumi-lo, e 61 sítios
+> que só descartavam o token passaram a mover o cursor — parse de **23.7ms → 4.1ms**
+> (1023 KiB: 102.7ms → 47.9ms). O lexer decodifica o code point do cursor uma vez em
+> vez de re-fatiar e re-decodificar UTF-8 a cada `peek` — tokenize **10.9ms → 1.07ms**.
+> O emissor JS escreve o JSON do módulo direto no buffer em vez de montar uma árvore
+> `serde_json::Value` por instrução — **42.9ms → 1.6ms** (27×), saída semanticamente
+> idêntica. A `Value` já tinha 16 bytes e a chamada de frame não alocava; o custo
+> restante de `vm/recursion` é o dispatch interpretado em si.
+>
+> **Arquitetura:** dois god-modules separados por responsabilidade, sem mudar a
+> direção de dependência. `aipo-wasm/src/compiler.rs` (19.3k linhas, três domínios)
+> virou `analysis.rs` + `runtime.rs` + `compiler.rs`; `aipo-cli/src/lib.rs` (3.7k
+> linhas) perdeu o subsistema de pacotes para `packages.rs`. A visibilidade segue as
+> novas fronteiras (`pub(super)` só onde cruza), não foi afrouxada em bloco.
+>
+> **Contratos que a auditoria encontrou e corrigiu:** `dict.has` lia a entrada de
+> dicionário no stride de 16 bytes enquanto `dict.set` já escrevia 24 — uma chave
+> String inserida antes de uma inteira fazia o lookup inteiro falhar. As listas de
+> membro de fallback do `aipo-sema` anunciavam oito membros inexistentes
+> (`List.clone`/`List.each`, `String.chars`/`to_lowercase`/`to_uppercase`/`is_empty`)
+> e omitiam os higher-order do `List`; agora um teste as compara com
+> `PreludeSurface::type_members`. Cinco `unreachable!` no codegen Wasm e cinco no
+> parser viraram diagnósticos, honrando o risco declarado de panic vazando como erro
+> de linguagem. `RegEmitter::add_contract` (único escritor de um pool que ninguém
+> lia) foi removido.
+>
+> **Gate novo:** `scripts/contract-audit.sh` verifica idempotência e fidelidade
+> semântica do formatter sobre o corpus inteiro (62 arquivos, 0 falhas) — duas
+> propriedades que nenhum teste unitário capturava.
+>
+> Estado: Wasm **29/36** fixtures com stdout idêntico, 25/26 exemplos; workspace
+> verde (fmt, clippy `-D warnings`, todas as suítes). P09-G01 continua EXECUTING.
+
 > **P09 W2, 2026-10-30:** dois defeitos de **semântica da linguagem** na VM canônica
 > foram corrigidos na raiz. (1) **Captura por referência**: um `var` capturado por
 > `fn` local ou closure agora vive numa célula compartilhada — antes o closure
