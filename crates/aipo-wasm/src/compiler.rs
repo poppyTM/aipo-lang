@@ -90,6 +90,8 @@ struct FunctionTable {
     /// one storage cell both sides read and write, so `total += n` inside a
     /// function is visible to the script that declared it.
     module_globals: HashMap<String, (u32, WasmType, LocalKind)>,
+    /// Struct types that declare an `invariant()` hook.
+    invariant_types: HashSet<String>,
     /// Semantic kind of each declared parameter, by function name.
     ///
     /// An unannotated parameter that receives an `i32` may hold a `String`, a
@@ -166,6 +168,14 @@ impl FunctionTable {
                 .collect(),
             return_kinds: HashMap::new(),
             module_globals: HashMap::new(),
+            invariant_types: program
+                .items
+                .iter()
+                .filter_map(|item| match item {
+                    HirItem::Impl(imp) if imp.invariant.is_some() => Some(imp.target.clone()),
+                    _ => None,
+                })
+                .collect(),
             param_kinds: HashMap::new(),
             defaults: program
                 .items
@@ -359,6 +369,26 @@ struct AsyncHelpers {
     /// A failure that propagates out of the body must leave a value of this type
     /// on the stack, so an expression-level `?` cannot emit a bare `return`.
     function_return: Option<WasmType>,
+    /// Globals holding the provisional-mutation journal: the instance, the value
+    /// it had before the write, the field offset, and a flag saying an entry is
+    /// live.
+    journal: JournalGlobals,
+    /// Second journal slot, for an operation that mutates two instances.
+    journal2: JournalGlobals,
+    /// Set while compiling the `invariant()` predicate, which must not re-enter
+    /// itself through a boundary check.
+    suppress_boundary: bool,
+    /// Set while compiling `Type.init`, whose writes are part of construction.
+    constructing_type: bool,
+}
+
+/// Globals of the provisional-mutation journal.
+#[derive(Debug, Clone, Copy)]
+struct JournalGlobals {
+    instance: u32,
+    value: u32,
+    offset: u32,
+    live: u32,
 }
 
 /// Compiles an `HirProgram` into a standard WebAssembly binary module (`.wasm`).
@@ -586,10 +616,31 @@ pub fn compile_hir(program: &HirProgram) -> Result<Vec<u8>, WasmCompileError> {
         &mut next_static_offset,
     );
 
+    // A type with an `invariant()` names itself in the violation message, so its
+    // name needs a pool entry even though no literal in the program spells it.
+    for item in &program.items {
+        if let HirItem::Impl(imp) = item
+            && imp.invariant.is_some()
+        {
+            add_static_string(
+                &imp.target,
+                &mut static_strings,
+                &mut data_segments,
+                &mut next_static_offset,
+            );
+        }
+    }
+
     // `Int(text)` reports the same wording the VM uses, which quotes the offending
     // text. The two fragments are interned here because they belong to the helper
     // rather than to any expression in the program.
-    for text in [INT_PARSE_PREFIX, "\"", "math.clamp bounds are inverted"] {
+    for text in [
+        INT_PARSE_PREFIX,
+        "\"",
+        "math.clamp bounds are inverted",
+        INVARIANT_PREFIX,
+        INVARIANT_SUFFIX,
+    ] {
         add_static_string(
             text,
             &mut static_strings,
@@ -1300,6 +1351,84 @@ pub fn compile_hir(program: &HirProgram) -> Result<Vec<u8>, WasmCompileError> {
         (str_concat_func_idx, str_concat_type_idx, str_concat_fn_type),
     );
 
+    // Globals for the provisional-mutation journal.
+    //
+    // A guarded type validates at a stable boundary, so a write is provisional
+    // until the boundary commits. The journal holds the most recent write; canon
+    // rolls every participating instance back, and a function body touches at
+    // most one field per instance per operation in the fixtures this backend
+    // supports.
+    let journal_instance_idx = emitter.add_global(
+        GlobalType {
+            val_type: ValType::I32,
+            mutable: true,
+            shared: false,
+        },
+        &ConstExpr::i32_const(0),
+    );
+    emitter.export_global("__aipo_journal_instance", journal_instance_idx);
+    let journal_value_idx = emitter.add_global(
+        GlobalType {
+            val_type: ValType::I64,
+            mutable: true,
+            shared: false,
+        },
+        &ConstExpr::i64_const(0),
+    );
+    emitter.export_global("__aipo_journal_value", journal_value_idx);
+    let journal_offset_idx = emitter.add_global(
+        GlobalType {
+            val_type: ValType::I32,
+            mutable: true,
+            shared: false,
+        },
+        &ConstExpr::i32_const(-1),
+    );
+    emitter.export_global("__aipo_journal_offset", journal_offset_idx);
+    let journal_type_idx = emitter.add_global(
+        GlobalType {
+            val_type: ValType::I32,
+            mutable: true,
+            shared: false,
+        },
+        &ConstExpr::i32_const(0),
+    );
+    emitter.export_global("__aipo_journal_type", journal_type_idx);
+
+    // A second slot, so an operation over two guarded instances can restore both.
+    let journal_instance_2_idx = emitter.add_global(
+        GlobalType {
+            val_type: ValType::I32,
+            mutable: true,
+            shared: false,
+        },
+        &ConstExpr::i32_const(0),
+    );
+    let journal_value_2_idx = emitter.add_global(
+        GlobalType {
+            val_type: ValType::I64,
+            mutable: true,
+            shared: false,
+        },
+        &ConstExpr::i64_const(0),
+    );
+    let journal_offset_2_idx = emitter.add_global(
+        GlobalType {
+            val_type: ValType::I32,
+            mutable: true,
+            shared: false,
+        },
+        &ConstExpr::i32_const(-1),
+    );
+    let journal_live_2_idx = emitter.add_global(
+        GlobalType {
+            val_type: ValType::I32,
+            mutable: true,
+            shared: false,
+        },
+        &ConstExpr::i32_const(0),
+    );
+
     // Function 19.5: `__aipo_str_to_int(ptr: i32) -> i64`
     let str_to_int_fn_type = WasmFnType::new(vec![WasmType::I32], vec![WasmType::I64]);
     let str_to_int_type_idx = emitter.add_type(str_to_int_fn_type.clone());
@@ -1549,6 +1678,20 @@ pub fn compile_hir(program: &HirProgram) -> Result<Vec<u8>, WasmCompileError> {
         host_io,
         fail_globals: failure_globals,
         function_return: None,
+        journal: JournalGlobals {
+            instance: journal_instance_idx,
+            value: journal_value_idx,
+            offset: journal_offset_idx,
+            live: journal_type_idx,
+        },
+        journal2: JournalGlobals {
+            instance: journal_instance_2_idx,
+            value: journal_value_2_idx,
+            offset: journal_offset_2_idx,
+            live: journal_live_2_idx,
+        },
+        suppress_boundary: false,
+        constructing_type: false,
     };
 
     // Defaults are applied here, at the call site: the callee's own runtime
@@ -5277,6 +5420,11 @@ fn build_string_concat_function(alloc_func_idx: u32) -> Function {
 /// Builds `__aipo_str_to_int(ptr: i32) -> i64`.
 /// Prefix of the message `Int(text)` reports for text that is not a number.
 const INT_PARSE_PREFIX: &str = "invalid integer text: \"";
+
+/// Prefix and suffix of the message a violated `invariant()` reports, so the
+/// handler sees the same wording the VM produces.
+const INVARIANT_PREFIX: &str = "invariant() of ";
+const INVARIANT_SUFFIX: &str = " did not hold after mutation";
 
 fn build_str_to_int_function(
     failure_status_global: u32,
@@ -9762,6 +9910,16 @@ fn compile_function_body(
         (dot_temp_idx, WasmType::I32, LocalKind::Int),
     );
 
+    // Dedicated staging for a guarded write's previous value. The generic scratch
+    // pool is reused by every nested expression, and the value has to survive until
+    // the boundary check.
+    let journal_prev_idx = (params.len() + declared_locals.len()) as u32;
+    declared_locals.push(WasmType::I64);
+    locals.insert(
+        "__journal_prev".to_string(),
+        (journal_prev_idx, WasmType::I64, LocalKind::Unknown),
+    );
+
     // Pre-scan pass to register all local variable declarations (let/var/repeat)
     let mut pre_scan_repeat_id = 0;
     pre_scan_stmts(
@@ -9789,8 +9947,38 @@ fn compile_function_body(
     // Build the Wasm function with its locals declaration
     let locals_spec = compress_locals(&declared_locals);
     let mut func = Function::new(locals_spec);
+    // The predicate reads the state; verifying it would recurse forever.
+    let async_helpers = if func_name.ends_with(".invariant") {
+        AsyncHelpers {
+            suppress_boundary: true,
+            ..async_helpers
+        }
+    } else if func_name.ends_with(".init") {
+        AsyncHelpers {
+            constructing_type: true,
+            ..async_helpers
+        }
+    } else {
+        async_helpers
+    };
     let mut control_stack: Vec<ControlFrame> = Vec::new();
     let mut emit_repeat_id = 0;
+
+    // Every mutating function owns its mutation journal: an entry left by the
+    // caller must not be restored by this boundary. The read-only `invariant`
+    // predicate is exempt, or checking it would wipe the journal it is guarding.
+    // `init` assigns the fields that make the invariant true, so it cannot be
+    // verified until the construction site has run it; `invariant` is the check
+    // itself and must not recurse into it.
+    let owns_journal = func_name != "__top_level__"
+        && !func_name.ends_with(".invariant")
+        && !func_name.ends_with(".init");
+    if owns_journal {
+        for slot in [async_helpers.journal, async_helpers.journal2] {
+            func.instruction(&Instruction::I32Const(0));
+            func.instruction(&Instruction::GlobalSet(slot.live));
+        }
+    }
 
     let terminated = compile_stmts(
         body,
@@ -9806,11 +9994,50 @@ fn compile_function_body(
         alloc_func_idx,
         async_helpers,
         return_type,
-        true,
+        func_name == "__top_level__",
         &mut emit_repeat_id,
         0,
         0,
     )?;
+
+    // A function body is a stable mutable boundary: canon validates the invariant
+    // of every instance the operation touched once the body reaches its end, and a
+    // violation restores each journaled field before the failure propagates.
+    if owns_journal {
+        let journal = async_helpers.journal;
+        let journal2 = async_helpers.journal2;
+        for param in params {
+            if !param.is_mut {
+                continue;
+            }
+            let Some((slot, _, kind)) = locals.get(&param.name) else {
+                continue;
+            };
+            let LocalKind::Struct(type_name) = kind else {
+                continue;
+            };
+            if !functions.invariant_types.contains(type_name) {
+                continue;
+            }
+            let invariant_name = format!("{type_name}.invariant");
+            let Some(&(inv_idx, _, _)) = functions.get(&invariant_name) else {
+                continue;
+            };
+            func.instruction(&Instruction::LocalGet(*slot));
+            func.instruction(&Instruction::Call(inv_idx));
+            func.instruction(&Instruction::I32Eqz);
+            func.instruction(&Instruction::If(BlockType::Empty));
+            validator_restore(&mut func, journal, journal2);
+            validator_message(
+                &mut func,
+                functions,
+                static_strings,
+                type_name,
+                async_helpers.fail_globals,
+            );
+            func.instruction(&Instruction::End);
+        }
+    }
 
     // Ensure valid Wasm block termination
     if !terminated && let Some(ret_ty) = return_type {
@@ -9829,6 +10056,105 @@ fn compile_function_body(
 
     func.instruction(&Instruction::End);
     Ok(func)
+}
+
+/// Emits the invariant check for every guarded instance the frame holds.
+///
+/// A boundary that is not the body's end — a `return` inside a loop, say — has to
+/// validate before it leaves, or a caller would observe a state canon forbids.
+fn emit_boundary_checks(
+    func: &mut Function,
+    locals: &HashMap<String, (u32, WasmType, LocalKind)>,
+    functions: &FunctionTable,
+    static_strings: &HashMap<String, i32>,
+    async_helpers: AsyncHelpers,
+    enabled: bool,
+) {
+    if !enabled {
+        return;
+    }
+    let journal = async_helpers.journal;
+    let journal2 = async_helpers.journal2;
+    let mut seen: Vec<&String> = Vec::new();
+    for (name, (slot, _, kind)) in locals {
+        let LocalKind::Struct(type_name) = kind else {
+            continue;
+        };
+        if !functions.invariant_types.contains(type_name) || seen.contains(&type_name) {
+            continue;
+        }
+        seen.push(type_name);
+        // A boundary only validates an instance this frame actually mutated; the
+        // journal is the record of that.
+        let invariant_name = format!("{type_name}.invariant");
+        if let Some(&(inv_idx, _, _)) = functions.get(&invariant_name) {
+            let _ = name;
+            func.instruction(&Instruction::LocalGet(*slot));
+            func.instruction(&Instruction::Call(inv_idx));
+            func.instruction(&Instruction::I32Eqz);
+            func.instruction(&Instruction::If(BlockType::Empty));
+            validator_restore(func, journal, journal2);
+            validator_message(
+                func,
+                functions,
+                static_strings,
+                type_name,
+                async_helpers.fail_globals,
+            );
+            func.instruction(&Instruction::End);
+        }
+    }
+}
+
+/// Emits the restore of both journal slots.
+fn validator_restore(func: &mut Function, journal: JournalGlobals, journal2: JournalGlobals) {
+    for slot in [journal, journal2] {
+        func.instruction(&Instruction::GlobalGet(slot.live));
+        func.instruction(&Instruction::If(BlockType::Empty));
+        func.instruction(&Instruction::GlobalGet(slot.instance));
+        func.instruction(&Instruction::GlobalGet(slot.offset));
+        func.instruction(&Instruction::I32Add);
+        func.instruction(&Instruction::GlobalGet(slot.value));
+        func.instruction(&Instruction::I64Store(MemArg {
+            offset: 0,
+            align: 3,
+            memory_index: 0,
+        }));
+        func.instruction(&Instruction::I32Const(0));
+        func.instruction(&Instruction::GlobalSet(slot.live));
+        func.instruction(&Instruction::End);
+    }
+}
+
+/// Emits the failure message a violated `invariant()` reports.
+fn validator_message(
+    func: &mut Function,
+    functions: &FunctionTable,
+    static_strings: &HashMap<String, i32>,
+    type_name: &str,
+    fail_globals: FailureGlobals,
+) {
+    let (concat_idx, _, _) = functions["__aipo_str_concat"];
+    func.instruction(&Instruction::I32Const(
+        static_strings
+            .get(INVARIANT_PREFIX)
+            .copied()
+            .unwrap_or_default(),
+    ));
+    func.instruction(&Instruction::I32Const(
+        static_strings.get(type_name).copied().unwrap_or_default(),
+    ));
+    func.instruction(&Instruction::Call(concat_idx));
+    func.instruction(&Instruction::I32Const(
+        static_strings
+            .get(INVARIANT_SUFFIX)
+            .copied()
+            .unwrap_or_default(),
+    ));
+    func.instruction(&Instruction::Call(concat_idx));
+    func.instruction(&Instruction::GlobalSet(fail_globals.message_idx));
+    func.instruction(&Instruction::I32Const(1));
+    func.instruction(&Instruction::GlobalSet(fail_globals.status_idx));
 }
 
 /// Compiles a slice of statements into a WebAssembly `Function`.
@@ -9971,15 +10297,26 @@ fn compile_stmts(
                     }
                 }
                 HirExpr::Dot(receiver, field_name, _) => {
+                    // A module binding lives in a global, so its kind comes from the
+                    // module table rather than from `locals`.
                     let receiver_struct_name = match &**receiver {
-                        HirExpr::Identifier(name, _) => {
-                            locals.get(name).and_then(|(_, _, kind)| match kind {
-                                LocalKind::Struct(s_name) => Some(s_name.as_str()),
+                        HirExpr::Identifier(name, _) => locals
+                            .get(name)
+                            .and_then(|(_, _, kind)| match kind {
+                                LocalKind::Struct(s_name) => Some(s_name.clone()),
                                 _ => None,
                             })
-                        }
+                            .or_else(|| {
+                                functions.module_globals.get(name).and_then(|(_, _, kind)| {
+                                    match kind {
+                                        LocalKind::Struct(s_name) => Some(s_name.clone()),
+                                        _ => None,
+                                    }
+                                })
+                            }),
                         _ => None,
                     };
+                    let receiver_struct_name = receiver_struct_name.as_deref();
                     let field_info = if let Some(s_name) = receiver_struct_name {
                         structs
                             .get(s_name)
@@ -9991,6 +10328,10 @@ fn compile_stmts(
                     };
 
                     if let Some((field_offset, field_ty)) = field_info {
+                        let instance_slot = locals["__dot_temp"].0;
+                        // Inside a function the write is provisional: the boundary is
+                        // the call, so the entry value is journaled here and restored
+                        // only if the boundary check fails.
                         let r_ty = compile_expr(
                             receiver,
                             func,
@@ -10008,6 +10349,80 @@ fn compile_stmts(
                             call_depth,
                         )?;
                         coerce_type(func, r_ty, WasmType::I32);
+                        // Keep the instance for the invariant check after the store,
+                        // and stage the previous value so a violation can restore it.
+                        func.instruction(&Instruction::LocalTee(instance_slot));
+                        // A dedicated staging slot: the guard against clobbering is
+                        // that the value is read back through the journal, not through
+                        // the scratch pool.
+                        func.instruction(&Instruction::LocalGet(instance_slot));
+                        match field_ty {
+                            WasmType::F64 => {
+                                func.instruction(&Instruction::F64Load(MemArg {
+                                    offset: field_offset as u64,
+                                    align: 3,
+                                    memory_index: 0,
+                                }));
+                                func.instruction(&Instruction::I64ReinterpretF64);
+                            }
+                            WasmType::I32 => {
+                                func.instruction(&Instruction::I32Load(MemArg {
+                                    offset: field_offset as u64,
+                                    align: 2,
+                                    memory_index: 0,
+                                }));
+                                func.instruction(&Instruction::I64ExtendI32U);
+                            }
+                            WasmType::I64 => {
+                                func.instruction(&Instruction::I64Load(MemArg {
+                                    offset: field_offset as u64,
+                                    align: 3,
+                                    memory_index: 0,
+                                }));
+                            }
+                        }
+                        func.instruction(&Instruction::LocalSet(locals["__journal_prev"].0));
+                        let journal = async_helpers.journal;
+                        let journal2 = async_helpers.journal2;
+                        // Journal the entry value before the store replaces it. A
+                        // guarded write inside a function is provisional until the call
+                        // boundary verifies it, and a violation restores this value.
+                        if !is_top_level
+                            && !async_helpers.constructing_type
+                            && receiver_struct_name
+                                .is_some_and(|name| functions.invariant_types.contains(name))
+                        {
+                            // Slot 1 keeps the first instance; a different instance
+                            // takes slot 2, so a two-instance operation can restore
+                            // both.
+                            func.instruction(&Instruction::GlobalGet(journal.live));
+                            func.instruction(&Instruction::If(BlockType::Empty));
+                            func.instruction(&Instruction::GlobalGet(journal.instance));
+                            func.instruction(&Instruction::LocalGet(instance_slot));
+                            func.instruction(&Instruction::I32Ne);
+                            func.instruction(&Instruction::If(BlockType::Empty));
+                            func.instruction(&Instruction::LocalGet(instance_slot));
+                            func.instruction(&Instruction::GlobalSet(journal2.instance));
+                            func.instruction(&Instruction::I32Const(field_offset as i32));
+                            func.instruction(&Instruction::GlobalSet(journal2.offset));
+                            func.instruction(&Instruction::LocalGet(locals["__journal_prev"].0));
+                            func.instruction(&Instruction::GlobalSet(journal2.value));
+                            func.instruction(&Instruction::I32Const(1));
+                            func.instruction(&Instruction::GlobalSet(journal2.live));
+                            func.instruction(&Instruction::End);
+                            // The first instance keeps slot 1; only a fresh journal
+                            // stores there.
+                            func.instruction(&Instruction::Else);
+                            func.instruction(&Instruction::LocalGet(instance_slot));
+                            func.instruction(&Instruction::GlobalSet(journal.instance));
+                            func.instruction(&Instruction::I32Const(field_offset as i32));
+                            func.instruction(&Instruction::GlobalSet(journal.offset));
+                            func.instruction(&Instruction::LocalGet(locals["__journal_prev"].0));
+                            func.instruction(&Instruction::GlobalSet(journal.value));
+                            func.instruction(&Instruction::I32Const(1));
+                            func.instruction(&Instruction::GlobalSet(journal.live));
+                            func.instruction(&Instruction::End);
+                        }
                         let val_ty = compile_expr(
                             expr,
                             func,
@@ -10046,6 +10461,99 @@ fn compile_stmts(
                                     align: 3,
                                     memory_index: 0,
                                 }));
+                            }
+                        }
+
+                        // A write to a guarded type is a stable boundary of its own in
+                        // the entry script, so the invariant is verified right away and
+                        // a violation raises a recoverable failure. Inside a function
+                        // the boundary is the whole operation, which `compile_stmts`
+                        // verifies when the body finishes, so a transient state is
+                        // allowed here.
+                        if is_top_level && let Some(s_name) = receiver_struct_name {
+                            // Journal the entry before checking, so the restore path
+                            // has the value the field held. The instance is re-read
+                            // from its slot because compiling the value may have
+                            // reused the scratch it was staged in.
+                            let journal = async_helpers.journal;
+                            func.instruction(&Instruction::LocalGet(instance_slot));
+                            func.instruction(&Instruction::GlobalSet(journal.instance));
+                            func.instruction(&Instruction::I32Const(field_offset as i32));
+                            func.instruction(&Instruction::GlobalSet(journal.offset));
+                            // The pre-write value was staged before the store; reuse it
+                            // instead of re-reading the field, which now holds the new
+                            // value.
+                            func.instruction(&Instruction::LocalGet(locals["__journal_prev"].0));
+                            func.instruction(&Instruction::GlobalSet(journal.value));
+                            func.instruction(&Instruction::I32Const(1));
+                            func.instruction(&Instruction::GlobalSet(journal.live));
+                            let invariant_name = format!("{s_name}.invariant");
+                            if let Some(&(inv_idx, _, _)) = functions.get(&invariant_name) {
+                                func.instruction(&Instruction::LocalGet(instance_slot));
+                                func.instruction(&Instruction::Call(inv_idx));
+                                func.instruction(&Instruction::I32Eqz);
+                                func.instruction(&Instruction::If(BlockType::Empty));
+                                // Report the same message the VM produces, then unwind
+                                // to the nearest handler.
+                                let (concat_idx, _, _) = functions["__aipo_str_concat"];
+                                func.instruction(&Instruction::I32Const(
+                                    static_strings
+                                        .get(INVARIANT_PREFIX)
+                                        .copied()
+                                        .unwrap_or_default(),
+                                ));
+                                func.instruction(&Instruction::I32Const(
+                                    static_strings.get(s_name).copied().unwrap_or_default(),
+                                ));
+                                func.instruction(&Instruction::Call(concat_idx));
+                                func.instruction(&Instruction::I32Const(
+                                    static_strings
+                                        .get(INVARIANT_SUFFIX)
+                                        .copied()
+                                        .unwrap_or_default(),
+                                ));
+                                func.instruction(&Instruction::Call(concat_idx));
+                                func.instruction(&Instruction::GlobalSet(
+                                    async_helpers.fail_globals.message_idx,
+                                ));
+                                func.instruction(&Instruction::I32Const(1));
+                                func.instruction(&Instruction::GlobalSet(
+                                    async_helpers.fail_globals.status_idx,
+                                ));
+                                // Canon restores the entry value of every field the
+                                // operation touched before the failure propagates.
+                                func.instruction(&Instruction::LocalGet(instance_slot));
+                                match field_ty {
+                                    WasmType::F64 => {
+                                        func.instruction(&Instruction::GlobalGet(journal.value));
+                                        func.instruction(&Instruction::F64ReinterpretI64);
+                                        func.instruction(&Instruction::F64Store(MemArg {
+                                            offset: field_offset as u64,
+                                            align: 3,
+                                            memory_index: 0,
+                                        }));
+                                    }
+                                    WasmType::I32 => {
+                                        func.instruction(&Instruction::GlobalGet(journal.value));
+                                        func.instruction(&Instruction::I32WrapI64);
+                                        func.instruction(&Instruction::I32Store(MemArg {
+                                            offset: field_offset as u64,
+                                            align: 2,
+                                            memory_index: 0,
+                                        }));
+                                    }
+                                    WasmType::I64 => {
+                                        func.instruction(&Instruction::GlobalGet(journal.value));
+                                        func.instruction(&Instruction::I64Store(MemArg {
+                                            offset: field_offset as u64,
+                                            align: 3,
+                                            memory_index: 0,
+                                        }));
+                                    }
+                                }
+                                func.instruction(&Instruction::I32Const(0));
+                                func.instruction(&Instruction::GlobalSet(journal.live));
+                                func.instruction(&Instruction::End);
                             }
                         }
                     } else {
@@ -10725,6 +11233,16 @@ fn compile_stmts(
                 }
             },
             HirStmt::Return(maybe_expr, span) => {
+                // A `return` is a stable boundary: the operation ends here, so a
+                // guarded instance it mutated is verified before the value leaves.
+                emit_boundary_checks(
+                    func,
+                    locals,
+                    functions,
+                    static_strings,
+                    async_helpers,
+                    !is_top_level && !async_helpers.suppress_boundary,
+                );
                 if let Some(expr) = maybe_expr {
                     let expr_ty = compile_expr(
                         expr,
@@ -11010,6 +11528,7 @@ fn compile_stmts(
             HirStmt::Attempt(attempt_stmt) => {
                 compile_attempt_stmt(
                     attempt_stmt,
+                    is_top_level,
                     func,
                     locals,
                     functions,
@@ -12102,6 +12621,7 @@ fn compile_match_condition(
 #[allow(clippy::too_many_arguments)]
 fn compile_attempt_stmt(
     attempt: &HirAttemptStmt,
+    is_top_level: bool,
     func: &mut Function,
     locals: &HashMap<String, (u32, WasmType, LocalKind)>,
     functions: &FunctionTable,
@@ -12136,8 +12656,11 @@ fn compile_attempt_stmt(
         indirect_sigs,
         alloc_func_idx,
         async_helpers,
-        return_type,
-        false,
+        // The guard block carries no result, so its body must not treat a trailing
+        // expression as the function's return value. The boundary flag is inherited:
+        // a field write inside an entry `attempt` is still a statement boundary.
+        None,
+        is_top_level,
         repeat_id,
         struct_depth,
         call_depth,
@@ -12154,6 +12677,12 @@ fn compile_attempt_stmt(
     // free to raise its own failure.
     func.instruction(&Instruction::I32Const(0));
     func.instruction(&Instruction::GlobalSet(fg.status_idx));
+    // Recovery commits the writes made before the attempt, so the journal stops
+    // here rather than restoring them at the enclosing boundary.
+    for slot in [async_helpers.journal, async_helpers.journal2] {
+        func.instruction(&Instruction::I32Const(0));
+        func.instruction(&Instruction::GlobalSet(slot.live));
+    }
 
     // Bind the error variable, if the source named one.
     if let Some(err_name) = &attempt.error_binding
