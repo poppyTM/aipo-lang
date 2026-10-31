@@ -1,0 +1,6 @@
+let s = "a,b,c"
+io.println(string.split(s, ","))
+io.println(string.join("-", ["x","y"]))
+io.println(string.replace(s, ",", "+"))
+io.println(string.find(s, "b"))
+io.println(s.contains("b"))

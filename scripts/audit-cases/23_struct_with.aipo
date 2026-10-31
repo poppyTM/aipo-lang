@@ -1,0 +1,6 @@
+struct P { x
+ y }
+let a = P{x = 1, y = 2}
+let b = a with { x = 9 }
+io.println(String(b.x) + "," + String(b.y))
+io.println(String(a.x) + "," + String(a.y))

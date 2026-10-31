@@ -1,0 +1,5 @@
+var t = 0
+each i in 1..5 { t = t + i }
+io.println(t)
+repeat 3 as k { t = t + k }
+io.println(t)

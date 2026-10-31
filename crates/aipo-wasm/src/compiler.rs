@@ -597,6 +597,9 @@ fn collect_declared_vars(stmts: &[HirStmt], out: &mut HashSet<String>) {
 pub(super) struct StructLayout {
     pub(super) size: u32,
     pub(super) fields: HashMap<String, (u32, WasmType)>,
+    /// Fields marked `fixed`: canon makes them part of the type's identity, so a
+    /// `with` update may not replace them.
+    pub(super) fixed: HashSet<String>,
 }
 
 /// Helper containing function indices of built-in host I/O functions.
@@ -690,7 +693,14 @@ pub fn compile_hir(program: &HirProgram) -> Result<Vec<u8>, WasmCompileError> {
                     let mut fields = HashMap::new();
                     match &v.payload {
                         aipo_hir::HirEnumVariantPayload::Unit => {
-                            structs.insert(full_name, StructLayout { size: 8, fields });
+                            structs.insert(
+                                full_name,
+                                StructLayout {
+                                    size: 8,
+                                    fields,
+                                    fixed: HashSet::new(),
+                                },
+                            );
                         }
                         aipo_hir::HirEnumVariantPayload::Tuple(t_fields) => {
                             for (idx, f) in t_fields.iter().enumerate() {
@@ -699,7 +709,14 @@ pub fn compile_hir(program: &HirProgram) -> Result<Vec<u8>, WasmCompileError> {
                                 fields.insert(f_name, (offset, WasmType::I64));
                             }
                             let size = 8 + (t_fields.len() as u32) * 8;
-                            structs.insert(full_name, StructLayout { size, fields });
+                            structs.insert(
+                                full_name,
+                                StructLayout {
+                                    size,
+                                    fields,
+                                    fixed: HashSet::new(),
+                                },
+                            );
                         }
                         aipo_hir::HirEnumVariantPayload::Struct(s_fields) => {
                             for (idx, f) in s_fields.iter().enumerate() {
@@ -707,7 +724,14 @@ pub fn compile_hir(program: &HirProgram) -> Result<Vec<u8>, WasmCompileError> {
                                 fields.insert(f.name.clone(), (offset, WasmType::I64));
                             }
                             let size = 8 + (s_fields.len() as u32) * 8;
-                            structs.insert(full_name, StructLayout { size, fields });
+                            structs.insert(
+                                full_name,
+                                StructLayout {
+                                    size,
+                                    fields,
+                                    fixed: HashSet::new(),
+                                },
+                            );
                         }
                     }
                 }
@@ -11812,6 +11836,18 @@ fn compile_expr(
             };
 
             if let Some(struct_layout) = struct_layout {
+                // A `fixed` field belongs to the type's identity, so `with` may not
+                // replace it. The VM raises the same fault at this boundary.
+                if let Some(field) = updates
+                    .iter()
+                    .map(|(name, _)| name)
+                    .find(|name| struct_layout.fixed.contains(*name))
+                {
+                    return Err(WasmCompileError::UnsupportedExpr {
+                        message: format!("cannot replace fixed field `{field}` through `with`"),
+                        span: *span,
+                    });
+                }
                 let base_temp_name = format!("__call_temp_{}", call_depth.min(7));
                 let base_temp = locals[&base_temp_name].0;
                 let target_temp_name = format!("__struct_temp_{}", struct_depth.min(7));

@@ -1116,10 +1116,12 @@ io.println(f"checksum:{total}")
 
 #[test]
 fn test_with_expression() {
+    // `with` replaces only mutable fields: canon makes a plain field part of the
+    // type's identity, so the update has to name `var` ones.
     let code = r#"
 struct Point {
-  x: Int,
-  y: Int,
+  var x: Int,
+  var y: Int,
 }
 fn move_point() -> Int {
   let p = Point{ x: 10, y: 20 }

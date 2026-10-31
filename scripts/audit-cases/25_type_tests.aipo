@@ -1,0 +1,5 @@
+io.println(1 is Int)
+io.println("a" is Int)
+io.println([1] is List)
+io.println(none is Int)
+io.println(1.5 is Float)

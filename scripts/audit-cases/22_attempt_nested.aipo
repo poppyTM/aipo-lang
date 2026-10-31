@@ -1,0 +1,14 @@
+fn f() {
+  attempt {
+    attempt {
+      let x = Int("no")
+    } failed inner {
+      io.println("inner: " + inner.message)
+    }
+    let y = Int("also")
+  } failed outer {
+    io.println("outer: " + outer.message)
+  }
+  return "done"
+}
+io.println(f())

@@ -1,0 +1,6 @@
+let xs = [1,2,3,4]
+io.println(xs.transform(fn(x) { return x * 2 }))
+io.println(xs.filter(fn(x) { return x > 2 }))
+io.println(xs.reduce(0, fn(a,b) { return a + b }))
+io.println(xs.any(fn(x) { return x > 3 }))
+io.println(xs.all(fn(x) { return x > 0 }))

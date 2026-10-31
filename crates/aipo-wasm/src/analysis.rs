@@ -57,7 +57,7 @@ use crate::types::WasmType;
 use aipo_ast::{BinaryOp, Literal, UnaryOp};
 use aipo_hir::{HirExpr, HirFunctionDecl, HirItem, HirParam, HirProgram, HirStmt, HirStructDecl};
 use aipo_source::SourceSpan;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use wasm_encoder::{Function, Instruction};
 
 ///
@@ -1030,7 +1030,20 @@ pub(super) fn register_struct_layout(
         offset += 8;
     }
     let size = if offset == 0 { 8 } else { offset };
-    structs.insert(decl.name.clone(), StructLayout { size, fields });
+    let fixed: HashSet<String> = decl
+        .fields
+        .iter()
+        .filter(|f| f.is_fixed)
+        .map(|f| f.name.clone())
+        .collect();
+    structs.insert(
+        decl.name.clone(),
+        StructLayout {
+            size,
+            fields,
+            fixed,
+        },
+    );
 }
 
 /// Scans program expressions to refine field types in `structs` based on constructor literals.

@@ -1,0 +1,5 @@
+let n = 42
+let s = "x"
+io.println(f"n={n} s={s}")
+io.println(f"{n + 1}")
+io.println(string.format("{a}-{b}", {"a": 1, "b": 2}))

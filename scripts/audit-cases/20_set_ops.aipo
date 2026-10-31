@@ -1,0 +1,7 @@
+var s = Set([1,2,2,3])
+io.println(s.len())
+io.println(s.has(2))
+s.add(4)
+io.println(s.len())
+s.remove(2)
+io.println(s.has(2))
