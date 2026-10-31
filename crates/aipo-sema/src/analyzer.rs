@@ -25,7 +25,7 @@ const CORE_CONTRACT_CATEGORIES: [&str; 13] = [
 /// through [`crate::PreludeSurface::add_type_members`]. This list keeps a bare
 /// `aipo_sema::check` (no standard library) from accepting every member name, and it
 /// may lag the registration; prefer a cataloged surface.
-const LIST_MEMBERS: &[&str] = &[
+pub const LIST_MEMBERS: &[&str] = &[
     "add",
     "insert",
     "remove",
@@ -61,13 +61,11 @@ const LIST_MEMBERS: &[&str] = &[
     "all",
     "flat_map",
     "reduce",
-    "each",
-    "clone",
 ];
 
 /// Fallback member set for `String`, for the same reason as [`LIST_MEMBERS`]: only
 /// consulted when the surface does not catalog the type.
-const STRING_MEMBERS: &[&str] = &[
+pub const STRING_MEMBERS: &[&str] = &[
     "len",
     "byte_len",
     "contains",
@@ -90,10 +88,6 @@ const STRING_MEMBERS: &[&str] = &[
     "casefold",
     "encode",
     "encode_utf8",
-    "chars",
-    "to_lowercase",
-    "to_uppercase",
-    "is_empty",
 ];
 
 fn extract_inferred_type(expr: &HirExpr) -> Option<String> {

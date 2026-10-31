@@ -10,7 +10,7 @@ pub mod symbol;
 
 pub(crate) mod flow;
 
-pub use analyzer::{SemanticAnalyzer, SemanticFacts};
+pub use analyzer::{LIST_MEMBERS, STRING_MEMBERS, SemanticAnalyzer, SemanticFacts};
 pub use prelude::{HostFunction, HostParameter, PreludeSurface};
 pub use symbol::{MethodSignature, Mutability, Scope, ScopeTree, Symbol, SymbolKind};
 

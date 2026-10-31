@@ -89,3 +89,48 @@ io.println(\"ok\")
         "every registered member must pass the check; stderr: {stderr}"
     );
 }
+
+#[test]
+fn fallback_member_lists_do_not_lag_the_registration() {
+    // `aipo_sema::check` without a standard library falls back to its own `List`
+    // and `String` member lists. They exist so a bare analyzer still rejects a
+    // typo, and nothing stops them drifting from the runtime registration the CLI
+    // actually checks against — a member that exists at runtime but is missing
+    // from the fallback would reject valid code, and the reverse would accept a
+    // name that only faults later. This pins the two together.
+    let surface = aipo_cli::prelude_surface();
+    for (type_name, fallback) in [
+        ("List", aipo_sema::LIST_MEMBERS),
+        ("String", aipo_sema::STRING_MEMBERS),
+    ] {
+        // Compare against the catalog the analyzer actually consults, not the raw
+        // native table: higher-order `List` methods are VM-driven and reach the
+        // catalog through a separate list.
+        let registered: std::collections::HashSet<String> = surface
+            .type_members(type_name)
+            .map(|members| members.iter().cloned().collect())
+            .unwrap_or_default();
+        let fallback: std::collections::HashSet<&str> = fallback.iter().copied().collect();
+
+        let missing: Vec<&str> = fallback
+            .iter()
+            .copied()
+            .filter(|name| !registered.contains(*name))
+            .collect();
+        assert!(
+            missing.is_empty(),
+            "`{type_name}` fallback lists members the runtime does not register: {missing:?}"
+        );
+
+        // The fallback is allowed to be a subset: it is a safety net for the bare
+        // analyzer, not the authoritative catalog.
+        let only_runtime: Vec<&String> = registered
+            .iter()
+            .filter(|name| !fallback.contains(name.as_str()))
+            .collect();
+        assert!(
+            only_runtime.is_empty(),
+            "`{type_name}` registers members its fallback rejects: {only_runtime:?}"
+        );
+    }
+}
