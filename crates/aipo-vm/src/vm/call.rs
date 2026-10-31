@@ -115,7 +115,13 @@ impl Vm {
                     self.ip,
                     callee_idx,
                     arg_count,
-                    Some(Rc::new(closure.upvalues.clone())),
+                    // A closure that captures nothing shares the empty frame; only a
+                    // capturing one needs its own vector.
+                    if closure.upvalues.is_empty() {
+                        None
+                    } else {
+                        Some(Rc::new(closure.upvalues.clone()))
+                    },
                 );
                 self.refresh_frame_base();
                 self.ip = closure.entry_ip;
