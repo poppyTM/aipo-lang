@@ -1,34 +1,40 @@
-# Host ABI & Sandboxing
+# Host ABI & sandboxing
 
-The **Host ABI (`aipo-host`)** governs the sandboxing boundary and isolation model bridging Aipo scripts and host runtime environments (such as game engines, backend servers, or AI agents).
+The **Host ABI (`aipo-host`)** defines the isolation and security interface between Aipo scripts
+and the environment that hosts the runtime (whether a game, a backend application or an
+intelligent agent).
 
 ---
 
-## Deny-by-Default Capabilities
+## The deny-by-default permission model
 
-By default, an Aipo script executes inside an hermetically isolated sandbox:
-- Cannot access environment variables (`env`).
-- Cannot read from or write to the filesystem (`fs`).
-- Cannot query host system wall-clock time (`clock`).
-- Cannot initiate outbound network connections.
+By default, an Aipo script runs in a completely isolated environment:
+- It cannot read environment variables (`env`).
+- It cannot read or write the file system (`fs`).
+- It cannot query the operating-system clock (`clock`).
+- It cannot open network connections.
 
-For any resource to be accessible, the host application must explicitly grant granular permissions via the capability tree (`CapabilitySet`):
+For a resource to be accessible, the host application in Rust must register an explicit
+permission in the capability tree (`CapabilitySet`):
 
 ```rust
-// Rust host example: granting clock and restricted read-only filesystem access
+// Example in the Rust host: granting only clock and read access to a restricted directory
 let mut caps = CapabilitySet::new();
 caps.grant("clock");
 caps.grant("fs.read");
 ```
 
-If a script attempts to invoke a restricted capability without authorization, execution halts immediately with the deterministic fault `AIPO_RT_CAPABILITY_DENIED`.
+If the script tries to access a function without the corresponding permission, the runtime
+raises the deterministic failure `AIPO_RT_CAPABILITY_DENIED`.
 
 ---
 
-## Generational Handles Anti Use-After-Free
+## Generational handles against use-after-free
 
-For stateful host resources (such as simulation entities, file handles, or network sockets), Aipo utilizes a generational handle table (`HandleTable`):
+For complex host objects (such as UI windows, game entities or database connections), Aipo
+uses the generational handle table (`HandleTable`):
 
-- Every handle pairs an **index slot** with a **monotonic generation counter**.
-- When a host resource is destroyed or recycled, its slot generation increments.
-- Any subsequent attempt by a script to dereference a stale handle is intercepted with `AIPO_RT_STALE_HANDLE`, completely preventing dangling pointer dereferences and memory corruption.
+- Each handle contains a **slot index** and a **generation number**.
+- When the host object is destroyed or recycled, the slot's generation is incremented.
+- Any later attempt by the script to access the old handle is rejected with
+  `AIPO_RT_STALE_HANDLE`, eliminating dangling pointers and memory corruption.

@@ -1,25 +1,29 @@
-# Architecture Decision Proposals (ADPs)
+# Architectural decisions (ADPs)
 
-In Aipo engineering, we adhere to a strict **no-invention policy**: no arbitrary technical decisions are made silently in code.
+In Aipo's engineering we follow a strict **no-invention policy**: no undocumented
+arbitrary technical decision is made silently in the code.
 
-Every architectural question or design evolution is formally debated and recorded as an **Architectural Decision Proposal** (ADP), documenting context, evaluated options, explicit rationale, downstream documentation impacts, and automated acceptance criteria.
+Every open question or structural change is formalized as an **Architectural Decision
+Proposal** (ADP), containing context, evaluated alternatives, rationale, impact on
+documentation and acceptance criteria.
 
 ---
 
-## Approved Decision Log
+## Registry of approved decisions
 
-| ADP | Title | Status | Decision Summary |
+| ADP | Title | Status | Decision summary |
 | :--- | :--- | :--- | :--- |
-| **[ADP-001](/en/decisions/adp-001)** | Core Types and Bytes as Values | Approved | Treats `Bytes` as first-class VM values; tolerant slicing and clamped bounds. |
-| **[ADP-002](/en/decisions/adp-002)** | Construction Hooks and Runtime Contracts | Approved | Formalizes `init()` and `invariant()` hooks with transactional rollback inside `attempt`. |
-| **[ADP-003](/en/decisions/adp-003)** | Execution Budgets | Approved | Instruction step metering mechanism for untrusted script sandboxing. |
-| **[ADP-004](/en/decisions/adp-004)** | Unicode Identifier Policy | Approved | Mandatory Unicode NFC normalization for all identifiers and string literals. |
-| **[ADP-005](/en/decisions/adp-005)** | Parser Recursion Limits | Approved | Hard recursion depth limit in parser to eliminate stack overflow Denial-of-Service attacks. |
-| **[ADP-006](/en/decisions/adp-006)** | Open Decisions for Waves 3 & 4 | Approved | Resolves async semantics, task combinators, and capability scoping boundaries. |
-| **[ADP-007](/en/decisions/adp-007)** | Package Identity & Distribution | Approved | `namespace.package` coordinates, commit SHA-pinned GitHub dependencies, and offline cache. |
-| **[ADP-008](/en/decisions/adp-008)** | Scoping Language Release v0.1.0 | Approved | Language-first, closed-scope strategy; defers game engines and web registries post-v1. |
-| **[ADP-009](/en/decisions/adp-009)** | Synchronous Versioned C ABI | Approved | Stable C binary interface with opaque types for embedding Aipo into C/C++/Zig. |
-| **[ADP-010](/en/decisions/adp-010)** | Thin Interoperability Proofs | Approved | Three automated thin proofs demonstrating seamless embedding in Rust, C, and JavaScript. |
-| **[ADP-011](/en/decisions/adp-011)** | Performance & Ergonomics Roadmap | Approved | `Value` compaction, `InvokeMethod` instruction fusion, hoisted loop dispatch, and pattern matching. |
-| **[ADP-012](/en/decisions/adp-012)** | Canonical Syntax Ergonomics Specification | Approved | Curly-brace `{ ... }` blocks, immutability by default in structs, `var self`, symmetric `:`, and automatic structural interfaces. |
-| **[ADP-013](/en/decisions/adp-013)** | WebAssembly Execution Substrate & Self-Hosting | Approved | Freezing v0.1.0 in legacy branch, migrating to WebAssembly (Wasm 2.0 / WASI), and self-hosting roadmap. |
+| **[ADP-001](/decisions/adp-001)** | Core types and Bytes as values | Approved | Treats `Bytes` as a first-class VM type; tolerant slicing and `clamp` limits. |
+| **[ADP-002](/decisions/adp-002)** | Construction hooks and runtime contracts | Approved | Formalization of `init()` and `invariant()` hooks with rollback in `attempt` blocks. |
+| **[ADP-003](/decisions/adp-003)** | Execution budgets | Approved | Instruction-step counting mechanism for sandboxing untrusted scripts. |
+| **[ADP-004](/decisions/adp-004)** | Unicode identifier policy | Approved | Mandatory Unicode NFC normalization in identifiers and string literals. |
+| **[ADP-005](/decisions/adp-005)** | Parser recursion bounds | Approved | Strict recursive-depth limit in the parser to mitigate denial-of-service (DoS) attacks. |
+| **[ADP-006](/decisions/adp-006)** | Open decisions of Waves 3 and 4 | Approved | Resolution of async semantics, task combinators and capability scope. |
+| **[ADP-007](/decisions/adp-007)** | Package identity and distribution | Approved | `namespace.package` coordinates, GitHub dependencies pinned by commit SHA and offline cache. |
+| **[ADP-008](/decisions/adp-008)** | Delimitation of the v0.1.0 language release | Approved | Language-first focus with closed scope; defers graphical engines and the web registry to post-v1. |
+| **[ADP-009](/decisions/adp-009)** | Versioned synchronous C ABI | Approved | Stable C binary interface with opaque types to embed Aipo in C/C++/Zig. |
+| **[ADP-010](/decisions/adp-010)** | Thin interoperability proofs | Approved | Three thin proofs demonstrating embedding in Rust, C and JavaScript. |
+| **[ADP-011](/decisions/adp-011)** | Performance & ergonomics roadmap | Approved | `Value` compaction, `InvokeMethod` fusion, hoisted loop, typed failures and pattern matching. |
+| **[ADP-012](/decisions/adp-012)** | Syntactic ergonomics specification | Approved | Brace-delimited blocks `{ ... }`, immutability by default in structs, `var self`, symmetric `:` and automatic interfaces. |
+| **[ADP-013](/decisions/adp-013)** | WebAssembly execution substrate and self-hosting | Approved | Freezing v0.1.0 on the legacy branch, migration to WebAssembly (Wasm 2.0 / WASI) and self-hosting roadmap. |
+| **[ADP-014](/decisions/adp-014)** | Embedded profile, Dual-Track architecture and `aipo-vm` evolution | Proposed | Dual-Track architecture (Wasm Web vs. native VM), nano/shell profile Lua-style, subsystem cuts and arenas. |

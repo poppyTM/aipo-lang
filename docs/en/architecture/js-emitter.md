@@ -1,22 +1,29 @@
-# JavaScript Backend (`aipo-js`)
+# JavaScript backend (`aipo-js`)
 
-The Aipo JavaScript backend transpiles Aipo source code directly to **modern JavaScript (ES2022)** with 100% behavioral parity guarantees.
-
----
-
-## The Parity Challenge
-
-Many language transpilers targeting JavaScript succumb to loose JS primitive coercion, causing subtle runtime inconsistencies (such as `0 == ""` or `"5" + 2 == "52"`).
-
-`aipo-js` follows a strict strategy:
-1. **Versioned Runtime Shim**: A lightweight pure JavaScript helper library implementing classes and functions that maintain Aipo's strict type semantics, transactional mutation journals, ordered sets/maps, and binary byte manipulation.
-2. **Clean JS Emission**: Lowers control flow constructs to native JS equivalents (functions, classes, `try/catch` wrapping `attempt` rollbacks), maintaining high V8 and JavaScriptCore optimization tiers.
-3. **Source Maps V3**: Automatically emits Source Maps V3, enabling native browser devtools and Node.js stack traces to point directly back to the original `.aipo` source code.
+Aipo's JavaScript backend transpiles Aipo source code into **modern JavaScript (ES2022)** with
+a guarantee of total behavioral parity.
 
 ---
 
-## Differential Conformance Verification
+## The parity challenge
 
-To guarantee that the JavaScript compiler never drifts from the native Rust virtual machine, the project runs continuous differential tests:
-- Every program in the conformance test suite is executed on both the native Rust VM and Node.js.
-- Any single-character deviation in `stdout` or mismatched diagnostic code fails the build gate immediately.
+Many transpilers targeting JavaScript fall into the trap of using JavaScript's primitive types
+loosely, producing subtle semantic inconsistencies (such as `0 == ""` or `"5" + 2 == "52"`).
+
+`aipo-js` adopts a strict strategy:
+1. **Versioned runtime shim**: a small pure-JavaScript helper package that exposes classes and
+   functions to preserve strong typing, ordered arrays/maps and byte handling.
+2. **Clean emission**: transpiles control structures into JS equivalents (functions, classes,
+   `try/catch` for `attempt`), preserving V8 or JavaScriptCore performance.
+3. **Line mapping with source maps**: automatic V3 source-map generation, enabling debugging
+   directly in browser tools or Node.js using the original `.aipo` file.
+
+---
+
+## Differential test verification
+
+To ensure the JavaScript compiler never diverges from the Rust virtual machine, the project
+maintains a continuous differential test suite:
+- Every program in `docs/conformance/programs/` runs on the Rust VM and on Node.js.
+- If there is a discrepancy in a single output character or in a diagnostic code, the project
+  build is blocked in CI.

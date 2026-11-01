@@ -1,33 +1,38 @@
-# Compiler Frontend
+# Compiler frontend
 
-The Aipo frontend ingests raw UTF-8 source text and produces a validated semantic representation.
+The Aipo frontend is responsible for processing plain-text source code up to the generation of the
+validated semantic representation.
 
 ---
 
-## Pipeline Stages
+## Pipeline stages
 
 ### 1. `aipo-source`
-- Encapsulates source files and in-memory buffers.
-- Delivers UTF-8 boundary-safe line and column offsets (`is_char_boundary`), ensuring strict MSRV compatibility (Rust 1.85+).
+- Represents the source file and its in-memory content.
+- Provides line/column indexing safe with respect to UTF-8 boundaries (`is_char_boundary`),
+  guaranteeing compatibility with the declared MSRV (Rust 1.96).
 
 ### 2. `aipo-lexer`
 - Converts the UTF-8 character stream into a contiguous sequence of tokens.
-- Zero-copy optimizations for keywords and operators via direct pattern matching over `&str`.
-- Canonical rejection of malformed floating-point literals (such as `1.e5` or `1._5`), generating the diagnostic `AIPO_LEX_INVALID_NUMBER`.
+- Zero-allocation optimization in keyword identification through direct matching on `&str`.
+- Canonical rejection of malformed decimal numbers (such as `1.e5` or `1._5`), producing the
+  static diagnostic `AIPO_LEX_INVALID_NUMBER`.
 
 ### 3. `aipo-syntax` & `aipo-ast`
-- Recursive-descent parser with resilient panic-mode synchronization recovery (`synchronize`).
-- Preserves `async` annotations in `interface` method contracts.
-- Parser desugaring of chained comparisons (e.g., `val >= 0 and <= 100`).
-- First-class support for inline ternary conditionals (`if c then a else b`).
+- Recursive-descent parser with resilient error recovery (`synchronize`).
+- Preservation of `async` annotations on `interface` methods.
+- Desugaring in the parser of continuous comparisons (such as `val >= 0 and <= 100`).
+- Support for inline conditional expressions (`if c then a else b`).
 
 ### 4. `aipo-hir`
-- Lowers the AST into High-Level Intermediate Representation (HIR).
-- Unifies source spans across lifecycle hooks (`init` and `invariant`).
-- Resolves local lexical bindings and top-level module scope identifiers.
+- Lowering from AST to High-Level Intermediate Representation.
+- Unification of spans in lifecycle hooks (`init` and `invariant`).
+- Resolution of local and module scope references.
 
 ### 5. `aipo-sema`
-- Semantic validator enforcing strict structural typing and contract safety:
-  - Enforces `interface` contracts via automatic structural subtyping (validating required methods, parameter arities, `self` vs `var self` receiver mutability, and type compatibility).
-  - Statically disallows reassigning immutable struct fields (`AIPO_SEM_FIXED_REASSIGN`).
-  - Emits concurrency diagnostics (`AIPO_SEM_AWAIT_IN_SUBEXPRESSION`, `AIPO_SEM_FORGOTTEN_TASK`, `AIPO_SEM_NESTED_AWAIT_DO`).
+- Semantic validator with strict type checking and contract verification:
+  - Verification of `interface` contracts through automatic structural subtyping (required
+    methods, arities, receiver mutability `self` vs `var self`, parameter and return types).
+  - Static prohibition of mutating immutable fields of structures (`AIPO_SEM_FIXED_REASSIGN`).
+  - Dedicated diagnostics for concurrency (`AIPO_SEM_AWAIT_IN_SUBEXPRESSION`,
+    `AIPO_SEM_FORGOTTEN_TASK`, `AIPO_SEM_NESTED_AWAIT_DO`).

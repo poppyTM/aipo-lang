@@ -1,33 +1,41 @@
-# Bytecode & Virtual Machine
+# Bytecode & virtual machine
 
-Aipo executes natively on a **deterministic bytecode virtual machine**, optimized for low memory footprint and high-throughput instruction dispatch.
-
----
-
-## The `.aibc` Binary Format
-
-The Aipo compiler can serialize bytecode chunks directly into an `.aibc` binary archive:
-
-- **Magic Header**: 4-byte signature `AIBC` followed by format version integer (currently `1`).
-- **Constant Pool**: Integer literals, floating-point numbers, normalized strings, and function prototypes.
-- **Debug Metadata Table**: Bytecode instruction offsets mapped to source code lines and columns.
-- **Code Section**: Compact binary encoding of virtual machine instructions.
+Native execution of Aipo runs on a **deterministic bytecode virtual machine**, optimized for low
+memory consumption and fast instruction dispatch.
 
 ---
 
-## Virtual Machine Architecture (`aipo-vm`)
+## The `.aibc` binary format
 
-### 1. Value Representation (`Value`)
-`Value` layout is target-specific and measured with `cargo run -p aipo-vm --example layout_probe`.
-On this x86-64 workspace it is **16 bytes**; there is no portable fixed-size promise.
+The Aipo compiler can serialize bytecode directly to a binary `.aibc` file:
+
+- **Magic header**: 4 bytes `AIBC` followed by the format version (currently `1`).
+- **Constant table**: integer and decimal literals, normalized strings and function references.
+- **Debug metadata table**: mapping from bytecode offsets to lines and columns in the original
+  source.
+- **Code section**: linear VM instructions in compact binary form.
+
+---
+
+## Virtual machine architecture (`aipo-vm`)
+
+### 1. Value model (`Value`)
+The `Value` layout is measured per target with
+`cargo run -p aipo-vm --example layout_probe`. On this x86-64 workspace it occupies **16
+bytes**; there is no portable promise of a fixed size.
 - Primitives: `Int(i64)`, `Float(f64)`, `Bool(bool)`, `None`
-- Reference-counted heap variants: `String(Rc<str>)`, `List(Rc<RefCell<Collection<Value>>>)`, `Dict`, `Set(Rc<RefCell<Collection<Value>>>)`, `Bytes(Rc<RefCell<Collection<u8>>>)`
-- Execution entities: `Closure`, `StructMethod`, `BoundMethod`, `Task`, `HostHandle`
+- Reference-counted heap: `String(Rc<str>)`, `List(Rc<RefCell<Collection<Value>>>)`, `Dict`,
+  `Set(Rc<RefCell<Collection<Value>>>)`, `Bytes(Rc<RefCell<Collection<u8>>>)`
+- Execution objects: `Closure`, `StructMethod`, `BoundMethod`, `Task`, `HostHandle`
 
-### 2. Dispatch Loop Optimization
-- Instructions are decoded directly via flattened `match` branches, eliminating bulky 72-byte `Result` allocations on every CPU cycle.
-- Inline monomorphic caches for struct field resolution, accelerating property lookups by up to 28%.
-- Formal bytecode verifier asserting local slot bounds, upvalues, and frame depth limits prior to execution.
+### 2. Dispatch-loop optimization
+- Instructions decoded directly through a simple `match`, removing the cost of the 72-byte
+  `Result` on every CPU cycle.
+- Monomorphic caches for field-slot resolution on struct instances, reducing property-access
+  time by up to 28%.
+- Formal bytecode verifier that validates local-slot bounds, upvalues and frame sizes before
+  execution starts.
 
-### 3. Integrated Disassembler
-The `aipo disasm` command disassembles bytecode instructions and maps each mnemonic directly to its originating source line, streamlining profiling, debugging, and security audits.
+### 3. Integrated disassembler
+The `aipo disasm` tool decomposes bytecode and relates each mnemonic to the exact source line
+that originated it, easing profiling and security audits.
