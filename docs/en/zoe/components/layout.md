@@ -6,7 +6,7 @@ Structural containers for spatial arrangement with the Leona layout engine.
 
 ## `column`, `row`, `stack`, `center`
 
-```aipo
+```text
 # Vertical Column
 zoe.column({ "gap": 10.0, "padding": 16.0 }, [
     zoe.label("Item A"),

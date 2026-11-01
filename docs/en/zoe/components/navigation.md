@@ -8,7 +8,7 @@ Components for tab switching and hierarchical data inspection.
 
 Professional tab views with content switching:
 
-```aipo
+```text
 let active_tab = zoe.use_state("scene")
 
 zoe.tab_view(
@@ -32,7 +32,7 @@ zoe.tab_view(
 
 Scene hierarchy tree with rail guide lines, expand/collapse carets, semantic type badges (`3D`, `2D`, `CAM`, `LGT`), and full-width row selection:
 
-```aipo
+```text
 let selected = zoe.use_state("player")
 
 let nodes = [

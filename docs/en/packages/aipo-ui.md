@@ -35,7 +35,7 @@ Add to your project's `aipo.toml`:
 
 ## 3. Quick Example: Universal Application
 
-```aipo
+```text
 import aipo.ui as ui
 import aipo.ui.color as color
 
@@ -111,7 +111,7 @@ Layout primitives utilize Aipo's trailing blocks `{ ... }` and map directly to s
 
 ### `ui.Column`
 Stacks child elements vertically:
-```aipo
+```text
 ui.Column(gap = 12, padding = 16, align = ui.Align::Center) {
     ui.Text("Item 1")
     ui.Text("Item 2")
@@ -121,7 +121,7 @@ ui.Column(gap = 12, padding = 16, align = ui.Align::Center) {
 
 ### `ui.Row`
 Lays out child elements horizontally:
-```aipo
+```text
 ui.Row(gap = 8, justify = ui.Justify::SpaceBetween) {
     ui.Text("Left")
     ui.Text("Right")
@@ -130,7 +130,7 @@ ui.Row(gap = 8, justify = ui.Justify::SpaceBetween) {
 
 ### `ui.Stack`
 Overlays child elements across the Z-axis, ideal for badges, backdrops, and floating layers:
-```aipo
+```text
 ui.Stack(width = 200, height = 120) {
     ui.Box(background = color.gray_200, width = "100%", height = "100%")
     ui.Text("Overlaid", align = "center")
@@ -139,7 +139,7 @@ ui.Stack(width = 200, height = 120) {
 
 ### `ui.ScrollArea`
 Scrollable container with accelerated clipping for lists or oversized content:
-```aipo
+```text
 ui.ScrollArea(height = 300, direction = "vertical") {
     each item in item_list {
         ui.Text(item)
@@ -169,7 +169,7 @@ Elastic container with `flex_grow: 1` that expands to fill available space, push
 
 The `aipo.ui.color` submodule provides type-safe constructors and standard design palettes:
 
-```aipo
+```text
 import aipo.ui.color as color
 
 # Constructors
@@ -194,7 +194,7 @@ Depending on your compilation target, `aipo.ui` supports dedicated mount routine
 
 ### Native Desktop GPU (`mount_desktop`)
 Creates an accelerated window powered by Skia (Vulkan on Linux, Metal on macOS, DirectX 12 on Windows):
-```aipo
+```text
 ui.mount_desktop(
     title = "Desktop Application",
     width = 1024,
@@ -207,12 +207,12 @@ ui.mount_desktop(
 
 ### WebAssembly Canvas 2D / WebGL (`mount_canvas`)
 Compiles to WebAssembly and renders directly to an HTML5 `<canvas id="app-canvas">`, bypassing the browser DOM for performance-critical tools and dashboards:
-```aipo
+```text
 ui.mount_canvas("app-canvas", init = init_state, update = update, view = view)
 ```
 
 ### Terminal TUI (`mount_tui`)
 Runs dashboards, CLI tools, and metric viewers in ANSI terminal environments without X11/Wayland:
-```aipo
+```text
 ui.mount_tui(init = init_state, update = update, view = view)
 ```

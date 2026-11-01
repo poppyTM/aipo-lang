@@ -31,7 +31,7 @@ Este exemplo é executável: [`examples/counter.aipo`](examples/counter.aipo). E
 na forma real da linguagem — Aipo não tem `enum` nem convenção de `main`, e um arquivo de
 entrada precisa chamar algo por conta própria.
 
-```aipo
+```text
 import aipo.ui as ui
 
 struct Model {
@@ -94,7 +94,7 @@ Duas limitações da revisão atual moldam o exemplo acima. Ambas têm reproduç
 Aipo não tem `enum` na V1 (está no backlog pós-V1). Cada tag é uma struct que carrega um
 token canônico, com um construtor por variante:
 
-```aipo
+```text
 ui.align_center().value          # "center"
 ui.justify_space_between().value # "space-between"
 ui.direction_row_reverse().value # "row-reverse"

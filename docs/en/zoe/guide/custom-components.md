@@ -2,7 +2,7 @@
 
 Zoe UI features a standardized, extensible component authoring contract:
 
-```aipo
+```text
 fn make_custom_badge(props: Dict = {}, children: List = []) {
     let width_val = if props.has("width") then props["width"] else "auto"
     let height_val = if props.has("height") then props["height"] else 26.0
@@ -28,7 +28,7 @@ fn make_custom_badge(props: Dict = {}, children: List = []) {
 
 For specialized vector rendering (Bézier curves, radar charts, dials), provide `on_custom_draw`:
 
-```aipo
+```text
 fn make_custom_dial() {
     let on_custom_draw = fn(node) {
         if node == none or node.layout == none { return }

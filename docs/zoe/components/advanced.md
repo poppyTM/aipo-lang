@@ -12,7 +12,7 @@ Editor de código de alta performance projetado para scripts in-game, consoles d
 - **Cursor e Linha Ativa**: Destaque translúcido na linha selecionada e barra de cursor vertical.
 - **Culling Vertical**: Linhas fora da área visível são descartadas da renderização para manter 60 FPS estável.
 
-```aipo
+```text
 let script = "fn update(dt) {\n    let speed = 120.0\n    player.x += speed * dt\n}"
 
 zoe.code_editor({
@@ -34,7 +34,7 @@ Canvas infinito para grafos visuais (shaders de nós, árvores de diálogo e blu
 - **Cartões de Nós Táteis**: Cabeçalho de destaque com cores semânticas, bordas arredondadas e sombras de contato.
 - **Portas de Soquete Coloridas**: Indicadores circulares de tipo (float, vetores, texturas, fluxo).
 
-```aipo
+```text
 let nos = [
     {
         "id": "textura",
@@ -78,7 +78,7 @@ zoe.node_graph({
 
 Diálogos modais elevados com escurecimento de fundo (*scrim backdrop*), botão de fechamento e ações customizáveis:
 
-```aipo
+```text
 fn abrir_confirmacao() {
     let corpo = zoe.label("Deseja exportar a cena atual?", { "font_size": 13.0 })
     

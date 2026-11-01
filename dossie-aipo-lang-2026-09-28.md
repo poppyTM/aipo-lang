@@ -146,7 +146,7 @@ Aipo já tem `struct`, interfaces estruturais e `impl` com receiver. Para seus d
 
 Propostas de linguagem (sintaxe **ilustrativa, não suportada hoje**):
 
-```aipo
+```text
 # Dados e variantes fechadas, match exaustivo; evitar 'Any' no limite público.
 type InputEvent = KeyDown { key: Key } | PointerMove { x: Float, y: Float }
 

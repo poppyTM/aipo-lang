@@ -45,7 +45,7 @@ Adicione a dependência ao seu `aipo.toml`:
 
 Crie seu arquivo `main.aipo`:
 
-```aipo
+```text
 import aipo.zoe as zoe
 
 fn view() {

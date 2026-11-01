@@ -29,7 +29,7 @@ aipo package lock
 
 Aplicações gráficas no ecossistema Aipo adotam o ciclo clássico de três estágios:
 
-```aipo
+```text
 import aipo.zoe as zoe
 
 # 1. Ponto de montagem da UI
@@ -67,7 +67,7 @@ fn draw() {
 
 O Zoe UI inclui um inspecionador visual de caixas delimitadoras integrado:
 
-```aipo
+```text
 # Pressione F12 ou invoque diretamente no seu código:
 zoe.toggle_inspector()
 ```

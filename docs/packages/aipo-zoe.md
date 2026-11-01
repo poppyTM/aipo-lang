@@ -35,7 +35,7 @@ Adicione ao `aipo.toml` do seu projeto:
 
 ### Exemplo: Contador Reativo com Design System Embutido
 
-```aipo
+```text
 import aipo.zoe as zoe
 
 fn view() {
@@ -104,7 +104,7 @@ A partir da auditoria da base de código do Zoe UI, definem-se 6 eixos estratég
 
 ### Eixo 2: Reatividade Fina & Hooks Avançados
 * **`use_memo`:** Cálculo de estado derivado com cache dependente de sinais:
-  ```aipo
+  ```text
   let filtered = zoe.use_memo([query, items], fn() {
       return items.get().filter(it => it.contains(query.get()))
   })
@@ -132,7 +132,7 @@ A partir da auditoria da base de código do Zoe UI, definem-se 6 eixos estratég
 
 ### Eixo 6: Motor de Animação e Interpolação Conectado ao Delta Time
 * **`use_spring` e `use_tween`:** Interpolação física e linear suave aproveitando o parâmetro `dt` já presente no método `step(dt)`:
-  ```aipo
+  ```text
   let anim_pos = zoe.use_spring(is_open.get() ? 280.0 : 0.0, { "stiffness": 150.0, "damping": 15.0 })
   ```
 

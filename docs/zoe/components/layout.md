@@ -6,7 +6,7 @@ Contêineres estruturais para organização espacial com o motor Leona.
 
 ## `column`, `row`, `stack`, `center`
 
-```aipo
+```text
 # Organização Vertical
 zoe.column({ "gap": 10.0, "padding": 16.0 }, [
     zoe.label("Item 1"),
@@ -37,7 +37,7 @@ zoe.center([
 
 Divisor redimensionável interativo para painéis estilo IDE e Blender:
 
-```aipo
+```text
 let split_pos = zoe.use_state(0.30) # 30% à esquerda
 
 zoe.split_view(
@@ -58,7 +58,7 @@ zoe.split_view(
 
 Contêiner de exibição de cenas 2D ou 3D com tesoura de recorte em GPU (*hardware scissor clip*):
 
-```aipo
+```text
 zoe.viewport({
     "width": "100%",
     "height": "flex",

@@ -28,7 +28,7 @@ In your project's `aipo.toml`:
 
 ### Container Tags with Children
 
-```aipo
+```text
 import aipo.html as h
 
 let page = h.div({ "class": "container", "id": "main" }) do
@@ -51,7 +51,7 @@ end
 
 Self-closing elements (such as `img`, `input`, `hr`, `br`) are rendered without closing tags:
 
-```aipo
+```text
 let avatar = h.img("avatar.png", "User Avatar", { "class": "rounded-full" })
 let email_field = h.input({ "type": "email", "placeholder": "contact@aipo.dev" })
 let line = h.hr()
@@ -61,7 +61,7 @@ let line = h.hr()
 
 When you need to return multiple sibling nodes without an extra wrapping element:
 
-```aipo
+```text
 let list_items = h.fragment do
     h.li("First item")
     h.li("Second item")
@@ -75,7 +75,7 @@ end
 
 The `render_to_string` function serializes a virtual node tree into safe HTML5 markup:
 
-```aipo
+```text
 import aipo.html as h
 
 let doc = h.div({ "class": "article-card" }) do
@@ -93,7 +93,7 @@ let html = h.render_to_string(doc)
 
 `h.css` generates unique class hashes and isolates styling scope:
 
-```aipo
+```text
 import aipo.html as h
 
 let btn_style = h.css({
@@ -123,7 +123,7 @@ let css_head = h.get_injected_css()
 
 For interactive SPAs, `aipo.html` implements the Model-View-Update pattern supporting command chains:
 
-```aipo
+```text
 import aipo.html as h
 
 struct Model {

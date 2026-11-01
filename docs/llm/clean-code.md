@@ -47,7 +47,7 @@ Em Clean Code Aipo, a evolução de código e débitos técnicos não devem ser 
 - **`#!deprecated("use novo_metodo()")`**: Sinaliza com precisão para os consumidores que a API será descontinuada, emitindo warnings controlados em vez de breaking changes silenciosas.
 - **`#!todo("implementar cache LRU")`**: Anota o item sem poluir a lógica de execução, permitindo que a CLI e agentes auditem pendências estruturadas.
 
-```aipo
+```text
 # Modelo de alta qualidade contratual: campos tipados e imutáveis por padrão
 struct Pedido {
     id: Int
@@ -57,7 +57,7 @@ struct Pedido {
 }
 ```
 
-```aipo
+```text
 # Recomendado em fronteiras públicas:
 export calcular_frete
 
@@ -76,7 +76,7 @@ fn calcular_frete(peso_kg: Float, distancia_km: Float) -> Float {
 ### 3.1 Modelagem de Entidades: Dados vs. Comportamento
 Em Aipo, a struct define **apenas o formato dos dados**. Comportamentos, validações e construtores são declarados via hooks e métodos associados logo abaixo da struct.
 
-```aipo
+```text
 # 1. Estrutura pura de dados
 struct Carrinho {
     id: Int
@@ -110,7 +110,7 @@ Carrinho:adicionar(var self, item_nome: String, preco: Float) {
     if preco <= 0.0 {
         fail "preço do item deve ser maior que zero"
     }
-    self.itens.push({ nome: item_nome, preco: preco })
+    self.itens.push({ "nome": item_nome, "preco": preco })
     self.total += preco
 }
 ```
@@ -118,7 +118,7 @@ Carrinho:adicionar(var self, item_nome: String, preco: Float) {
 ### 3.2 Atualização Funcional com `with`
 Para evitar mutabilidade desnecessária, utilize a atualização funcional `with`:
 
-```aipo
+```text
 struct Configuracao {
     host: String = "localhost"
     porta: Int = 8080
@@ -134,7 +134,7 @@ let prod = padrao with { porta: 443, ssl: true }
 Um dos princípios de Clean Code em Aipo é a separação entre lógica pura e conveniência ergonômica.
 Em vez de encapsular algoritmos complexos dentro de métodos acoplados, escreva funções que declarem `self` como primeiro parâmetro e promova-as a métodos em lote usando `::`:
 
-```aipo
+```text
 # Funções puras declarando 'self' como primeiro parâmetro:
 fn calcular_perimetro(self) -> Float {
     return 2.0 * (self.largura + self.altura)
@@ -155,7 +155,7 @@ Evite modelar estados finitos ou alternativas com strings mágicas (`status: "at
 - **Payloads Estruturados:** Utilize variantes com payloads nomeados ou posicionais apenas onde cada caso carregar dados específicos.
 - **Comportamento Associado:** Enums suportam métodos associados (`Estado:metodo()`) e hooks (`Estado:invariant`).
 
-```aipo
+```text
 enum ResultadoOperacao {
     Sucesso { dados: String },
     Pendente,
@@ -168,17 +168,17 @@ Aipo proíbe `try / catch / throw` e `defer`. O tratamento de erros é feito com
 
 1. **Falha direta:** Use `fail "mensagem"` para sinalizar falhas recuperáveis na lógica de negócio.
 2. **Fallback imediato:** Use `or_else` para valores alternativos seguros.
-   ```aipo
+   ```text
    let timeout = obter_parametro("timeout") or_else 3000
    ```
 3. **Propagação com `?`:** Semelhante a linguagens modernas, propaga `Failure` para a camada superior imediatamente:
-   ```aipo
+   ```text
    let usuario = buscar_usuario(id)?
    let saldo = consultar_saldo(usuario.conta_id)?
    ```
 4. **Fronteira Transacional com `attempt / failed`:**
    Envolva blocos com efeitos colaterais atômicos em `attempt`:
-   ```aipo
+   ```text
    attempt {
        estoque.reservar(produto_id, qtd)
        pagamento.processar(cliente_id, valor)
@@ -197,7 +197,7 @@ Aipo proíbe `try / catch / throw` e `defer`. O tratamento de erros é feito com
 1. **Evite simular classes ou herança:** Aipo não tem `class` nem herança. Use composição de structs e interfaces estruturais.
 2. **Evite tentar adivinhar métodos utilitários em números primitivos:** `3.somar(4)` é erro. Chame `somar(3, 4)` ou defina explicitamente.
 3. **Evite comentários explicativos óbvios:**
-   ```aipo
+   ```text
    # RUIM: comentário que ecoa o código
    # incrementa o contador
    contador += 1

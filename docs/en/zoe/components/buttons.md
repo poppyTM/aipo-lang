@@ -8,7 +8,7 @@ Interactive components for triggering actions and toggling states.
 
 SDF button with inner top highlight, variant styling, and optional icons:
 
-```aipo
+```text
 zoe.button("Save Changes", on_save, {
     "variant": "primary",
     "icon": "lucide:save"
@@ -26,7 +26,7 @@ zoe.button("Delete Entity", on_delete, {
 
 Pill toggle group for mutually exclusive options:
 
-```aipo
+```text
 let mode = zoe.use_state("2d")
 
 zoe.segmented_group([

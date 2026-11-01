@@ -11,7 +11,7 @@ Blender-style horizontal drag input with tactile modifier keys:
 - <kbd>Shift</kbd> + **drag**: Micro precision ($\times 0.02\times\text{step}$).
 - <kbd>Ctrl</kbd> + **drag**: Fast snap ($\times 2.0\times\text{step}$).
 
-```aipo
+```text
 let pos_x = zoe.use_state(0.0)
 
 zoe.scrubber_input({

@@ -79,7 +79,7 @@ A lista a seguir contém palavras, símbolos e construções comuns em outras li
 - Descarte: `_` descarta valor indesejado.
 
 ### 3.4 Structs (Apenas Dados)
-```aipo
+```text
 struct Usuario {
     id: Int                        # Imutável por padrão
     nome: String                   # Imutável por padrão
@@ -95,7 +95,7 @@ struct Usuario {
 ### 3.4.1 Enums (Tipos de Soma Fechados — §17)
 O `enum` representa alternativas fechadas ("isto é A **ou** B") com checagem de **exaustividade obrigatória** pelo compilador.
 
-```aipo
+```text
 enum EstadoConexao {
     Desconectado,
     Tentando(tentativa: Int),
@@ -117,7 +117,7 @@ Três formas de variante são suportadas:
 
 ### 3.5 Métodos e Hooks de Tipos
 Métodos são associados fora da struct ou enum usando a sintaxe `Tipo:nome`:
-```aipo
+```text
 # Hook de inicialização (executado na construção)
 Usuario:init(id, nome) {
     self.id = id
@@ -143,7 +143,7 @@ Usuario:desativar(var self) {
 
 ### 3.5.1 Promoção e Associação em Lote com `::`
 Quando funções livres já existem, elas podem ser promovidas em lote para métodos de um tipo através do operador `::`:
-```aipo
+```text
 # EXIGÊNCIA OBRIGATÓRIA: o primeiro parâmetro DEVE ser 'self' (ou 'var self')
 fn calcular_area(self) -> Float {
     return self.largura * self.altura
@@ -171,7 +171,7 @@ Aipo divide com rigor o papel de cada símbolo:
 
 ### 3.6 Funções Livres vs. Métodos
 - `fn` é reservado **exclusivamente para funções livres**:
-  ```aipo
+  ```text
   fn somar(a: Int, b: Int) -> Int {
       return a + b
   }
@@ -183,7 +183,7 @@ Aipo divide com rigor o papel de cada símbolo:
 
 ### 3.7 Interfaces e Satisfação Estrutural
 - Interfaces contêm **apenas assinaturas de métodos**:
-  ```aipo
+  ```text
   interface Renderizavel {
       render() -> String
   }
@@ -201,7 +201,7 @@ Diretivas são comentários processados pelo compilador que se aplicam ao **pró
 | `#!deprecated` / `#!deprecated("msg")` | `fn`, `struct` ou método | Marca elemento obsoleto; analisador emite diagnóstico de aviso. |
 | `#!todo` / `#!todo("msg")` | qualquer item | Rastreia débito técnico ou pendência sem quebrar a compilação. |
 
-```aipo
+```text
 #!deprecated("use calcular_novo()")
 fn calcular_antigo(x: Int) -> Int {
     return x * 2
@@ -223,7 +223,7 @@ Botao:render() -> String {
 ```
 
 ### 3.8 Controle de Fluxo
-```aipo
+```text
 # Condicional
 if x > 10 {
     io.println("maior")
@@ -260,9 +260,9 @@ loop {
 ```
 
 ### 3.9 Pattern Matching (`match`)
-```aipo
+```text
 match resposta {
-    when { status: 200, corpo } {
+    when { status, corpo } if status == 200 {
         io.println("Sucesso: " + corpo)
     }
     when { status } if status >= 400 and status < 500 {
@@ -279,7 +279,7 @@ match resposta {
 
 ### 3.10 Falhas e Tratamento Transacional
 Aipo não usa exceções nem call stacks não controlados. O modelo é baseado em `Failure` com journal transacional:
-```aipo
+```text
 # Disparar falha
 fn dividir(a: Int, b: Int) -> Int {
     if b == 0 {
@@ -308,11 +308,11 @@ attempt {
 ### 3.11 Módulos, Importação e Exportação
 - Cada arquivo `.aipo` é um módulo independente.
 - Tudo é privado por padrão. Símbolos visíveis para outros arquivos **devem** ser declarados com `export`:
-  ```aipo
+  ```text
   export calcular_imposto, GeradorNota
   ```
 - Importação:
-  ```aipo
+  ```text
   import math_util                 # Qualificado: math_util.somar()
   import math_util as mu           # Com alias: mu.somar()
   import math_util: somar, subtrair # Seletivo: somar() direto

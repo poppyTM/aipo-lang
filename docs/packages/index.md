@@ -33,10 +33,10 @@ version = "0.1.0"
 
 Em seguida, no seu código `.aipo`:
 
-```aipo
+```text
 import aipo.html as h
 
-h.div(class: "app") {
+h.div(class = "app") {
     h.h1("Construído com Aipo!")
 }
 ```

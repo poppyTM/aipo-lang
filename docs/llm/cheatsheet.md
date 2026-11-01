@@ -20,7 +20,7 @@
 
 ## 2. Esqueleto Canônico de Código
 
-```aipo
+```text
 # 1. Imports no topo
 import math
 import utils: formatar

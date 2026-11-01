@@ -21,7 +21,7 @@ The origin is explicit in the resolution chain: `acme.http` is not confused with
 
 The import surface uses the full coordinate:
 
-```aipo
+```text
 import acme.http
 import acme.http as h
 ```

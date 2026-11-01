@@ -108,7 +108,7 @@ Cada teste é executado em um ambiente de isolamento absoluto:
 - **Relógio Congelado**: O tempo virtual é inicializado em `0` e o relógio real não avança espontaneamente, eliminando testes intermitentes (*flaky tests*).
 - **PRNG Previsível**: A semente aleatória é redefinida para `0` antes de cada caso de teste.
 
-```aipo
+```text
 # math_test.aipo
 fn test_soma_simples() {
     let resultado = 2 + 2

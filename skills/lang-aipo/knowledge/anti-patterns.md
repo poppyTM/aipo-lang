@@ -8,26 +8,26 @@ Este documento cataloga os erros mais frequentes induzidos por viés de treiname
 
 ### Anti-Pattern 1.1: Usar `//` para comentários
 - **Errado:**
-  ```aipo
+  ```text
   // Isso é uma tentativa de comentário
   let x = 10
   ```
 - **Por que falha:** O lexer de Aipo reconhece `//` como operador binário aritmético de divisão inteira (`SlashSlash`). O código falhará com erro de sintaxe ou causará divisão de operandos adjacentes.
 - **Correto:**
-  ```aipo
+  ```text
   # Isso é um comentário válido
   let x = 10
   ```
 
 ### Anti-Pattern 1.2: Ponto e vírgula `;` no final de linhas
 - **Errado:**
-  ```aipo
+  ```text
   let a = 1;
   let b = 2;
   ```
 - **Por que falha:** `;` não é tokenizado em Aipo V1. Dispara `unexpected character ';'`.
 - **Correto:**
-  ```aipo
+  ```text
   let a = 1
   let b = 2
   ```
@@ -38,14 +38,14 @@ Este documento cataloga os erros mais frequentes induzidos por viés de treiname
 
 ### Anti-Pattern 2.1: Usar `for`
 - **Errado:**
-  ```aipo
+  ```text
   for item in lista {
       io.println(item)
   }
   ```
 - **Por que falha:** A palavra `for` **não existe** em Aipo V1.
 - **Correto:**
-  ```aipo
+  ```text
   each item in lista {
       io.println(item)
   }
@@ -53,14 +53,14 @@ Este documento cataloga os erros mais frequentes induzidos por viés de treiname
 
 ### Anti-Pattern 2.2: Usar `end` para fechar blocos
 - **Errado:**
-  ```aipo
+  ```text
   if cond {
       io.println("ok")
   end
   ```
 - **Por que falha:** `end` foi removido formalmente pelo ADR-001. Apenas `{}` é admitido.
 - **Correto:**
-  ```aipo
+  ```text
   if cond {
       io.println("ok")
   }
@@ -68,14 +68,14 @@ Este documento cataloga os erros mais frequentes induzidos por viés de treiname
 
 ### Anti-Pattern 2.3: `then` em blocos `{}`
 - **Errado:**
-  ```aipo
+  ```text
   if cond then {
       io.println("ok")
   }
   ```
 - **Por que falha:** A regra de ouro é: "Tem `{}`? NUNCA usa `then`. Não tem `{}` (inline de valor)? SEMPRE usa `then`."
 - **Correto:**
-  ```aipo
+  ```text
   if cond {
       io.println("ok")
   }
@@ -89,26 +89,26 @@ Este documento cataloga os erros mais frequentes induzidos por viés de treiname
 
 ### Anti-Pattern 3.1: Usar `fn` dentro ou na declaração de métodos
 - **Errado:**
-  ```aipo
+  ```text
   Tipo:fn metodo() { }
   fn Tipo:metodo() { }
   ```
 - **Por que falha:** `fn` é reservado exclusivamente para funções livres. O prefixo `Tipo:` já declara a função como método.
 - **Correto:**
-  ```aipo
+  ```text
   Tipo:metodo() { }
   ```
 
 ### Anti-Pattern 3.2: Omitir `var self` em métodos que mutam campos
 - **Errado:**
-  ```aipo
+  ```text
   Contador:incrementar() {
       self.valor += 1
   }
   ```
 - **Por que falha:** O compilador trata `self` como somente leitura por padrão. Atribuição dispara `AIPO_SEM_RECEPTOR_IMUTAVEL`.
 - **Correto:**
-  ```aipo
+  ```text
   Contador:incrementar(var self) {
       self.valor += 1
   }
@@ -116,7 +116,7 @@ Este documento cataloga os erros mais frequentes induzidos por viés de treiname
 
 ### Anti-Pattern 3.3: Colocar métodos dentro do bloco `struct`
 - **Errado:**
-  ```aipo
+  ```text
   struct Ponto {
       x: Int
       y: Int
@@ -125,7 +125,7 @@ Este documento cataloga os erros mais frequentes induzidos por viés de treiname
   ```
 - **Por que falha:** `struct` contém exclusivamente campos de dados.
 - **Correto:**
-  ```aipo
+  ```text
   struct Ponto {
       x: Int
       y: Int
@@ -138,7 +138,7 @@ Este documento cataloga os erros mais frequentes induzidos por viés de treiname
 
 ### Anti-Pattern 3.4: Tentar usar `impl` ou `satisfy`
 - **Errado:**
-  ```aipo
+  ```text
   impl Ponto { ... }
   satisfy Ponto: Desenhavel
   ```
@@ -146,20 +146,20 @@ Este documento cataloga os erros mais frequentes induzidos por viés de treiname
 
 ### Anti-Pattern 3.5: Promoção em lote (`::`) de função sem `self` como primeiro parâmetro
 - **Errado:**
-  ```aipo
+  ```text
   fn somar(a, b) { return a + b }
   Ponto::[somar]
   ```
 - **Por que falha:** O compilador exige que a função a ser promovida a método possua `self` ou `var self` como primeiro parâmetro. Batch promotion serve para comportamento do tipo, não para namespacing de utilitários soltos.
 - **Correto:**
-  ```aipo
+  ```text
   fn somar(self, b) { return self.x + b }
   Ponto::[somar]
   ```
 
 ### Anti-Pattern 3.6: `match` em `enum` sem exaustividade e sem `else`
 - **Errado:**
-  ```aipo
+  ```text
   enum Cor { Vermelho, Verde, Azul, }
   match c {
       when Cor.Vermelho { io.println("vermelho") }
@@ -167,7 +167,7 @@ Este documento cataloga os erros mais frequentes induzidos por viés de treiname
   ```
 - **Por que falha:** O compilador exige cobertura total (exhaustiveness). Se não houver `else`, todas as variantes devem estar presentes nos braços `when`.
 - **Correto:**
-  ```aipo
+  ```text
   match c {
       when Cor.Vermelho { io.println("vermelho") }
       when Cor.Verde { io.println("verde") }
@@ -181,7 +181,7 @@ Este documento cataloga os erros mais frequentes induzidos por viés de treiname
 
 ### Anti-Pattern 4.1: `try / catch / throw`
 - **Errado:**
-  ```aipo
+  ```text
   try {
       if erro { throw "falha" }
   } catch (e) {
@@ -190,7 +190,7 @@ Este documento cataloga os erros mais frequentes induzidos por viés de treiname
   ```
 - **Por que falha:** Nenhuma dessas keywords existe em Aipo.
 - **Correto:**
-  ```aipo
+  ```text
   attempt {
       if erro { fail "falha" }
   } failed e {

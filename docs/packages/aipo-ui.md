@@ -35,7 +35,7 @@ Adicione ao `aipo.toml` do seu projeto:
 
 ## 3. Exemplo Rápido: Aplicação Universal
 
-```aipo
+```text
 import aipo.ui as ui
 import aipo.ui.color as color
 
@@ -111,7 +111,7 @@ As primitivas de layout utilizam blocos finais (*trailing blocks*) `{ ... }` e t
 
 ### `ui.Column`
 Empilha seus filhos verticalmente:
-```aipo
+```text
 ui.Column(gap = 12, padding = 16, align = ui.Align::Center) {
     ui.Text("Item 1")
     ui.Text("Item 2")
@@ -121,7 +121,7 @@ ui.Column(gap = 12, padding = 16, align = ui.Align::Center) {
 
 ### `ui.Row`
 Distribui os filhos horizontalmente em linha:
-```aipo
+```text
 ui.Row(gap = 8, justify = ui.Justify::SpaceBetween) {
     ui.Text("Esquerda")
     ui.Text("Direita")
@@ -130,7 +130,7 @@ ui.Row(gap = 8, justify = ui.Justify::SpaceBetween) {
 
 ### `ui.Stack`
 Posiciona elementos sobrepostos na mesma área (eixo Z), útil para badges, camadas de fundo e sobreposições flutuantes:
-```aipo
+```text
 ui.Stack(width = 200, height = 120) {
     ui.Box(background = color.gray_200, width = "100%", height = "100%")
     ui.Text("Sobreposto", align = "center")
@@ -139,7 +139,7 @@ ui.Stack(width = 200, height = 120) {
 
 ### `ui.ScrollArea`
 Área rolável para listas ou conteúdos extensos com recorte (*clipping*) acelerado:
-```aipo
+```text
 ui.ScrollArea(height = 300, direction = "vertical") {
     each item in lista_itens {
         ui.Text(item)
@@ -169,7 +169,7 @@ Elemento elástico com `flex_grow: 1` que empurra os elementos adjacentes para a
 
 O submódulo `aipo.ui.color` oferece construtores seguros e a paleta padrão do sistema:
 
-```aipo
+```text
 import aipo.ui.color as color
 
 # Construtores
@@ -194,7 +194,7 @@ Dependendo do seu alvo de compilação, o `aipo.ui` se adapta automaticamente ou
 
 ### Desktop GPU Nativo (`mount_desktop`)
 Renderiza uma janela nativa via Skia acelerada por GPU (Vulkan no Linux, Metal no macOS, DirectX 12 no Windows):
-```aipo
+```text
 ui.mount_desktop(
     title = "Aplicação Desktop",
     width = 1024,
@@ -207,12 +207,12 @@ ui.mount_desktop(
 
 ### WebAssembly Canvas 2D / WebGL (`mount_canvas`)
 Compila diretamente para WebAssembly e desenha em um elemento `<canvas id="app-canvas">`, contornando completamente o DOM para jogos, ferramentas de design e dashboards de alta frequência:
-```aipo
+```text
 ui.mount_canvas("app-canvas", init = init_state, update = update, view = view)
 ```
 
 ### Terminal TUI (`mount_tui`)
 Permite rodar painéis de controle, ferramentas de desenvolvedor e visualizadores de métricas diretamente no console sem ambiente gráfico:
-```aipo
+```text
 ui.mount_tui(init = init_state, update = update, view = view)
 ```

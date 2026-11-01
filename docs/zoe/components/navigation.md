@@ -8,7 +8,7 @@ Componentes para alternância de abas e navegação em árvores de dados.
 
 Conjunto de abas profissionais com transição de conteúdo:
 
-```aipo
+```text
 let aba_ativa = zoe.use_state("hierarquia")
 
 zoe.tab_view(
@@ -32,7 +32,7 @@ zoe.tab_view(
 
 Árvore de cena inspirada na Unity e Godot, com linhas de indentação, carets de expansão/colapso, badges semânticos de tipo (`3D`, `2D`, `CAM`, `LGT`) e seleção em linha inteira (*Fitts's Law*):
 
-```aipo
+```text
 let entidade_selecionada = zoe.use_state("heroi")
 
 let estrutura = [

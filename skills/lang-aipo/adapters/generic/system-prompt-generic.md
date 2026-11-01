@@ -29,7 +29,7 @@ NEGATIVE SYNTAX RULES (DO NOT GENERATE):
 18. 'var' is a *parameter* form in a declaration ('fn f(var p: T)'). At a call site the value is passed directly, with no 'var'.
 
 POSITIVE CANONICAL SKELETON:
-```aipo
+```text
 # Prelude modules ('io', 'math', 'task', 'env', 'log', 'sh') need no import.
 # Only user modules are imported, e.g. 'import domain: Tarefa'.
 export Entidade, nova_entidade, Status

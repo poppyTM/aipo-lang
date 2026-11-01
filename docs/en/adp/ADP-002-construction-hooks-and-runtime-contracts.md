@@ -27,7 +27,7 @@ directly — the construction produces the new instance
 (`Type.init`), but construction never invokes it: `BuildStruct` only initializes the fields
 named in the literal. Demonstration:
 
-```aipo
+```text
 struct P
     name
 end
@@ -72,7 +72,7 @@ lines are conceptually equivalent to conditions combined with `and`
 **Current behavior.** The hook is parsed and type-checked, and the instance is published without
 any condition being evaluated. Demonstration:
 
-```aipo
+```text
 struct Rn
     lo
     hi
@@ -121,7 +121,7 @@ are verified at the call boundary ("runtime check at boundaries", MVP cut in
 **Current behavior.** Annotations are parsed and part of the semantic analysis uses them, but no
 type-check opcode is emitted: the value crosses the boundary unchecked.
 
-```aipo
+```text
 fn f(x: Int)
     return x
 end

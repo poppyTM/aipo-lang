@@ -8,7 +8,7 @@ Explore **Zoe UI** and the **Leona** layout engine directly inside the documenta
 
 Zoe UI features a rich suite of built-in components styled with the Catppuccin palette. Below is an example combining split views, scrubber inputs, and the code editor:
 
-```aipo
+```text
 import aipo.zoe as zoe
 
 fn view() {

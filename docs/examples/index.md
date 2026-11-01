@@ -24,9 +24,8 @@ let catalogo = [
 
 # Filtrar produtos de hardware acessíveis (< R$ 500) e obter apenas os nomes
 fn filtrar_hardware_acessivel(itens, teto: Int) {
-    return itens
-        .filter(fn (p) { return p.categoria == "Hardware" and p.preco <= teto })
-        .transform(fn (p) { return p.nome })
+    let filtrados = itens.filter(fn (p) { return p.categoria == "Hardware" and p.preco <= teto })
+    return filtrados.transform(fn (p) { return p.nome })
 }
 
 let acessiveis = catalogo |> filtrar_hardware_acessivel(300)
@@ -47,22 +46,19 @@ struct Carteira {
     var saldo: Int
 }
 
-impl Carteira {
-    # Garante que o saldo nunca seja negativo em momento algum
-    invariant() {
-        self.saldo >= 0
-    }
+Carteira:invariant {
+    self.saldo >= 0
+}
 
-    fn creditar(var self, valor: Int) {
-        if valor <= 0 {
-            fail("o valor do crédito deve ser positivo")
-        }
-        self.saldo += valor
+Carteira:creditar(var self, valor: Int) {
+    if valor <= 0 {
+        fail("o valor do crédito deve ser positivo")
     }
+    self.saldo += valor
+}
 
-    fn debitar(var self, valor: Int) {
-        self.saldo -= valor
-    }
+Carteira:debitar(var self, valor: Int) {
+    self.saldo -= valor
 }
 
 let c = Carteira{ usuario: "Lucas", saldo: 150 }
@@ -86,31 +82,21 @@ O modelo assíncrono do Aipo é cooperativo, determinístico e baseado em tarefa
 
 ```aipo
 async fn buscar_usuario(id: Int) {
-    # Simula latência de rede determinística
-    let timer = task.sleep(50)
-    await do { timer }
+    task.sleep(50)
     return {"id": id, "nome": "Dev Aipo"}
 }
 
 async fn buscar_permissoes(id: Int) {
-    let timer = task.sleep(30)
-    await do { timer }
+    task.sleep(30)
     return ["leitura", "escrita", "deploy"]
 }
 
 async fn carregar_perfil(id: Int) {
-    # Dispara duas tarefas concorrentes
-    let t_user = task.spawn(fn () { return buscar_usuario(id) })
-    let t_perms = task.spawn(fn () { return buscar_permissoes(id) })
+    let t_user = task.spawn(buscar_usuario, [id])
+    let t_perms = task.spawn(buscar_permissoes, [id])
 
-    # Aguarda ambas de forma sequencial e segura
-    var user = none
-    var perms = none
-
-    await do {
-        user = t_user
-        perms = t_perms
-    }
+    let user = await t_user
+    let perms = await t_perms
 
     return {"usuario": user, "permissoes": perms}
 }
@@ -123,13 +109,15 @@ async fn carregar_perfil(id: Int) {
 A biblioteca padrão `json` oferece validação estrita sem ambiguidades:
 
 ```aipo
-let payload_texto = '{"servico": "auth", "porta": 8080, "ativo": true}'
+let payload_texto = r"""{"servico": "auth", "porta": 8080, "ativo": true}"""
 
 # Parsing com fallback seguro usando or_else
 let dados = json.parse(payload_texto) or_else fail("JSON malformado")
 
-io.println(f"Serviço: {dados['servico']}")
-io.println(f"Porta: {dados['porta']}")
+let servico = dados["servico"]
+let porta = dados["porta"]
+io.println(f"Servico: {servico}")
+io.println(f"Porta: {porta}")
 
 # Serialização de estruturas de dados
 let resposta = {

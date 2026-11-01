@@ -27,7 +27,7 @@ de `init` definem ergonomicamente valores opcionais da construção.
 (`Type.init`), mas a construção nunca o invoca: `BuildStruct` inicializa apenas os campos
 nomeados no literal. Demonstração:
 
-```aipo
+```text
 struct P
     name
 end
@@ -73,7 +73,7 @@ linhas equivalem conceitualmente a condições combinadas por `and`
 **Comportamento atual.** O hook é parseado, type-checked e a instância é publicada sem que
 nenhuma condição seja avaliada. Demonstração:
 
-```aipo
+```text
 struct Rn
     lo
     hi
@@ -122,7 +122,7 @@ são verificados no limite da chamada ("runtime check at boundaries", recorte MV
 **Comportamento atual.** Anotações são parseadas e parte da análise semântica as usa, mas nenhum
 opcode de verificação de tipo é emitido: o valor atravessa a fronteira sem checagem.
 
-```aipo
+```text
 fn f(x: Int)
     return x
 end

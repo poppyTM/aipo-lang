@@ -8,7 +8,7 @@ Experimente o **Zoe UI** e o motor de layout **Leona** diretamente na documenta�
 
 O Zoe UI oferece uma vasta gama de primitivas com tema Catppuccin calibrado. Abaixo você encontra um exemplo completo combinando o layout split, scrubber inputs, visualizador e gráficos de nós:
 
-```aipo
+```text
 import aipo.zoe as zoe
 
 fn view() {

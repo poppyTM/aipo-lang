@@ -29,7 +29,7 @@ aipo package lock
 
 Graphical Aipo applications follow the 3-stage lifecycle:
 
-```aipo
+```text
 import aipo.zoe as zoe
 
 # 1. UI Root View
@@ -67,7 +67,7 @@ fn draw() {
 
 Zoe UI includes an integrated live bounding box inspector:
 
-```aipo
+```text
 # Press F12 or call directly in your code:
 zoe.toggle_inspector()
 ```

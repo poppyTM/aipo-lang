@@ -20,7 +20,7 @@ Adicione ao seu `aipo.toml`:
 
 ## Exemplo Rápido (Contador)
 
-```aipo
+```text
 import aipo.html as h
 
 struct Model {

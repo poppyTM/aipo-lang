@@ -24,9 +24,8 @@ let catalog = [
 
 # Filter affordable hardware (< $500) and extract product names
 fn filter_affordable_hardware(items, ceiling: Int) {
-    return items
-        .filter(fn (p) { return p.category == "Hardware" and p.price <= ceiling })
-        .transform(fn (p) { return p.name })
+    let filtered = items.filter(fn (p) { return p.category == "Hardware" and p.price <= ceiling })
+    return filtered.transform(fn (p) { return p.name })
 }
 
 let affordable = catalog |> filter_affordable_hardware(300)
@@ -47,22 +46,19 @@ struct Wallet {
     var balance: Int
 }
 
-impl Wallet {
-    # Ensures the balance is never negative at any time
-    invariant() {
-        self.balance >= 0
-    }
+Wallet:invariant {
+    self.balance >= 0
+}
 
-    fn credit(var self, amount: Int) {
-        if amount <= 0 {
-            fail("credit amount must be positive")
-        }
-        self.balance += amount
+Wallet:credit(var self, amount: Int) {
+    if amount <= 0 {
+        fail("credit amount must be positive")
     }
+    self.balance += amount
+}
 
-    fn debit(var self, amount: Int) {
-        self.balance -= amount
-    }
+Wallet:debit(var self, amount: Int) {
+    self.balance -= amount
 }
 
 let w = Wallet{ user: "Lucas", balance: 150 }
@@ -86,31 +82,21 @@ Aipo's concurrency model is cooperative, deterministic, and task-driven:
 
 ```aipo
 async fn fetch_user(id: Int) {
-    # Simulates deterministic network latency
-    let timer = task.sleep(50)
-    await do { timer }
+    task.sleep(50)
     return {"id": id, "name": "Aipo Dev"}
 }
 
 async fn fetch_permissions(id: Int) {
-    let timer = task.sleep(30)
-    await do { timer }
+    task.sleep(30)
     return ["read", "write", "deploy"]
 }
 
 async fn load_profile(id: Int) {
-    # Spawn two concurrent tasks
-    let t_user = task.spawn(fn () { return fetch_user(id) })
-    let t_perms = task.spawn(fn () { return fetch_permissions(id) })
+    let t_user = task.spawn(fetch_user, [id])
+    let t_perms = task.spawn(fetch_permissions, [id])
 
-    # Await both sequentially and safely
-    var user = none
-    var perms = none
-
-    await do {
-        user = t_user
-        perms = t_perms
-    }
+    let user = await t_user
+    let perms = await t_perms
 
     return {"user": user, "permissions": perms}
 }
@@ -123,13 +109,15 @@ async fn load_profile(id: Int) {
 The standard library `json` module provides strict, unambiguous handling:
 
 ```aipo
-let payload_text = '{"service": "auth", "port": 8080, "active": true}'
+let payload_text = r"""{"service": "auth", "port": 8080, "active": true}"""
 
 # Safe parsing with fallback using or_else
 let data = json.parse(payload_text) or_else fail("Malformed JSON")
 
-io.println(f"Service: {data['service']}")
-io.println(f"Port: {data['port']}")
+let service = data["service"]
+let port = data["port"]
+io.println(f"Service: {service}")
+io.println(f"Port: {port}")
 
 # Serializing structured values
 let response = {

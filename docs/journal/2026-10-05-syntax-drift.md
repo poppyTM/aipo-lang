@@ -67,7 +67,7 @@ Each has a minimal, self-contained repro. All are outside the package repair, an
 
 ### D1 — named arguments plus a trailing block skip default-filling
 
-```aipo
+```text
 fn f8(a = 0, b = 0, c = 0, d = 0, e = 0, g = 0, h = 0, body = none) -> String {
     return "f8"
 }
@@ -86,7 +86,7 @@ children as `body = fn() { ... }`.
 
 ### D2 — a closure invoked from inside another closure corrupts the operand stack
 
-```aipo
+```text
 fn outer(cb) {
     let f = fn() {
         let inner = fn() { cb("x") }
@@ -103,7 +103,7 @@ positional arguments. This blocks `ui.Button(on_click = fn() { ... })` inside a 
 
 ### D3 — `aipo check` does not validate member existence
 
-```aipo
+```text
 var l = [1, 2, 3]
 l.pop()      # check: clean;  run: AIPO_RT_TYPE_MISMATCH ... found List.pop
 ```

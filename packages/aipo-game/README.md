@@ -34,7 +34,7 @@ Adicione ao seu `aipo.toml`:
 
 ## Exemplo Rápido: Nave vs Asteroides
 
-```aipo
+```text
 import aipo.game as g
 
 # Ator Jogador

@@ -8,7 +8,7 @@ Componentes interativos para disparar ações e alternar modos.
 
 Botão com suporte a variantes táteis, ícones à esquerda e relevo em GPU com inner highlight de 1px.
 
-```aipo
+```text
 # Botão Simples
 zoe.button("Salvar")
 
@@ -37,7 +37,7 @@ zoe.button("Excluir Entidade", on_delete, {
 
 Controle em formato de pílula (*pill group*) para seleção mutuamente exclusiva de opções.
 
-```aipo
+```text
 let modo = zoe.use_state("2d")
 
 zoe.segmented_group(

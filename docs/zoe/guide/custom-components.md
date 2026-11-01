@@ -8,7 +8,7 @@ Uma das maiores forças do Zoe UI é seu protocolo aberto e uniforme de autoria 
 
 Todo componente no Zoe é uma função em Aipo que recebe um dicionário de propriedades (`props`) e, opcionalmente, uma lista de filhos (`children`), retornando um `ElementNode`:
 
-```aipo
+```text
 fn make_meu_componente(props: Dict = {}, children: List = []) {
     let width_val = if props.has("width") then props["width"] else "auto"
     let height_val = if props.has("height") then props["height"] else 32.0
@@ -38,7 +38,7 @@ fn make_meu_componente(props: Dict = {}, children: List = []) {
 
 Para componentes que necessitam desenhar primitivas especializadas (como cabos de Bézier, formas vetoriais, osciloscópios ou editores gráficos), utilize o gancho `on_custom_draw`:
 
-```aipo
+```text
 fn make_radar_chart(props: Dict = {}) {
     let on_custom_draw = fn(node) {
         if node == none or node.layout == none {

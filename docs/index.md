@@ -105,7 +105,7 @@ Conta:resumo() -> String {
 var c1 = Conta{ id: 101, titular: "Alex", saldo: 25000 }
 var c2 = Conta{ id: 102, titular: "Beatriz", saldo: 5000 }
 
-c1.transferir(var c2, 5000)
+c1.transferir(c2, 5000)
 io.println(c1.resumo())
 io.println(c2.resumo())
 ```

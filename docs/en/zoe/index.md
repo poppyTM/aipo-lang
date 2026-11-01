@@ -45,7 +45,7 @@ Add the dependency to your `aipo.toml`:
 
 Create your `main.aipo` file:
 
-```aipo
+```text
 import aipo.zoe as zoe
 
 fn view() {

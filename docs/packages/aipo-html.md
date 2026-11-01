@@ -28,7 +28,7 @@ O `aipo.html` provê funções de tag nativas que aceitam atributos como dicion�
 
 ### Contêineres com Filhos
 
-```aipo
+```text
 import aipo.html as h
 
 let page = h.div({ "class": "container", "id": "main" }) do
@@ -51,7 +51,7 @@ end
 
 Elementos sem fechamento (como `img`, `input`, `hr`, `br`) são tratados como tags folha automáticas:
 
-```aipo
+```text
 let avatar = h.img("avatar.png", "Avatar do Usuário", { "class": "rounded-full" })
 let email_field = h.input({ "type": "email", "placeholder": "contato@aipo.dev" })
 let line = h.hr()
@@ -61,7 +61,7 @@ let line = h.hr()
 
 Quando você deseja renderizar múltiplos nós sem criar um nó pai `<div>` desnecessário no DOM ou no SSR:
 
-```aipo
+```text
 let list_items = h.fragment do
     h.li("Primeiro item")
     h.li("Segundo item")
@@ -75,7 +75,7 @@ end
 
 A função `render_to_string` converte uma árvore de nós em uma string HTML5 segura:
 
-```aipo
+```text
 import aipo.html as h
 
 let doc = h.div({ "class": "article-card" }) do
@@ -95,7 +95,7 @@ let html = h.render_to_string(doc)
 
 O `h.css` gera classes de estilo com hashes únicos e isolamento de escopo:
 
-```aipo
+```text
 import aipo.html as h
 
 let btn_style = h.css({
@@ -126,7 +126,7 @@ let css_head = h.get_injected_css()
 
 Para SPAs e interfaces dinâmicas, `aipo.html` implementa o padrão Model-View-Update completo com tuplas `[model, cmd]`:
 
-```aipo
+```text
 import aipo.html as h
 
 struct Model {

@@ -108,7 +108,7 @@ Every test runs in total isolation:
 - **Frozen Clock**: Virtual time is initialized to `0` and real system time never ticks spontaneously, eliminating flaky tests.
 - **Predictable PRNG**: The pseudo-random number generator seed is reset to `0` before each test.
 
-```aipo
+```text
 # math_test.aipo
 fn test_addition() {
     let result = 2 + 2

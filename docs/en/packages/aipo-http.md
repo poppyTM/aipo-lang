@@ -28,7 +28,7 @@ In your project's `aipo.toml`:
 
 ## 2. Basic Setup and Routing
 
-```aipo
+```text
 import aipo.http as http
 
 let app = http.create()
@@ -56,7 +56,7 @@ app.get("/welcome", fn (c) {
 
 ## 3. Path Parameters and Wildcards
 
-```aipo
+```text
 # Single parameter
 app.get("/users/:id", fn (c) {
     let user_id = c.param("id")
@@ -81,7 +81,7 @@ app.get("/static/*filepath", fn (c) {
 
 ## 4. Query Strings & JSON Body Parsing
 
-```aipo
+```text
 # Query parameters (?q=search&page=2)
 app.get("/search", fn (c) {
     let query = c.query_param("q")
@@ -107,7 +107,7 @@ app.post("/users", fn (c) {
 
 Middlewares follow the `fn (ctx, next)` signature:
 
-```aipo
+```text
 let app = http.create()
 
 # Audit & custom header middleware
@@ -131,7 +131,7 @@ app.use(fn (c, next) {
 
 ### Built-in Middlewares
 
-```aipo
+```text
 # CORS configuration
 app.use(http.cors({
     "origin": "https://example.com",
@@ -149,7 +149,7 @@ app.use(http.recover())
 
 ## 6. Route Grouping (`group`)
 
-```aipo
+```text
 let api_v1 = app.group("/api/v1")
 
 # Registered as /api/v1/status
@@ -169,7 +169,7 @@ api_v1.get("/users", fn (c) {
 
 Execute tests in memory with pure dictionaries:
 
-```aipo
+```text
 let app = http.create()
 
 app.get("/ping", fn (c) {

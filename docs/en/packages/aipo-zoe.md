@@ -35,7 +35,7 @@ Add the dependency to your project's `aipo.toml`:
 
 ### Quickstart: Reactive Counter with Built-in Design System
 
-```aipo
+```text
 import aipo.zoe as zoe
 
 fn view() {
@@ -104,7 +104,7 @@ Based on the audit of Zoe UI's codebase, six strategic improvement axes are esta
 
 ### Axis 2: Fine-Grained Reactivity & Advanced Hooks
 * **`use_memo`:** Computed derived state cached by signal dependencies:
-  ```aipo
+  ```text
   let filtered = zoe.use_memo([query, items], fn() {
       return items.get().filter(it => it.contains(query.get()))
   })
@@ -132,7 +132,7 @@ Based on the audit of Zoe UI's codebase, six strategic improvement axes are esta
 
 ### Axis 6: Delta-Time Animation & Interpolation Engine
 * **`use_spring` and `use_tween`:** Smooth physics-based and linear interpolation using the existing `dt` parameter in `step(dt)`:
-  ```aipo
+  ```text
   let anim_pos = zoe.use_spring(is_open.get() ? 280.0 : 0.0, { "stiffness": 150.0, "damping": 15.0 })
   ```
 

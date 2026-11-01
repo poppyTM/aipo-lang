@@ -11,7 +11,7 @@ Controle de precisão inspirado no Blender e Unreal Engine. Permite clicar e arr
 - <kbd>Shift</kbd> + **Arrasto**: Modo de micro-precisão ($\times 0.02\times\text{step}$).
 - <kbd>Ctrl</kbd> + **Arrasto**: Salto rápido ($\times 2.0\times\text{step}$).
 
-```aipo
+```text
 let pos_x = zoe.use_state(0.0)
 
 zoe.scrubber_input({
@@ -32,7 +32,7 @@ zoe.scrubber_input({
 
 Campo de texto alfanumérico com cursor piscante e gerenciamento de foco:
 
-```aipo
+```text
 let nome_entidade = zoe.use_state("Player")
 
 zoe.text_input({

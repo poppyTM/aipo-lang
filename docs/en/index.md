@@ -105,7 +105,7 @@ Account:summary() -> String {
 var a1 = Account{ id: 101, holder: "Alex", balance: 25000 }
 var a2 = Account{ id: 102, holder: "Beatrice", balance: 5000 }
 
-a1.transfer(var a2, 5000)
+a1.transfer(a2, 5000)
 io.println(a1.summary())
 io.println(a2.summary())
 ```

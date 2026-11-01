@@ -37,7 +37,7 @@ Adicione ao seu `aipo.toml`:
 
 ## 3. Exemplo Prático: Jogo Espacial em 50 Linhas
 
-```aipo
+```text
 import aipo.game as g
 
 # 1. Definição do Jogador
@@ -138,7 +138,7 @@ fn main() {
 ## 5. Sistema de Entrada e Áudio
 
 ### Teclado e Mouse
-```aipo
+```text
 # Checagens contínuas ou de clique único
 if g.input.key_down("Space") { ... }
 if g.input.key_pressed("Enter") { ... }
@@ -154,7 +154,7 @@ let clicou = g.input.mouse_down("left")
 ```
 
 ### Efeitos Sonoros e Trilha Sonora
-```aipo
+```text
 # Reprodução de arquivos de áudio externos
 g.audio.play("tiro.wav")
 g.audio.play_sound("tiro.wav", volume: 0.8, pitch: 1.2)
@@ -174,7 +174,7 @@ g.audio.sfx("powerup")    # Upgrade sonoro
 
 O módulo de tweening (`aipo.game.tween`) confere elasticidade e vida ao jogo com interpolações suaves e curvas de aceleração:
 
-```aipo
+```text
 # Squash & Stretch ao aterrissar ou pular
 g.animate(heroi, prop: "scale_x", to_val: 1.3, duration: 0.1, ease_fn: g.ease_out)
 g.animate(heroi, prop: "scale_y", to_val: 0.7, duration: 0.1, ease_fn: g.ease_out, on_complete: _ => {
@@ -202,7 +202,7 @@ graph LR
 ### Bilinguismo Visual/Texto
 Qualquer regra montada visualmente transcreve diretamente para código canônico da Aipo:
 
-```aipo
+```text
 import aipo.game.nodes as n
 
 let regra_colisao = n.rule(
@@ -225,7 +225,7 @@ let codigo_gerado = n.transpile_to_aipo_code(regra_colisao)
 
 O subsistema `g.animation` gerencia sequências de quadros a partir de spritesheets tabulares, permitindo transições fluidas de estado e espelhamento horizontal instantâneo:
 
-```aipo
+```text
 import aipo.game as g
 
 # Criação do animador para textura de ID 1
@@ -254,7 +254,7 @@ g.animation.draw(anim, x, y, 64.0, 64.0, 0.0, flip_x)
 
 O módulo `g.particles` implementa emissores leves para efeitos visuais com arrasto dinâmico, aceleração gravitacional, atenuação contínua de opacidade (*alpha fading*) e presets prontos para jogos:
 
-```aipo
+```text
 import aipo.game as g
 
 # Criação de emissor de partículas com teto máximo de 256 partículas ativas

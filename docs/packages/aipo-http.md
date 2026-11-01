@@ -28,7 +28,7 @@ No arquivo `aipo.toml` do seu projeto:
 
 ## 2. Inicialização e Roteamento Básico
 
-```aipo
+```text
 import aipo.http as http
 
 let app = http.create()
@@ -58,7 +58,7 @@ app.get("/welcome", fn (c) {
 
 O roteador suporta parâmetros dinâmicos iniciados por `:` e coringas iniciados por `*`:
 
-```aipo
+```text
 # Parâmetro simples
 app.get("/users/:id", fn (c) {
     let user_id = c.param("id")
@@ -83,7 +83,7 @@ app.get("/static/*filepath", fn (c) {
 
 ## 4. Query Strings e Corpo da Requisição (JSON)
 
-```aipo
+```text
 # Leitura de query parameters (?q=busca&page=2)
 app.get("/search", fn (c) {
     let query = c.query_param("q")
@@ -109,7 +109,7 @@ app.post("/users", fn (c) {
 
 Middlewares são funções `fn (ctx, next)` que podem inspecionar ou alterar a requisição antes e depois da execução:
 
-```aipo
+```text
 let app = http.create()
 
 # Middleware de auditoria de tempo e cabeçalho
@@ -134,7 +134,7 @@ app.use(fn (c, next) {
 
 ### Middlewares Embutidos
 
-```aipo
+```text
 # CORS configurável com suporte a preflight OPTIONS
 app.use(http.cors({
     "origin": "https://meudominio.com",
@@ -154,7 +154,7 @@ app.use(http.recover())
 
 Organize rotas em submódulos com prefixos comuns e regras dedicadas:
 
-```aipo
+```text
 let api_v1 = app.group("/api/v1")
 
 # Rota registrada como /api/v1/status
@@ -174,7 +174,7 @@ api_v1.get("/users", fn (c) {
 
 Qualquer aplicação pode ser testada em milissegundos sem abrir portas locais:
 
-```aipo
+```text
 let app = http.create()
 
 app.get("/ping", fn (c) {

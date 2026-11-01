@@ -25,7 +25,7 @@ Adicione ao seu `aipo.toml`:
 
 ## Exemplo Rápido
 
-```aipo
+```text
 import aipo.http as http
 
 let app = http.create()

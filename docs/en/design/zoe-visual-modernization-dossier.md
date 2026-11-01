@@ -144,7 +144,7 @@ per *pixel*, not per *sample*, and the `smoothstep` resolves at the wrong resolu
 
 `retro3d.aipo:77-91` uses a 5th-order Taylor approximation with 3 terms:
 
-```aipo
+```text
 fn math_sin(rad) { return x * (1.0 - x2 / 6.0 * (1.0 - x2 / 20.0)) }
 fn math_cos(rad) { return math_sin(rad + 1.5707963) }
 ```
@@ -254,7 +254,7 @@ Today: 26 hardcoded Catppuccin colors as module constants. Proposal: a
 semantic OKLCH scale with **12 steps of fixed role** (the Radix model, the most mature),
 generated from a single configurable accent.
 
-```aipo
+```text
 # theme.aipo — new module
 struct Palette {
     # 12 steps per scale, fixed roles (Radix model)
@@ -293,7 +293,7 @@ scale. That is what makes the UI *truly customizable*.
 
 The current renderer does this (renderer.aipo:28-32):
 
-```aipo
+```text
 if (node.is_hovered or node.is_active) and (...) {
     bg_r = if bg_r + 0.12 > 1.0 then 1.0 else bg_r + 0.12   # ← uniform "+0.12"
     bg_g = ...; bg_b = ...
@@ -739,7 +739,7 @@ frames — it is literally useless in the current state.
    entire file on every frame (widgets.aipo:227). Cache by content hash.
 
 **Contract to add to `Element`**:
-```aipo
+```text
 struct Element {
     id, tag, props, children
     var layout          # Rect

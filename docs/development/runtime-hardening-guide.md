@@ -136,7 +136,7 @@ O Core IR representa uma pilha de avaliação, enquanto o bytecode usa registrad
 
 Exemplo:
 
-```aipo
+```text
 var flag = true
 io.println(if flag then 10 else 20)
 ```
@@ -228,7 +228,7 @@ Exaustão retorna `VmFault::Overflow` com mensagem de orçamento, preservando o 
 
 Antes, o modo primário retornava o valor de `Dict` na Stack VM, no shim JS e no RegVM. A correção ajusta os três caminhos para a regra já documentada: `each key in dict` retorna chaves. Não altera a ordem de inserção nem inventa nova sintaxe.
 
-```aipo
+```text
 var d = {"a": 1, "b": 2}
 each key in d {
     io.println(key)

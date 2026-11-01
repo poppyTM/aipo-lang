@@ -8,7 +8,7 @@ O Zoe UI adota um modelo reativo baseado em **Sinais (*Signals*)**, combinando e
 
 Para declarar estado local reativo, use `zoe.use_state`:
 
-```aipo
+```text
 import aipo.zoe as zoe
 
 fn view() {
@@ -34,7 +34,7 @@ fn view() {
 
 Para valores calculados onerosos que dependem de outros estados:
 
-```aipo
+```text
 let total_itens = zoe.use_memo(fn() {
     return inventario.get().len()
 }, [inventario.get()])
@@ -48,7 +48,7 @@ O valor é armazenado em cache e recalculado somente quando as dependências na 
 
 O Zoe UI inclui interpolação suave (*tweening*) integrada aos sinais do framework:
 
-```aipo
+```text
 # Anima de 0.0 até 100.0 em 0.5 segundos com easing ease_out
 let progresso = zoe.use_tween(0.0, 100.0, 0.5, "ease_out")
 

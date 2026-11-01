@@ -52,7 +52,7 @@ targets = ["native"]
 #### Código dos Módulos da Aplicação
 
 **`src/domain.aipo`** (Regras e entidades puras de domínio):
-```aipo
+```text
 export Tarefa, criar_tarefa
 
 struct Tarefa {
@@ -97,7 +97,7 @@ fn test_criar_tarefa() {
 > forma canônica equivalente.
 
 **`src/storage.aipo`** (Persistência com journal e transação):
-```aipo
+```text
 import domain: Tarefa
 export salvar_tarefas, carregar_tarefas
 
@@ -127,7 +127,7 @@ fn carregar_tarefas(caminho: String) -> List {
 ```
 
 **`src/main.aipo`** (Ponto de entrada):
-```aipo
+```text
 import domain: Tarefa, criar_tarefa
 import storage: salvar_tarefas, carregar_tarefas
 
@@ -242,7 +242,7 @@ targets = ["native", "js"]
 #### Implementação dos Módulos da Biblioteca
 
 **`src/contract.aipo`** (Interfaces contratuais puras):
-```aipo
+```text
 export CacheStore
 
 # Interface estrutural para qualquer mecanismo de armazenamento de cache
@@ -255,7 +255,7 @@ interface CacheStore {
 ```
 
 **`src/memory_cache.aipo`** (Implementação concreta com satisfação estrutural):
-```aipo
+```text
 import contract: CacheStore
 import internal.hasher: hash_string
 
@@ -317,7 +317,7 @@ MemoryCache:limpar(var self) {
 ```
 
 **`src/lib.aipo`** (Fachada da biblioteca):
-```aipo
+```text
 # A fachada importa e reexporta os tipos públicos, blindando o consumidor dos módulos internos
 import contract: CacheStore
 import memory_cache: MemoryCache, novo_memory_cache
@@ -336,7 +336,7 @@ Ideal para testar funções privadas, invariantes locais e casos de borda imedia
 - Posicionados **no mesmo arquivo** da função que está sendo testada.
 - Não poluem o binário de produção: o compilador os inclui apenas sob flag de teste (`aipo test`).
 - Exemplo:
-  ```aipo
+  ```text
   fn somar(a, b) { return a + b }
 
   #!test("soma números positivos")
@@ -352,7 +352,7 @@ Ideal para testes de integração, testes end-to-end e testes de API pública da
 - Convenção de arquivo: `test_*.aipo` ou `*_test.aipo`.
 - Consomem o pacote externamente através de `import`, garantindo que apenas símbolos exportados com `export` sejam testados.
 - Exemplo em `tests/cache_test.aipo`:
-  ```aipo
+  ```text
   import aipo.cache: novo_memory_cache
 
   #!test("respeita a capacidade máxima do cache")

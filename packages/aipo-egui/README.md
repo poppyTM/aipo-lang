@@ -11,7 +11,7 @@ Pacote oficial da linguagem **Aipo** para construção de interfaces gráficas e
 
 2. **Sintaxe Imediata Simples e Direta:**
    Sem necessidade de classes complexas ou reconciliação de árvores de componentes:
-   ```aipo
+   ```text
    import aipo.egui as gui
 
    var ctx = gui.new_context()

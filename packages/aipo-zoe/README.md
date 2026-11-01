@@ -63,7 +63,7 @@ aipo package audit .
 
 ## Exemplo Rápido: Contador Reativo Ergonômico
 
-```aipo
+```text
 import aipo.zoe as zoe
 
 fn view() {

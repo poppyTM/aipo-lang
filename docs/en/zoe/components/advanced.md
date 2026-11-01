@@ -12,7 +12,7 @@ High-performance virtualized code editor:
 - **Blinking Cursor & Active Line Highlight**: Visual emphasis on the active row.
 - **Vertical Culling**: Unrendered lines outside viewport bounds are culled to ensure 60 FPS performance.
 
-```aipo
+```text
 let script = "fn update(dt) {\n    let speed = 120.0\n    player.x += speed * dt\n}"
 
 zoe.code_editor({
@@ -33,7 +33,7 @@ Infinite visual canvas for shader graphs, dialogue trees, and blueprint logic:
 - **Tactile Node Cards**: Rounded borders, top color accents, and contact drop shadows.
 - **Color-Coded Sockets**: Semantic circular ports for floats, vectors, colors, and textures.
 
-```aipo
+```text
 let nodes = [
     {
         "id": "tex",
@@ -77,7 +77,7 @@ zoe.node_graph({
 
 Elevated dialog cards with backdrop scrims and action buttons:
 
-```aipo
+```text
 fn show_confirm() {
     let body = zoe.label("Export current scene?", { "font_size": 13.0 })
     

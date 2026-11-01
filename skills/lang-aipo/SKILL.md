@@ -53,7 +53,7 @@ Modelos de linguagem treinados em C, JS, Python e Rust sofrem de fortes vieses p
 ## 3. Padrões Sintáticos Canônicos
 
 ### 3.1 Struct e Métodos
-```aipo
+```text
 # Struct contém APENAS dados. Campos imutáveis por padrão.
 # Tipagem nos campos é opcional no compilador, mas EXTREMAMENTE RECOMENDADA para LLMs.
 struct Servidor {
@@ -87,7 +87,7 @@ Servidor:atribuir_carga(var self, incremento: Float) {
 ```
 
 ### 3.1.1 Enum (Tipo de Soma Fechado — §17)
-```aipo
+```text
 enum EstadoConexao {
     Desconectado,
     Tentando(tentativa: Int),
@@ -120,7 +120,7 @@ fn avaliar(e: EstadoConexao) -> String {
 
 ### 3.2 Funções Livres vs. Métodos
 - Funções sem tipo receptor **devem** usar `fn`:
-  ```aipo
+  ```text
   fn formatar_id(id: Int) -> String {
       return f"ID-{id}"
   }
@@ -129,7 +129,7 @@ fn avaliar(e: EstadoConexao) -> String {
 
 ### 3.2.1 Associação em Lote com `::` (Batch Promotion)
 Promove funções livres existentes a métodos de um tipo:
-```aipo
+```text
 # EXIGÊNCIA: O primeiro parâmetro DEVE ser 'self' ou 'var self'
 fn desligar(var self) {
     self.status = "offline"
@@ -151,7 +151,7 @@ Diretivas aplicam-se ao item imediatamente seguinte:
 - `#!todo("msg")`: Rastreia pendência técnica associada ao item.
 
 ### 3.3 Tratamento Transacional de Falhas
-```aipo
+```text
 # Falha simples ou com fallback
 let porta = ler_porta() or_else 8080
 

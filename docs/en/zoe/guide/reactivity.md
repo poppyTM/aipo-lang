@@ -8,7 +8,7 @@ Zoe UI adopts a signal-based reactivity model, delivering clean ergonomics witho
 
 Declare local reactive state using `zoe.use_state`:
 
-```aipo
+```text
 import aipo.zoe as zoe
 
 fn view() {
@@ -31,7 +31,7 @@ fn view() {
 
 Cache expensive calculations dependent on other signals:
 
-```aipo
+```text
 let total_items = zoe.use_memo(fn() {
     return inventory.get().len()
 }, [inventory.get()])
@@ -43,7 +43,7 @@ let total_items = zoe.use_memo(fn() {
 
 Animate smoothly with built-in tweening:
 
-```aipo
+```text
 let anim_progress = zoe.use_tween(0.0, 100.0, 0.5, "ease_out")
 let current_val = anim_progress.get()
 ```

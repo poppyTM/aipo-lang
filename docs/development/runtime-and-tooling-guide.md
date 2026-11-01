@@ -98,7 +98,7 @@ let text = Value::string("Aipo");
 aipo-sh
 ```
 
-```aipo
+```text
 var count = 0
 fn next() {
     count += 1

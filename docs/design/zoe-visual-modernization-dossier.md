@@ -145,7 +145,7 @@ por *pixel*, não por *sample*, e o `smoothstep` resolve na resolução errada.
 
 `retro3d.aipo:77-91` usa uma aproximação de Taylor de 5º ordem com 3 termos:
 
-```aipo
+```text
 fn math_sin(rad) { return x * (1.0 - x2 / 6.0 * (1.0 - x2 / 20.0)) }
 fn math_cos(rad) { return math_sin(rad + 1.5707963) }
 ```
@@ -255,7 +255,7 @@ Hoje: 26 cores Catppuccin hardcoded como constantes de módulo. Proposta: escala
 semântica em OKLCH com **12 passos de papel fixo** (modelo Radix, o mais maduro),
 gerada a partir de um único acento configurável.
 
-```aipo
+```text
 # theme.aipo — novo módulo
 
 struct Palette {
@@ -295,7 +295,7 @@ inteira. Isso é o que torna a UI *personalizável de verdade*.
 
 O renderer atual faz isto (renderer.aipo:28-32):
 
-```aipo
+```text
 if (node.is_hovered or node.is_active) and (...) {
     bg_r = if bg_r + 0.12 > 1.0 then 1.0 else bg_r + 0.12   # ← "+0.12" uniforme
     bg_g = ...; bg_b = ...
@@ -741,7 +741,7 @@ quadros — é literalmente inútil no estado atual.
    arquivo inteiro a cada quadro (widgets.aipo:227). Cachear por hash de conteúdo.
 
 **Contrato a adicionar ao `Element`**:
-```aipo
+```text
 struct Element {
     id, tag, props, children
     var layout          # Rect

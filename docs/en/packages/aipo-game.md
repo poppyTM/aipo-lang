@@ -37,7 +37,7 @@ Add to your project's `aipo.toml`:
 
 ## 3. Quick Example: Space Game in 50 Lines
 
-```aipo
+```text
 import aipo.game as g
 
 # 1. Player Actor
@@ -138,7 +138,7 @@ fn main() {
 ## 5. Input and Audio Subsystems
 
 ### Keyboard & Mouse
-```aipo
+```text
 # Continuous or single-press checks
 if g.input.key_down("Space") { ... }
 if g.input.key_pressed("Enter") { ... }
@@ -154,7 +154,7 @@ let clicked = g.input.mouse_down("left")
 ```
 
 ### Sound Effects & Music
-```aipo
+```text
 # External audio file playback
 g.audio.play("laser.wav")
 g.audio.play_sound("laser.wav", volume: 0.8, pitch: 1.2)
@@ -174,7 +174,7 @@ g.audio.sfx("powerup")    # Ascending arpeggio powerup
 
 The tweening module (`aipo.game.tween`) infuses games with springy, elastic animations using customizable easing curves:
 
-```aipo
+```text
 # Squash & Stretch on landing or jumping
 g.animate(player, prop: "scale_x", to_val: 1.3, duration: 0.1, ease_fn: g.ease_out)
 g.animate(player, prop: "scale_y", to_val: 0.7, duration: 0.1, ease_fn: g.ease_out, on_complete: _ => {
@@ -202,7 +202,7 @@ graph LR
 ### Visual / Code Bidirectionality
 Any visual rule transpires directly into readable Aipo code:
 
-```aipo
+```text
 import aipo.game.nodes as n
 
 let collision_rule = n.rule(

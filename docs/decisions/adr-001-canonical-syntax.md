@@ -30,7 +30,7 @@ com outras linguagens.
 
 Toda abertura usa `{`, todo fechamento usa `}`.
 
-```aipo
+```text
 if cond {
     io.println("ok")
 }
@@ -49,7 +49,7 @@ Aplica-se a: `fn`, `async fn`, `struct`, `interface`, `if`/`elif`/`else`,
 - **Com chaves:** nunca usa `then`.
 - **Sem chaves (inline, com valor):** usa `then`. É a única forma sem bloco.
 
-```aipo
+```text
 let rotulo = if idade >= 18 then "maior" else "menor"
 ```
 
@@ -61,7 +61,7 @@ Regra: tem `{}`? Sem `then`. Não tem `{}`? Com `then`.
 
 ### 3.1 Struct — só dados
 
-```aipo
+```text
 struct Servidor {
     id: Int                       # imutável por padrão
     var status: String = "online" # `var` = mutável
@@ -77,7 +77,7 @@ construção e nas fronteiras mutáveis estáveis.
 
 ### 3.2 Interface — só assinaturas
 
-```aipo
+```text
 interface Drawable {
     draw() -> Int
 }
@@ -105,7 +105,7 @@ mutabilidade do receptor, a regra é covariante:
 
 Um método pertence a um tipo pelo prefixo `Tipo:`.
 
-```aipo
+```text
 Point:init(x, y) {
     self.x = x
     self.y = y
@@ -136,7 +136,7 @@ Point:move(var self, dx, dy) {
 
 A chamada usa `.`, igual hoje:
 
-```aipo
+```text
 let p = Point{x = 3, y = 4}
 let d = p.dist()          # passa
 let m = p.move(var dx = 1, dy = 1)
@@ -150,7 +150,7 @@ cada emprego.
 Funções livres podem ser promovidas a métodos de um tipo sem reescrever o corpo.
 **Exigência:** o primeiro parâmetro deve ser `self` (ou `var self`).
 
-```aipo
+```text
 fn calcular_area(self) {
     return self.largura * self.altura
 }
@@ -179,7 +179,7 @@ livre e ganha o método associado.
 
 `fn` fica reservado a **funções livres**.
 
-```aipo
+```text
 fn soma(a, b) -> Int { return a + b }    # livre → usa fn
 Point:dist() -> Float { ... }              # associado → sem fn
 ```
@@ -192,7 +192,7 @@ a um tipo.
 A forma implícita é a **canônica** e a que o formatter produz. A forma explícita é
 aceita sem erro nem warning:
 
-```aipo
+```text
 Point:dist() -> Float { ... }              # canônico — implícito
 Point:dist(self) -> Float { ... }          # aceito — explícito
 Point:move(var self, dx, dy) { ... }       # mutação — `var self` obrigatório
@@ -374,7 +374,7 @@ Duas vias, ambas ativas:
 - **Convenção de arquivo:** `*_test.aipo`, `test_*.aipo` (compatibilidade)
 - **Diretiva:** `#!test` dentro de qualquer arquivo `.aipo`
 
-```aipo
+```text
 #!test
 fn soma_basico() {
     io.println(String(soma(1, 2)))    # 3
@@ -412,7 +412,7 @@ no arquivo do que testam.
 
 `div` e `div=` são **removidos**; `div` volta a ser identificador comum.
 
-```aipo
+```text
 let metade = total // 2
 ```
 
@@ -427,7 +427,7 @@ comentário com `//`.
 Mitigação: quando `//` aparece onde nenhuma expressão válida pode segui-lo, o
 diagnóstico sugere `#`.
 
-```aipo
+```text
 // isto é um comentário
 // ^ AIPO_PARSE_UNEXPECTED_TOKEN
 //   dica: use `#` para comentários; `//` é divisão inteira
@@ -437,7 +437,7 @@ diagnóstico sugere `#`.
 
 ## 7. Parâmetros
 
-```aipo
+```text
 fn salvar(usuario: User, var contador: Int, modo = "rapido") { }
 ```
 
@@ -457,7 +457,7 @@ Formas aceitas: `nome` · `var nome` · `nome: T` · `var nome: T` · `nome = de
 
 Um arquivo `.aipo` é um módulo.
 
-```aipo
+```text
 import math_util
 import math_util as mu
 import math_util: somar, dobro
@@ -473,7 +473,7 @@ empregos ficam distintos: `.` para valor, `:`/`::` para código.
 
 ## 9. Falhas
 
-```aipo
+```text
 fail "mensagem"
 let v = ler_porta() or_else 8080
 let w = risky()?
@@ -488,7 +488,7 @@ Não existe `try`, `catch`, `finally`, `throw`, `raise`, `defer`.
 
 ## 10. Async
 
-```aipo
+```text
 async fn buscar(recurso) {
     return http.get(recurso)
 }
@@ -556,7 +556,7 @@ cobertura de casos é convenção; com ele, é obrigação do compilador.
 
 Três formas de variante, sem sintaxe nova de payload:
 
-```aipo
+```text
 enum Estado {
     Inicial,                     # sem payload
     Ativo { desde: Int },        # campos nomeados
@@ -566,13 +566,13 @@ enum Estado {
 
 Construção é o nome qualificado, sem `new` e sem `::`:
 
-```aipo
+```text
 let e = Estado.Desligado("manutenção")
 ```
 
 O `match` nomeia tipo **e** variante, reusando o destructure de §6.1:
 
-```aipo
+```text
 match e {
     when Estado.Inicial { }
     when Estado.Ativo { desde } { }
