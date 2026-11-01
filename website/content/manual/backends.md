@@ -28,7 +28,7 @@ cargo run -q -p aipo-cli -- build examples/06_variables_and_values.aipo --target
 cargo run -q -p aipo-cli -- build examples/06_variables_and_values.aipo --target wasm --out dist/
 ```
 
-O compilador Wasm trabalha diretamente sobre HIR em partes de seu pipeline. A existência do backend não certifica o suporte a todas as operações de host, async ou biblioteca padrão.
+O compilador Wasm trabalha diretamente sobre HIR em partes de seu pipeline. A existência do backend não certifica o suporte a todas as operações de host, async ou biblioteca padrão. A normalização NFC de strings, case folding e trim Unicode já são suportados no backend Wasm; consulte a matriz de compatibilidade para a lista completa de limites declarados.
 
 ## RegVM: cuidado com falsas promessas
 

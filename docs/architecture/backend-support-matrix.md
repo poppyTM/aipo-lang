@@ -18,7 +18,7 @@
 | Stack VM | 36/36 | 0 | 36/36 | Referência de semântica |
 | RegVM | 20/36 | 16/36 | 36/36 | Fallback: métodos de ordem superior, handlers de falha e IR não representável |
 | JavaScript | 36/36 | 0 | 36/36 | Bundle ESM; requer Node com ESM |
-| WebAssembly | 29/36 | — | 29/36 | Subset; falhas de compilação emitem `AIPO_COMPILE_WASM_UNSUPPORTED`. Cobre `init`/`invariant` com rollback de mutação, módulo `string` completo, `Dict` posicional, `await`/`task.spawn`/`task.all` e contratos `T?`. Limites (declarados, não silenciosos): `fn` aninhado ou closure que captura variável do frame externo, normalização NFC e combinadores async que exigem agendador. Cada um é recusado com `AIPO_COMPILE_WASM_UNSUPPORTED` e a receita `use --engine=vm`, em vez de produzir saída diferente da VM |
+| WebAssembly | 29/36 | — | 29/36 | Subset; falhas de compilação emitem `AIPO_COMPILE_WASM_UNSUPPORTED`. Cobre `init`/`invariant` com rollback de mutação, módulo `string` completo (incluindo normalização NFC, case folding e trim Unicode), `Dict` posicional, `await`/`task.spawn`/`task.all` e contratos `T?`. Limites (declarados, não silenciosos): `fn` aninhado ou closure que captura variável do frame externo e combinadores async que exigem agendador. Cada um é recusado com `AIPO_COMPILE_WASM_UNSUPPORTED` e a receita `use --engine=vm`, em vez de produzir saída diferente da VM |
 
 ## Exemplos executáveis
 
@@ -27,7 +27,7 @@
 | Stack VM | 23/23 com `.stdout` | 23/23 | 3 exemplos de host não têm snapshot |
 | RegVM | 10/23 nativos; 13/23 fallback | 23/23 | Fallback explícito preserva a saída |
 | JavaScript | 23/23 | 23/23 | O build grava `package.json` com `"type": "module"` |
-| WebAssembly | 25/26 | — | Programas de host, closure com captura e NFC ainda não compilam |
+| WebAssembly | 25/26 | — | Programas de host e closure com captura ainda não compilam; NFC agora é suportado |
 
 ## Outros subsistemas
 

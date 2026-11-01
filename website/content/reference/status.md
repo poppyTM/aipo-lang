@@ -9,12 +9,12 @@ O Aipo possui implementações reais para diferentes destinos. **Não existe uma
 
 ## Entenda a diferença
 
-| Motor | Implementação identificada | Medição de 2026-10-27 |
+| Motor | Implementação identificada | Medição de 2026-10-31 |
 | --- | --- | --- |
 | **VM de pilha** | `aipo-vm`: valor, chamadas e execução | 36/36 programas de conformance e 29/29 diagnósticos |
 | **Perfil Reg** | Verifier e escolha explícita entre Reg nativo e VM canônica | 20/36 nativos, 16/36 com fallback explícito; saída igual em 36/36 |
 | **JavaScript** | `aipo-js`: emissão ESM e runtime shim | 36/36 programas e 23 exemplos com saída igual à VM |
-| **WebAssembly** | `aipo-wasm`: HIR, emissor e runner | 16/36 programas de conformance e 5/26 exemplos compilam no subset atual; predicados, acesso e mutações de List já são suportados; falhas emitem `AIPO_COMPILE_WASM_UNSUPPORTED` |
+| **WebAssembly** | `aipo-wasm`: HIR, emissor e runner | 29/36 programas de conformance e 25/26 exemplos compilam no subset atual; inclui normalização NFC, case folding e trim Unicode, módulo `string` completo, `Dict` posicional, `await`/`task.spawn`/`task.all` e contratos `T?`; falhas emitem `AIPO_COMPILE_WASM_UNSUPPORTED` |
 | **C ABI** | `aipo-c-abi`, begin/pump/abort, linker e harness Rust/C | Suíte Rust, harness C nativo e sincronização header↔exports verdes; consumidor externo por plataforma continua pendente |
 
 A [matriz de suporte por backend](https://github.com/poppyTM/aipo-lang/blob/main/docs/architecture/backend-support-matrix.md) registra os comandos e os limites. Números medidos não são certificação universal.
@@ -23,11 +23,11 @@ A [matriz de suporte por backend](https://github.com/poppyTM/aipo-lang/blob/main
 
 A auditoria [P07-G01](https://github.com/poppyTM/aipo-lang/blob/main/docs/evidence/P07-G01-runtime-hardening.md) documenta partes da RegVM ainda sem paridade completa: métodos, closures/upvalues, async, hooks, invariantes, journal e host. Ela também registra verificações de compilação e testes **não executados na rodada descrita**.
 
-A presença de uma suite de testes não é prova de que ela passou na última revisão. A reconciliação de 2026-10-27 executou o workspace completo (1.130 testes), conformance VM/Reg, Poppy, eGUI, game host, validadores do portal e build VitePress. Consulte o [painel de progresso](/progress/) para ver critérios e evidências, sem interpretar seus percentuais como a porcentagem de linguagem pronta.
+A presença de uma suite de testes não é prova de que ela passou na última revisão. A reconciliação de 2026-10-31 executou o workspace completo (1.130 testes), conformance VM/Reg, Poppy, eGUI, game host, validadores do portal e build VitePress. Consulte o [painel de progresso](/progress/) para ver critérios e evidências, sem interpretar seus percentuais como a porcentagem de linguagem pronta.
 
 ## Rodada P07-G02
 
-O [guia de implementação](/engineering/runtime-and-tooling) distingue verifier, sessões/tasks persistentes, rollback guest, C cooperativo, provas/limites Wasm, ferramentas e distribuição. A reconciliação de 2026-10-27 executou conformance e a suíte do workspace; a matriz de MSRV 1.96 em runner dedicado continua pendente. Reg nativo, LSP básico e perfil embedded com `std` têm limites explícitos.
+O [guia de implementação](/engineering/runtime-and-tooling) distingue verifier, sessões/tasks persistentes, rollback guest, C cooperativo, provas/limites Wasm, ferramentas e distribuição. A reconciliação de 2026-10-31 executou conformance e a suíte do workspace; a matriz de MSRV 1.96 em runner dedicado continua pendente. Reg nativo, LSP básico e perfil embedded com `std` têm limites explícitos.
 
 ## Como testar sua necessidade
 
