@@ -33,6 +33,6 @@ O repositório tem um corpus real em `docs/conformance/` com programas `.aipo`, 
 cargo test --workspace --locked
 ```
 
-A execução acima é recomendada para contribuidores. A reconciliação de 2026-10-27 executou o workspace completo (`cargo test --workspace`, 1.130 testes), conformance VM/Reg, Poppy, eGUI, game host, validadores do portal e build VitePress. Revisões dos backends demandam também testes diferenciais e negativos.
+A execução acima é recomendada para contribuidores. A reconciliação de 2026-10-31 executou o workspace completo (`cargo test --workspace`, 1.130 testes), conformance VM/Reg, Poppy, eGUI, game host, validadores do portal e build VitePress. Revisões dos backends demandam também testes diferenciais e negativos.
 
 [Entender erros](/reference/diagnostics) · [Corpus de conformance](https://github.com/poppyTM/aipo-lang/tree/main/docs/conformance).

@@ -45,6 +45,13 @@ The `match` construct branches execution by comparing an expression against lite
 Each branch begins with `when` (never `case`). It supports optional boolean guards using `if <condition>`:
 
 ```aipo
+struct User {
+    name
+    age
+}
+
+let user = User{ name: "Ana", age: 70 }
+
 match user {
     when { name, age } if age >= 65 {
         io.println(f"Senior: {name}")
@@ -62,6 +69,15 @@ match user {
 When matching over an `enum`, the compiler strictly enforces exhaustive checking. If no `else` branch is supplied, all variants must be explicitly covered:
 
 ```aipo
+enum ConnectionState {
+    Disconnected,
+    Connecting(tries: Int),
+    Connected { ip: String, ping_ms: Int },
+    Error(reason: String),
+}
+
+let state = ConnectionState.Connecting(2)
+
 match state {
     when ConnectionState.Disconnected {
         io.println("Disconnected")
@@ -159,14 +175,12 @@ struct Vault {
     var balance = 0.0
 }
 
-impl Vault {
-    fn init(initial_balance = 0.0) {
-        self.balance = initial_balance
-    }
+Vault:init(initial_balance = 0.0) {
+    self.balance = initial_balance
+}
 
-    invariant {
-        self.balance >= 0.0
-    }
+Vault:invariant {
+    self.balance >= 0.0
 }
 
 let v = Vault{ balance: 100.0 }

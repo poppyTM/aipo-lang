@@ -36,7 +36,7 @@ Reassigning an immutable field after construction triggers the static semantic d
 
 ## Construction Hook (`init`)
 
-The `init` hook is bound to a type using the `Type:` prefix to validate, normalize, and initialize instance fields before publication:
+The `init` hook is bound to a type using the `Type:` prefix to normalize and initialize instance fields before publication:
 
 ```aipo
 struct User {
@@ -45,16 +45,26 @@ struct User {
 }
 
 User:init(email: String, name: String) {
-    if not email.contains("@") {
-        return fail("Invalid email address format")
-    }
     self.email = email
     self.name = name
+}
+
+User:invariant {
+    self.email.contains("@")
 }
 
 let u = User{ email: "user@example.com", name: "Dev" }
 io.println(u.email) # "user@example.com"
 ```
+
+**Where to validate:** a rule that must always hold belongs in `invariant`, not `init`. The invariant runs at seal time, after `init`, and a false condition stops the program with an invariant violation:
+
+```text
+# Stops execution: the email does not contain "@"
+let invalid = User{ email: "nope", name: "Dev" }
+```
+
+If `init` calls `fail(...)`, the resulting `Failure` is only observable when the construction happens inside `attempt { ... }`; outside it the failure is discarded and the instance is published with the received values. Use `fail` in `init` only for failures the caller already handles with `attempt`, and prefer `invariant` for rules that must always hold.
 
 ---
 
@@ -169,20 +179,34 @@ Rectangle::[perimeter, scale]
 ```aipo
 enum ConnectionState {
     Disconnected,
-    Connecting(attempt: Int),
+    Connecting(tries: Int),
     Connected { ip: String, ping_ms: Int },
     Error(reason: String),
 }
 
+# `match` is a statement, not an expression: each arm has its own body and the
+# value comes from the return statement after it.
 fn describe(state: ConnectionState) -> String {
-    return match state {
-        when ConnectionState.Disconnected { "Offline" }
-        when ConnectionState.Connecting(a) { f"Attempt #{a}" }
-        when ConnectionState.Connected { ip, ping_ms } { f"{ip}:{ping_ms}" }
-        when ConnectionState.Error(r) { f"Error: {r}" }
+    var text = ""
+    match state {
+        when ConnectionState.Disconnected {
+            text = "Offline"
+        }
+        when ConnectionState.Connecting(tries) {
+            text = f"Attempt #{tries}"
+        }
+        when ConnectionState.Connected { ip, ping_ms } {
+            text = f"{ip}:{ping_ms}"
+        }
+        when ConnectionState.Error(r) {
+            text = f"Error: {r}"
+        }
     }
+    return text
 }
 ```
+
+`attempt` is a reserved keyword (it opens `attempt { ... }` blocks), so it cannot name an enum field.
 
 ---
 

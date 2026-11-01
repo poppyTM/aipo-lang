@@ -19,7 +19,7 @@ fn double(value) {
 export double
 ```
 
-```aipo
+```text
 # main.aipo
 import utils
 io.println(utils.double(21))

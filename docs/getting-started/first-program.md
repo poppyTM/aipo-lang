@@ -51,23 +51,18 @@ Conta:invariant {
 
 Conta:depositar(var self, valor: Float) {
     if valor <= 0.0 {
-        return fail("Valor de depósito deve ser positivo")
+        fail("Valor de depósito deve ser positivo")
     }
     self.saldo += valor
 }
 
 Conta:sacar(var self, valor: Float) {
     if valor <= 0.0 {
-        return fail("Valor de saque deve ser positivo")
+        fail("Valor de saque deve ser positivo")
     }
-    
-    # Tenta aplicar a operação. Se violar self.saldo >= 0.0,
-    # o bloco attempt reverte automaticamente a mutação!
-    attempt {
-        self.saldo -= valor
-    } failed erro {
-        return fail("Saque recusado: saldo insuficiente")
-    }
+    # A mutação é provisória até o fim da chamada: se violar
+    # `self.saldo >= 0.0`, a operação falha e o valor anterior é restaurado.
+    self.saldo -= valor
 }
 
 # Instanciando a conta usando dois-pontos (:) consistente
@@ -81,6 +76,14 @@ io.println(f"Saldo após depósito: {c.saldo}")
 
 c.sacar(75.0)
 io.println(f"Saldo após saque: {c.saldo}")
+
+# Um saque acima do saldo falha e o saldo é preservado.
+attempt {
+    c.sacar(500.0)
+} failed erro {
+    io.println(f"Saque recusado: {erro.message}")
+}
+io.println(f"Saldo preservado: {c.saldo}")
 ```
 
 Execute o programa:
@@ -95,6 +98,8 @@ Conta criada para: Maria Silva
 Saldo inicial: 150.0
 Saldo após depósito: 200.0
 Saldo após saque: 125.0
+Saque recusado: invariant() of Conta did not hold after mutation
+Saldo preservado: 125.0
 ```
 
 ---

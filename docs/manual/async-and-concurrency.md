@@ -67,8 +67,11 @@ A biblioteca padrão fornece combinadores primitivos de alto nível:
 - **`task.group()`**: Cria um grupo estruturado de tarefas para ciclo de vida coordenado e cancelamento em cascata.
 
 ```aipo
-let t1 = obter_etapa_1()
-let t2 = obter_etapa_2()
+async fn obter_etapa_1() { task.sleep(10) return 10 }
+async fn obter_etapa_2() { task.sleep(10) return 20 }
+
+let t1 = task.spawn(obter_etapa_1, [])
+let t2 = task.spawn(obter_etapa_2, [])
 
 # Aguarda todas as tarefas em paralelo determinístico
 let resultados = task.all([t1, t2])

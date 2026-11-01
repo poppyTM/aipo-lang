@@ -152,7 +152,7 @@ Sempre inicie novas declarações com `let`. Apenas altere para `var` se a vari�
 ## 3. Tipos Primitivos & Aritmética Segura
 
 ### Inteiros (`Int`)
-Inteiros assinados de 64 bits (`i64`). Suportam representações em diferentes bases numéricas e separadores visuais com sublinhado (`_`):
+Inteiros com sinal limitados à faixa segura **±(2^53 − 1)** — o mesmo domínio exato de um `Float` IEEE 754 de precisão dupla, o que mantém a conversão entre `Int` e `Float` sem perda. Um literal ou resultado fora dessa faixa dispara `AIPO_RT_OVERFLOW` em vez de envolver silenciosamente. Suportam representações em diferentes bases numéricas e separadores visuais com sublinhado (`_`):
 
 ```aipo
 let decimal = 42
@@ -230,8 +230,10 @@ if configuracao.has("porta") {
 }
 ```
 
-::: tip Por que não existe `dict.get()`?
-O Aipo elimina o método `get(chave)` para evitar a armadilha clássica onde não é possível saber se o retorno `none` significa que a chave não existe ou se a chave existe e seu valor atribuído é explicitamente `none`. Em Aipo, use `dict.has(chave)` para checar presença e `dict[chave]` para recuperar o valor.
+::: tip `dict[chave]` falha; `dict.get(chave)` devolve `none`
+O Aipo tem dois acessos com contratos diferentes. `configuracao["porta"]` é a leitura **direta**: se a chave não existir, o programa dispara `AIPO_RT_KEY_NOT_FOUND` — o erro aparece onde aconteceu, sem virar um `none` que só quebra depois. `configuracao.get("porta")` é a leitura **opcional**: devolve o valor quando a chave existe e `none` quando não existe.
+
+Escolha pelo que você sabe sobre a chave: use `[]` quando a ausência é um bug, e `.get()` quando a ausência é um caso normal. Para testar presença sem ler, use `.has(chave)`.
 :::
 
 ### 3. Conjuntos com Ordem de Inserção (`Set`)
@@ -252,14 +254,21 @@ Para processar grandes volumes de dados sem alocar coleções intermediárias, c
 ```aipo
 let numeros = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
-# O encadeamento abaixo executa sob demanda em memória constante:
-let pares_triplicados = numeros.lazy()
-    .filter(x => x % 2 == 0)
-    .map(x => x * 3)
-    .take(2)
-    .collect()
+# O encadeamento abaixo executa sob demanda em memória constante.
+# Escreva a cadeia em uma linha: o parser não continua uma expressão
+# na linha seguinte só porque ela começa com `.`.
+let pares_triplicados = numeros.lazy().filter(x => x % 2 == 0).map(x => x * 3).take(2).collect()
 
 io.println(pares_triplicados) # [6, 12]
+```
+
+Se a linha ficar longa demais, divida em bindings intermediários em vez de quebrar antes do ponto:
+
+```aipo
+let numeros = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+let pares = numeros.lazy().filter(x => x % 2 == 0)
+let triplicados = pares.map(x => x * 3)
+io.println(triplicados.take(2).collect()) # [6, 12]
 ```
 
 ### 5. Enums (`enum`)

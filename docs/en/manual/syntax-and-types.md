@@ -231,8 +231,10 @@ if config.has("port") {
 }
 ```
 
-::: tip Why is there no `dict.get()` method?
-Aipo intentionally omits `get(key)` to prevent the classic ambiguity where a `none` return value could mean either that the key does not exist or that the key exists with an explicit value of `none`. In Aipo, use `dict.has(key)` to check existence and `dict[key]` to retrieve the value.
+::: tip `dict[key]` fails; `dict.get(key)` returns `none`
+Aipo has two accesses with different contracts. `config["port"]` is the **direct** read: if the key is missing, the program raises `AIPO_RT_KEY_NOT_FOUND` — the error appears where it happened instead of becoming a `none` that breaks later. `config.get("port")` is the **optional** read: it returns the value when the key exists and `none` when it does not.
+
+Choose by what you know about the key: use `[]` when absence is a bug, and `.get()` when absence is a normal case. To test presence without reading, use `.has(key)`.
 :::
 
 ### 3. Insertion-Ordered Sets (`Set`)
@@ -253,14 +255,21 @@ To process large datasets without allocating intermediate collections, create a 
 ```aipo
 let numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
-# Chained operations evaluate on-demand in constant memory:
-let tripled_evens = numbers.lazy()
-    .filter(x => x % 2 == 0)
-    .map(x => x * 3)
-    .take(2)
-    .collect()
+# Chained operations evaluate on-demand in constant memory.
+# Write the chain on one line: the parser does not continue an expression
+# onto the next line just because it starts with `.`.
+let tripled_evens = numbers.lazy().filter(x => x % 2 == 0).map(x => x * 3).take(2).collect()
 
 io.println(tripled_evens) # [6, 12]
+```
+
+If the line gets too long, split it with intermediate bindings instead of breaking before the dot:
+
+```aipo
+let numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+let evens = numbers.lazy().filter(x => x % 2 == 0)
+let tripled = evens.map(x => x * 3)
+io.println(tripled.take(2).collect()) # [6, 12]
 ```
 
 ### 5. Enums (`enum`)

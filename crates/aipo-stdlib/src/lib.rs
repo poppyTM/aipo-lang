@@ -1075,12 +1075,16 @@ fn register_json(registry: &mut NativeRegistry) {
         Some("json"),
         "Parses JSON text into an Aipo value, returning Failure on error.",
     ));
-    registry.register(NativeFunctionMeta::new(
-        "stringify",
-        1,
-        Some("json"),
-        "Serializes an Aipo value to a JSON string (optional pretty = false).",
-    ));
+    registry.register(
+        NativeFunctionMeta::new(
+            "stringify",
+            2,
+            Some("json"),
+            "Serializes an Aipo value to a JSON string (optional pretty = false).",
+        )
+        .with_param_names(["value", "pretty"])
+        .with_optional_params(1),
+    );
 }
 
 /// Registers `random` module metadata.

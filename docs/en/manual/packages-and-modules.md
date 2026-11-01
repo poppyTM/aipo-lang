@@ -57,7 +57,7 @@ Aipo provides three clean, readable syntaxes for importing modules:
 
 ### A. Qualified Import (Recommended Default)
 Keeps the module namespace as a clear prefix, ensuring maximum readability:
-```aipo
+```text
 import math_util
 
 let total = math_util.add_positive(10, 20)
@@ -66,7 +66,7 @@ print(total)
 
 ### B. Aliased Import (`as alias`)
 Useful for shortening verbose names or resolving naming collisions:
-```aipo
+```text
 import math_util as mu
 
 let result = mu.double(50)
@@ -75,7 +75,7 @@ print(result)
 
 ### C. Selective Direct Import (`import module: ...`)
 Imports specific identifiers directly into local scope:
-```aipo
+```text
 import math_util: add_positive, double
 
 let sum = add_positive(15, 30)
@@ -275,7 +275,7 @@ export User, create_user
 ```
 
 ### `src/main.aipo`
-```aipo
+```text
 import auth.user: create_user
 
 let developer = create_user(1, "Raillen")

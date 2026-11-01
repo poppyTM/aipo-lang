@@ -37,6 +37,10 @@ conectar("db.interno", 5432)    # usa porta 5432 e timeout 5000
 Também é possível chamar funções passando argumentos nomeados para maior legibilidade e flexibilidade:
 
 ```aipo
+fn conectar(host, porta = 8080, timeout = 5000) {
+    io.println(f"Conectando a {host}:{porta} com timeout {timeout}ms")
+}
+
 conectar("api.servico", timeout = 1000)
 ```
 

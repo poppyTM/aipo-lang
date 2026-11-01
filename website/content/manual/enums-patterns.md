@@ -26,6 +26,12 @@ Essas construções vêm do programa de conformidade [`32_enum_variants_and_matc
 ## Selecionar pela variante
 
 ```aipo
+enum Forma {
+    Ponto,
+    Circulo { raio: Int },
+    Retangulo(largura: Int, altura: Int),
+}
+
 fn descrever(f) {
     match f {
         when Forma.Ponto {

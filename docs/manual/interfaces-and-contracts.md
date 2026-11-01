@@ -36,7 +36,7 @@ Tentar reatribuir um campo imutável após a construção da instância dispara 
 
 ## Hook de Construção (`init`)
 
-O hook `init` se associa ao tipo pelo prefixo `Tipo:` e permite validar, transformar e inicializar os campos da instância antes de sua publicação final:
+O hook `init` se associa ao tipo pelo prefixo `Tipo:` e permite normalizar e inicializar os campos da instância antes de sua publicação final:
 
 ```aipo
 struct Usuario {
@@ -45,16 +45,26 @@ struct Usuario {
 }
 
 Usuario:init(email, nome) {
-    if not email.contains("@") {
-        return fail("Formato de e-mail inválido")
-    }
     self.email = email
     self.nome = nome
+}
+
+Usuario:invariant {
+    self.email.contains("@")
 }
 
 let u = Usuario{ email: "user@example.com", nome: "Dev" }
 io.println(u.email) # "user@example.com"
 ```
+
+**Onde validar:** uma regra que sempre precisa valer pertence ao `invariant`, não ao `init`. O `invariant` roda no selo, depois de `init`, e uma condição falsa interrompe o programa com uma violação de invariante:
+
+```text
+# Interrompe a execução: o e-mail não contém "@"
+let invalido = Usuario{ email: "nope", nome: "Dev" }
+```
+
+Se o `init` chamar `fail(...)`, o `Failure` resultante só é observável quando a construção acontece dentro de `attempt { ... }`; fora dele a falha é descartada e a instância é publicada com os valores recebidos. Por isso, use `fail` em `init` apenas para falhas que o chamador já trata com `attempt`, e prefira `invariant` para invariantes do tipo.
 
 ---
 
@@ -198,6 +208,13 @@ A construção de um enum qualifica o tipo diretamente (`EstadoConexao.Desconect
 O `match` sobre enum é verificado por **exaustividade**: se não houver um braço `else`, **todas** as variantes devem ser cobertas obrigatoriamente:
 
 ```aipo
+enum EstadoConexao {
+    Desconectado,
+    Tentando(tentativa: Int),
+    Conectado { ip: String, ping_ms: Int },
+    Erro(motivo: String),
+}
+
 # `match` é um statement, não uma expressão: cada braço tem corpo próprio e o
 # valor é produzido pelo enunciado de retorno depois dele.
 fn relatar(estado: EstadoConexao) -> String {

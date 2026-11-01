@@ -57,7 +57,7 @@ O Aipo oferece três maneiras diretas e legíveis de importar módulos:
 
 ### A. Importação Qualificada (Padrão Recomendado)
 Mantém o nome do módulo como prefixo, facilitando a leitura de quem lê o código sem ambiguidades:
-```aipo
+```text
 import math_util
 
 let total = math_util.somar_positivo(10, 20)
@@ -66,7 +66,7 @@ print(total)
 
 ### B. Importação com Apelido (`as alias`)
 Útil para encurtar nomes longos ou evitar conflitos de nomes idênticos:
-```aipo
+```text
 import math_util as mu
 
 let dobro = mu.duplicar(50)
@@ -75,7 +75,7 @@ print(dobro)
 
 ### C. Importação Seletiva Direta (`import modulo: ...`)
 Traz os identificadores especificados diretamente para o escopo local:
-```aipo
+```text
 import math_util: somar_positivo, duplicar
 
 let resultado = somar_positivo(15, 30)
@@ -275,7 +275,7 @@ export Usuario, criar_usuario
 ```
 
 ### Conteúdo de `src/main.aipo`
-```aipo
+```text
 import auth.user: criar_usuario
 
 let dev = criar_usuario(1, "Raillen")

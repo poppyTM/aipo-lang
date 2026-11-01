@@ -20,7 +20,12 @@ io.println(xs.contains(3))
 let user = { "name": "ana", "level": 3 }
 io.println(user["name"])
 io.println(user.keys())
+# Acesso direto: chave ausente dispara AIPO_RT_KEY_NOT_FOUND
+# Acesso opcional: devolve none
 io.println(user.get("missing"))
+let ordenada = xs.sort()
+io.println(ordenada)
+io.println(xs)
 ```
 
 Fonte: [exemplo completo](/examples/08-lists-dicts-and-slices).

@@ -51,23 +51,18 @@ Account:invariant {
 
 Account:deposit(var self, amount: Float) {
     if amount <= 0.0 {
-        return fail("Deposit amount must be positive")
+        fail("Deposit amount must be positive")
     }
     self.balance += amount
 }
 
 Account:withdraw(var self, amount: Float) {
     if amount <= 0.0 {
-        return fail("Withdrawal amount must be positive")
+        fail("Withdrawal amount must be positive")
     }
-    
-    # Tries to execute the withdrawal. If self.balance >= 0.0 fails,
-    # the attempt block rolls back the mutation automatically!
-    attempt {
-        self.balance -= amount
-    } failed err {
-        return fail("Withdrawal rejected: insufficient balance")
-    }
+    # The mutation is provisional until the call ends: if it violates
+    # `self.balance >= 0.0`, the operation fails and the previous value is restored.
+    self.balance -= amount
 }
 
 # Instantiating the account using consistent colon (:) syntax
@@ -81,6 +76,14 @@ io.println(f"Balance after deposit: {acc.balance}")
 
 acc.withdraw(75.0)
 io.println(f"Balance after withdrawal: {acc.balance}")
+
+# A withdrawal above the balance fails and the balance is preserved.
+attempt {
+    acc.withdraw(500.0)
+} failed err {
+    io.println(f"Withdrawal rejected: {err.message}")
+}
+io.println(f"Preserved balance: {acc.balance}")
 ```
 
 Run the program:
@@ -95,6 +98,8 @@ Account created for: Alice Johnson
 Initial balance: 150.0
 Balance after deposit: 200.0
 Balance after withdrawal: 125.0
+Withdrawal rejected: invariant() of Account did not hold after mutation
+Preserved balance: 125.0
 ```
 
 ---

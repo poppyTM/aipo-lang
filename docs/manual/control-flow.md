@@ -45,6 +45,13 @@ O comando `match` permite bifurcar o fluxo comparando uma expressão contra valo
 Cada braço é introduzido por `when` (nunca `case`). Suporta cláusulas de guarda opcionais com `if <condicao>`:
 
 ```aipo
+struct Usuario {
+    nome
+    idade
+}
+
+let usuario = Usuario{ nome: "Ana", idade: 70 }
+
 match usuario {
     when { nome, idade } if idade >= 65 {
         io.println(f"Sênior: {nome}")
@@ -62,6 +69,15 @@ match usuario {
 Quando o alvo é um `enum`, o compilador impõe checagem estática de exaustividade. Na ausência de um braço `else`, todas as variantes devem ser cobertas:
 
 ```aipo
+enum EstadoConexao {
+    Desconectado,
+    Tentando(tentativa: Int),
+    Conectado { ip: String, ping_ms: Int },
+    Erro(motivo: String),
+}
+
+let estado = EstadoConexao.Tentando(2)
+
 match estado {
     when EstadoConexao.Desconectado {
         io.println("Desconectado")

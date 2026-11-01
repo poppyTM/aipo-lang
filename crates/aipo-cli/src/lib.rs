@@ -2547,12 +2547,21 @@ pub fn prelude_surface() -> PreludeSurface {
             .list_module(&module)
             .into_iter()
             .map(|meta| {
+                let names: Vec<String> = if meta.param_names.is_empty() {
+                    (0..meta.arity).map(|index| format!("arg{index}")).collect()
+                } else {
+                    meta.param_names.clone()
+                };
+                let optional_start = meta.arity.saturating_sub(meta.optional_params);
                 let params = (0..meta.arity)
                     .map(|index| HostParameter {
-                        name: format!("arg{index}"),
+                        name: names
+                            .get(index)
+                            .cloned()
+                            .unwrap_or_else(|| format!("arg{index}")),
                         ty: "Value".to_string(),
                         nullable: true,
-                        optional: false,
+                        optional: index >= optional_start && meta.optional_params > 0,
                     })
                     .collect();
                 (

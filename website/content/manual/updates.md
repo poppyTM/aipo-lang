@@ -29,8 +29,9 @@ O código é um recorte do programa de conformidade [`30_struct_update_with.aipo
 - Os campos não citados mantêm seus valores.
 - As alterações não dependem da ordem escrita no bloco.
 - O valor-base pode ser uma variável ou uma expressão que produz uma struct.
-- Campos declarados `fixed` não podem ser substituídos por `with`.
+- Campos declarados `fixed` não podem ser substituídos por `with`: `fixed` faz parte da identidade do tipo.
 - `with` é para uma **cópia modificada**; `var self` é para um método que altera uma instância.
+- `fixed` é forma legada aceita; campos imutáveis modernos são declarados sem `var` (e sem `fixed`).
 
 **Quando preferir:** use `with` para estados, configurações e transformações em que criar um valor novo deixa a intenção mais explícita.
 

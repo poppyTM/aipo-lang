@@ -26,6 +26,16 @@ pub struct NativeFunctionMeta {
     /// enforces `arity` as a maximum would reject those calls, so the catalog has to
     /// say which entries are open-ended.
     pub is_variadic: bool,
+    /// Names of the parameters in declaration order.
+    ///
+    /// When empty, consumers synthesize `arg0`, `arg1`, ... . Supplying real names
+    /// enables named-argument calls (`json.stringify(value, pretty = true)`).
+    pub param_names: Vec<String>,
+    /// Number of trailing parameters that may be omitted.
+    ///
+    /// A value of `N` marks the last `N` entries of `param_names`/arity as
+    /// optional, so the minimum accepted argument count is `arity - N`.
+    pub optional_params: usize,
 }
 
 impl NativeFunctionMeta {
@@ -45,6 +55,8 @@ impl NativeFunctionMeta {
             capabilities: Vec::new(),
             is_async: false,
             is_variadic: false,
+            param_names: Vec::new(),
+            optional_params: 0,
         }
     }
 
@@ -59,6 +71,24 @@ impl NativeFunctionMeta {
     #[must_use]
     pub fn with_variadic(mut self) -> Self {
         self.is_variadic = true;
+        self
+    }
+
+    /// Sets the parameter names in declaration order.
+    #[must_use]
+    pub fn with_param_names<I, S>(mut self, names: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        self.param_names = names.into_iter().map(Into::into).collect();
+        self
+    }
+
+    /// Marks the last `count` parameters as optional.
+    #[must_use]
+    pub fn with_optional_params(mut self, count: usize) -> Self {
+        self.optional_params = count;
         self
     }
 

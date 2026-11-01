@@ -29,7 +29,7 @@ Esse trecho é do [exemplo de texto e Unicode](/examples/09-strings-unicode-and-
 - `.split(",")`: quebra um texto em partes.
 - `.join(lista)`: combina textos.
 - `.replace(a, b)`: substitui ocorrências.
-- `.len()`: conta comprimento textual conforme o contrato da linguagem, não o tamanho de um arquivo codificado em UTF-8.
+- `.len()`: conta **pontos de código** (code points), não bytes UTF-8 nem grafemas combinados; texto é normalizado em NFC na construção.
 - `Bytes` é o tipo apropriado para bytes brutos; não confundir índices textuais com posições de bytes.
 
 A normalização Unicode (NFC) também é abordada no [exemplo de normalização](/examples/19-unicode-normalization).

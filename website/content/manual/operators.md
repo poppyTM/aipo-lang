@@ -47,6 +47,11 @@ Fonte: [`27_numeric_literal_bases.aipo`](https://github.com/poppyTM/aipo-lang/bl
 ## Propagar falhas com `?`
 
 ```aipo
+fn parse_age(text) {
+    let value = Int(text) or_else fail (f"invalid age: {text}")
+    return value
+}
+
 fn double_age(text) {
     let age = parse_age(text)?
     return age * 2

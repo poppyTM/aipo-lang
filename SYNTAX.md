@@ -34,6 +34,7 @@ Aipo é projetada para leitura, escrita e manutenção por pessoas neurodivergen
 Toda abertura usa `{`, todo fechamento usa `}`.
 
 ```aipo
+let ativo = true
 if ativo {
     io.println("ok")
 }
@@ -87,6 +88,10 @@ diagnóstico sugere `#`.
 | `#!todo` / `#!todo("msg")` | antes de qualquer item | Anota débito técnico ou pendência rastreável por ferramentas. |
 
 ```aipo
+interface Drawable {
+    area() -> Float
+}
+
 #!deprecated("use Circle{ raio: Float }")
 struct CirculoAntigo {
     r: Float
@@ -104,9 +109,13 @@ struct Circle {
     raio: Float
 }
 
+Circle:area() -> Float {
+    return 3.14159 * self.raio * self.raio
+}
+
 #!test[geometry]
 fn area_de_circulo_unitario() {
-    io.println(String(Circle{ raio: 1 }.area()))
+    io.println(String(Circle{ raio: 1.0 }.area()))
 }
 
 #!test("divisão inteira trunca em direção a zero")
@@ -154,8 +163,9 @@ arquivo do que testam.
 
 ```aipo
 let pasta = "logs"
+let chave = "status"
 let caminho = fr"C:\sistema\{pasta}\app.txt"   # C:\sistema\logs\app.txt
-let json = f"{{\"k\": \"{chave}\"}}"            # {"k": "..."}
+let json = f"{{\"k\": \"{chave}\"}}"            # {"k": "status"}
 ```
 
 ### 3.2 Números
@@ -169,7 +179,7 @@ let json = f"{{\"k\": \"{chave}\"}}"            # {"k": "..."}
 
 - `_` é separador **apenas entre dois dígitos da mesma base**: `1_000_000` ✓, `0xFF_FF` ✓
 - Inválidos: `_1`, `1_`, `1__0`, `1e_5`, `0x_FF` → `AIPO_LEX_INVALID_NUMBER`
-- `Int` é inteiro assinado de 64 bits com faixa segura ±(2^53−1); overflow → `AIPO_RT_OVERFLOW`
+- `Int` é inteiro com sinal na faixa segura ±(2^53−1); overflow → `AIPO_RT_OVERFLOW`
 - `Float` é IEEE 754 de 64 bits. **Sem `NaN` e sem `Infinity`.**
 
 ### 3.3 Literais nomeados
@@ -180,7 +190,7 @@ let json = f"{{\"k\": \"{chave}\"}}"            # {"k": "..."}
 
 ## 4. Declarações de topo
 
-```aipo
+```text
 fn nome(params) -> T { }
 async fn nome(params) -> T { }
 struct Nome { campos }
@@ -222,10 +232,20 @@ struct Servidor {
 ### 5.1 Construção
 
 ```aipo
+struct Servidor {
+    id: Int
+    var status: String = "online"
+}
+
 let s = Servidor{ id: 1, status: "online" }   # ':' e '=' ambos aceitos
-let s = Servidor{ 1, "online" }                # posicional também
-let s = mod.Servidor{ id: 1 }                  # construção qualificada
+let t = Servidor{ id = 1, status = "online" }
+let u = Servidor{ 1, "online" }                # posicional também
+io.println(s.id)
+io.println(t.id)
+io.println(u.id)
 ```
+
+Construção qualificada por módulo também é aceita: `mod.Servidor{ id: 1 }`.
 
 > **Armadilha:** construção `Tipo{...}` exige **primeira letra maiúscula**.
 > `ponto{...}` nunca é construção — o diagnóstico sugere capitalize.
@@ -262,8 +282,23 @@ Point:move(var self, dx, dy) {
 Chamada usa `.`:
 
 ```aipo
+struct Point {
+    var x = 0.0
+    var y = 0.0
+}
+
+Point:dist() -> Float {
+    return math.sqrt(self.x * self.x + self.y * self.y)
+}
+
+Point:move(var self, dx, dy) {
+    self.x += dx
+    self.y += dy
+}
+
+let p = Point{ x = 3.0, y = 4.0 }
 let d = p.dist()      # passa
-let m = p.move(var dx = 1, dy = 1)
+let m = p.move(dx = 1.0, dy = 1.0)
 ```
 
 `:` marca associação na **declaração**; `.` marca acesso no **uso**.
@@ -296,12 +331,18 @@ A promoção é **adição, não movimento**: a função existe nas duas formas.
 significado. Não existe token separado para "self mutável em lote".
 
 ```aipo
+struct Ponto {
+    var x = 0
+    var y = 0
+}
+
 fn area_de(l, a) {
     return l * a
 }
-
-Ponto::[area_de]        # erro: 'area_de' não tem 'self' como primeiro parâmetro
 ```
+
+`Ponto::[area_de]` é rejeitado com `AIPO_SEM_UNKNOWN_NAME`: `area_de` não declara
+`self` como primeiro parâmetro.
 
 **Por que a restrição:** batch existe para promover *comportamento do tipo*. Uma função
 que nunca toca no receiver não é comportamento do tipo — é namespacing, e continua
@@ -324,9 +365,17 @@ todos os métodos com assinatura compatível. Nenhuma declaração é necessári
 Para **exigir** a relação e documentá-la, use a diretiva:
 
 ```aipo
+interface Drawable {
+    draw() -> Int
+}
+
 #!satisfies Drawable
 struct Circle {
     raio: Float
+}
+
+Circle:draw() -> Int {
+    return 1
 }
 ```
 
@@ -366,7 +415,13 @@ Padrões de binding: `nome` · `_` · `[a, b]` · `{x, y}`
 ### 6.1 `match` — destructuring e guards
 
 ```aipo
-match u
+struct Pessoa {
+    name
+    age
+}
+
+let u = Pessoa{ name: "ana", age: 70 }
+match u {
     when { name, age } if age >= 65 {
         io.println("senior " + name)
     }
@@ -376,6 +431,7 @@ match u
     else {
         io.println("minor")
     }
+}
 ```
 
 - `when { campo, ... }` desestrutura o alvo em nomes do **escopo do braço**.
@@ -388,10 +444,25 @@ match u
 ## 7. Falhas
 
 ```aipo
-fail "mensagem"
-let v = ler_porta() or_else 8080
-let w = risky()?
-attempt { ... } failed erro { io.println(erro.message) }
+fn ler_porta() {
+    return 8080
+}
+
+fn falhar() {
+    fail "mensagem"
+}
+
+fn exemplo() {
+    let v = ler_porta() or_else 8080
+    let w = falhar()?
+    return v + w
+}
+
+attempt {
+    io.println(String(exemplo()))
+} failed erro {
+    io.println(erro.message)
+}
 ```
 
 | Forma | Semântica |
@@ -412,12 +483,23 @@ Modelo transacional: `attempt` registra um journal e reverte as mutações em ca
 
 ```aipo
 fn soma(a, b) -> Int { return a + b }
-fn conecta(host, porta = 8080, timeout = 5000) { }
+
+fn conecta(host, porta = 8080, timeout = 5000) {
+    io.println(f"{host}:{porta}/{timeout}")
+}
+
 conecta("api", timeout = 1000)                 # argumento nomeado
 
-fn(x) { }                                       # closure com captura léxica
-x => x * 2     (a, b) => a + b     () => e        # lambda curto
-f(a) do { }     f do { }                          # bloco trailer
+let dobro = fn(x) { return x * 2 }             # closure com captura léxica
+let triplo = x => x * 3                        # lambda curto
+let soma_lambda = (a, b) => a + b
+let vazio = () => 0
+
+fn com_bloco(valor, bloco) {
+    return bloco() + valor
+}
+
+io.println(com_bloco("!") do { return "hello" })
 ```
 
 Formas de parâmetro: `nome` · `var nome` · `nome: T` · `var nome: T` ·
@@ -442,18 +524,33 @@ Point:dist() -> Float { }                 # associado → sem fn
 ## 9. Async
 
 ```aipo
+async fn etapa_1() {
+    task.sleep(10)
+    return 1
+}
+
+async fn etapa_2() {
+    task.sleep(10)
+    return 2
+}
+
 async fn buscar(recurso) {
     task.sleep(50)
     return recurso
 }
 
-let v = await buscar("usuarios")
-
-await do {
-    let a = await etapa_1()
-    let b = await etapa_2()
-    return a + b
+async fn somar_etapas() {
+    await do {
+        let a = await etapa_1()
+        let b = await etapa_2()
+        return a + b
+    }
 }
+
+let v = await buscar("usuarios")
+let total = await somar_etapas()
+io.println(v)
+io.println(total)
 ```
 
 `await` é legal em statement, inicializador e valor de retorno. Subexpressão é
@@ -468,7 +565,7 @@ Tempo virtual e determinístico. Espera mútua transitiva → `AIPO_RT_AWAIT_CYC
 
 ## 10. Módulos e pacotes
 
-```aipo
+```text
 import math_util                 # qualificado
 import math_util as mu           # com apelido
 import math_util: somar, dobro   # seletivo
@@ -681,9 +778,17 @@ vazias `{}` são erro de parse; nomes de variante seguem regra de identificador 
 O nome qualificado **é** o construtor:
 
 ```aipo
+enum Estado {
+    Inicial,
+    Ativo { desde: Int },
+    Desligado(motivo: String),
+    Erro,
+}
+
 let a = Estado.Inicial
 let b = Estado.Ativo { desde: 2024 }
 let c = Estado.Desligado("manutenção")
+io.println(a is Estado)
 ```
 
 Sem `new`, sem `::`, sem palavra `variant`. A construção de `struct` é `Tipo{...}`;
@@ -692,6 +797,15 @@ a de `enum` é `Tipo.Variante{...}` ou `Tipo.Variante(...)`.
 ### 17.3 `match` — o único lugar que conhece os casos
 
 ```aipo
+enum Estado {
+    Inicial,
+    Ativo { desde: Int },
+    Desligado(motivo: String),
+    Erro,
+}
+
+let e = Estado.Ativo { desde: 2024 }
+var ret = 0
 match e {
     when Estado.Inicial {
         ret = 0
@@ -706,6 +820,7 @@ match e {
         ret = -1
     }
 }
+io.println(ret)
 ```
 
 | Regra | Detalhe |
@@ -722,7 +837,7 @@ O `match` reusa o destructure de §6.1; a diferença é que aqui o `{ ... }` nom
 
 `match` sobre `enum` **sem** `else` e sem todas as variantes é erro de compilação:
 
-```aipo
+```text
 match e {
     when Estado.Inicial { }      # erro: falta Ativo, Desligado, Erro
 }
@@ -761,12 +876,21 @@ um tipo de primeira classe para efeitos de hook e `match`.
 `enum` satisfaz uma interface como `struct`, se tiver os métodos:
 
 ```aipo
+interface Descritivel {
+    descrever() -> String
+}
+
 #!satisfies Descritivel
 enum Estado {
     Inicial,
     Ativo { desde: Int },
-    Estado:descrever() -> String { }    # métodos declarados com Tipo:nome
 }
+
+Estado:descrever() -> String {
+    return "estado"
+}
+
+io.println(Estado.Inicial.descrever())
 ```
 
 O `enum` é um tipo fechado de **dados**; o comportamento vem de `Tipo:nome`, igual

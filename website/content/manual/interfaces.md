@@ -11,7 +11,7 @@ As interfaces do Aipo descrevem **quais operações** um valor precisa oferecer,
 
 ```aipo
 interface Greeter {
-    fn greet(self)
+    greet() -> String
 }
 
 #!satisfies Greeter
@@ -19,7 +19,7 @@ struct Robot {
     name
 }
 
-Robot:greet(self) {
+Robot:greet() -> String {
     return "beep " + self.name
 }
 

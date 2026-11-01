@@ -372,7 +372,7 @@ pub fn create_module() -> Value {
         ),
         (
             Value::String(Rc::new("stringify".to_string())),
-            Value::native("json.stringify", 1, json_stringify),
+            Value::native("json.stringify", usize::MAX, json_stringify),
         ),
     ];
     Value::Dict(Rc::new(RefCell::new(DictMap::from_entries(entries))))

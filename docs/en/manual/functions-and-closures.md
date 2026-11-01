@@ -37,6 +37,10 @@ connect("db.internal", 5432)   # uses port 5432 and timeout 5000
 Functions can also be called with named arguments for enhanced readability:
 
 ```aipo
+fn connect(host, port = 8080, timeout = 5000) {
+    io.println(f"Connecting to {host}:{port} with timeout {timeout}ms")
+}
+
 connect("api.service", timeout = 1000)
 ```
 

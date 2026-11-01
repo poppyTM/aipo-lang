@@ -16,7 +16,7 @@ export dobro
 
 **main.aipo**
 
-```aipo
+```text
 import calculadora
 io.println(dobro(5))
 ```

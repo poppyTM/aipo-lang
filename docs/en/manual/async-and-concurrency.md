@@ -67,8 +67,11 @@ The standard library provides powerful high-level combinators:
 - **`task.group()`**: Creates a structured task group for coordinated lifecycle and cascading cancellation.
 
 ```aipo
-let t1 = step_one()
-let t2 = step_two()
+async fn step_one() { task.sleep(10) return 10 }
+async fn step_two() { task.sleep(10) return 20 }
+
+let t1 = task.spawn(step_one, [])
+let t2 = task.spawn(step_two, [])
 
 # Await all tasks concurrently with deterministic ordering
 let results = task.all([t1, t2])
