@@ -302,7 +302,7 @@ In automated test suites and multiplayer games, a PRNG that behaves identically 
 
 Time measurement in Aipo cleanly decouples two concepts:
 1. **Physical Host Clock**: Real machine readings (`time.now()`, `time.monotonic()`), treated as sensitive host capabilities protected by **Capability** security.
-2. **Pure Calendar Dates & Durations**: Pure civil date values (`time.date()`, `time.time_of_day()`, `time.parse_iso()`) and durations (`Duration`) that are independent of host system access.
+2. **Pure Calendar Dates & Durations**: Pure civil date values (`time.date(y, m, d)`, `time.time_of_day(h, m, ...)`, `time.parse_iso()`) and durations (`Duration`) that are independent of host system access.
 
 ### Host Clock Readings (Protected by Capability)
 ```aipo

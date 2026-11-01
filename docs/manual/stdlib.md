@@ -302,7 +302,7 @@ Em testes automatizados e jogos multiplayer, ter um gerador que se comporta exat
 
 A medição de tempo no Aipo separa claramente dois conceitos:
 1. **Tempo Físico do Sistema**: Medido pelo relógio da máquina (`time.now()`, `time.monotonic()`), considerado um recurso externo sensível protegido por **Capability** na Host ABI.
-2. **Tempo Calendário Civil & Durações**: Operações puras de data civil (`time.date()`, `time.time_of_day()`, `time.parse_iso()`) e intervalos (`Duration`) que não dependem do sistema operacional.
+2. **Tempo Calendário Civil & Durações**: Operações puras de data civil (`time.date(y, m, d)`, `time.time_of_day(h, m, ...)`, `time.parse_iso()`) e intervalos (`Duration`) que não dependem do sistema operacional.
 
 ### Relógio Host (Protegido por Capability)
 ```aipo
